@@ -1,0 +1,67 @@
+name: Build Codio for iPhone
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          xcodegen generate
+          pod install --repo-update
+
+      - name: Build (unsigned; SideStore signs it on the iPhone)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace Codio.xcworkspace -scheme Codio -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E "error:|warning: .*Swift|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Build/Products/Release-iphoneos/Codio.app
+
+      - name: Package Codio.ipa
+        working-directory: ios
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" build/Build/Products/Release-iphoneos/Codio.app/Info.plist)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Codio.app Payload/
+          zip -qry "Codio-$VERSION.ipa" Payload
+          ls -lh *.ipa
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/build.log
+          if-no-files-found: ignore
+
+      - name: Upload the ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codio-ipa
+          path: ios/Codio-*.ipa
+
+      - name: Publish a release (download it on the iPhone from the Releases page)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v${{ env.VERSION }}-build${{ github.run_number }}
+          name: Codio for iPhone ${{ env.VERSION }} (build ${{ github.run_number }})
+          files: ios/Codio-*.ipa
+          body: Unsigned build. Install it with SideStore (+ button) using your spare Apple ID.

@@ -1,0 +1,54 @@
+name: Codio
+options:
+  bundleIdPrefix: com.codio
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Codio:
+    type: application
+    platform: iOS
+    sources:
+      - path: Codio
+        excludes: ["codio-ios.js"]
+      - path: Codio/codio-ios.js
+        buildPhase: resources
+      - path: web
+        type: folder
+        buildPhase: resources
+    info:
+      path: Codio/Info.plist
+      properties:
+        CFBundleDisplayName: Codio
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
+        UIBackgroundModes: [audio]
+        UIFileSharingEnabled: true
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoadsInWebContent: true
+        NSLocalNetworkUsageDescription: Codio runs its interface from a small server inside the app.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.codio.ios
+        PRODUCT_NAME: Codio
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ENABLE_BITCODE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+    scheme: {}

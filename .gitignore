@@ -1,0 +1,10 @@
+ios/Codio.xcodeproj/
+ios/Codio.xcworkspace/
+ios/Pods/
+ios/Podfile.lock
+ios/build/
+ios/Payload/
+ios/*.ipa
+ios/build.log
+ios/Codio/Info.plist
+.DS_Store
