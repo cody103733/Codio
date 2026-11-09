@@ -2,10 +2,10 @@ name: Codio
 options:
   bundleIdPrefix: com.codio
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.0"
 settings:
   base:
-    MARKETING_VERSION: "0.1.1"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Codio:
@@ -13,8 +13,8 @@ targets:
     platform: iOS
     sources:
       - path: Codio
-        excludes: ["codio-ios.js"]
-      - path: Codio/codio-ios.js
+        excludes: ["codio-engine.js"]
+      - path: Codio/codio-engine.js
         buildPhase: resources
       - path: web
         type: folder
@@ -29,10 +29,9 @@ targets:
         UILaunchScreen:
           UIColorName: ""
         UIRequiresFullScreen: true
-        UIStatusBarHidden: true
         UIViewControllerBasedStatusBarAppearance: true
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
-        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
         UIBackgroundModes: [audio]
         UIFileSharingEnabled: true
         NSAppTransportSecurity:

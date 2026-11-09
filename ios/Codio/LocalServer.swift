@@ -12,6 +12,8 @@ final class LocalServer {
     private let queue = DispatchQueue(label: "codio.server")
     private var listener: NWListener?
     private let root: URL = Bundle.main.resourceURL!.appendingPathComponent("web", isDirectory: true).standardizedFileURL
+    /// Script put at the top of index.html, before the page's own scripts (the native bridge).
+    var shim: String = ""
     private var skipCache: [String: (at: Date, status: Int, body: Data)] = [:]
 
     private static let mime: [String: String] = [
@@ -113,6 +115,12 @@ final class LocalServer {
             return respond(connection, status: 404)
         }
         let ext = file.pathExtension.lowercased()
+        var body = body
+        if file.lastPathComponent == "index.html", !shim.isEmpty, var html = String(data: body, encoding: .utf8),
+           let r = html.range(of: "<head>") {
+            html.replaceSubrange(r, with: "<head><script>" + shim + "</script>")
+            body = Data(html.utf8)
+        }
         var extra: [String: String] = [:]
         if ext == "html" || file.lastPathComponent == "service-worker.js" || file.lastPathComponent == "manifest.json" {
             extra["Cache-Control"] = "no-cache"
