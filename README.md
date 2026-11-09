@@ -6,12 +6,13 @@ This repository holds the **iPhone** app. The Windows, Android TV and Android ph
 
 ## iPhone app (`ios/`)
 
-- `ios/web/` is the built Codio web UI, taken from Codio for Windows 1.5.2 with source maps removed.
-- `ios/Codio/LocalServer.swift` serves that UI on `http://127.0.0.1:11471/`, the same address Windows uses, plus `/api/skip` for Skip Intro times from IntroDB.
-- `ios/Codio/VlcShell.swift` plays video with VLC (MobileVLCKit) and speaks the protocol of Stremio's Windows shell. Because of that, the web player drives it unchanged, including auto-play, source fallback and progress saving.
-- `ios/Codio/codio-ios.js` is injected into the page. It provides `window.chrome.webview` (the shell IPC) and sets the first-run auto-play defaults.
+Since 0.2.0 every screen is native SwiftUI (`ios/Codio/UI/`): Home, Detail (episodes, My List, sources), Search, My List, Settings, the loading screen and the player controls with Skip Intro / Next Episode. It works the same way as the Android phone app:
 
-Next up: native SwiftUI screens replace the web screens. The web page then stays hidden and only handles addons and source picking, the same way the Android phone app works.
+- `ios/web/` is the Codio web UI's Android build (1.4.0, with the native-UI hooks and Codio's patches for no torrents and Play-after-prefetch). It runs hidden in a WKWebView as the engine: account, addons, library, finding sources, and Smart auto-play with source fallback.
+- `ios/Codio/codio-engine.js` is the Android shim (`codio-android.js`) unchanged. `Engine.swift` adds a `window.CodioNative` bridge in front of it, so the native screens drive the engine through the same hooks (`__codioNativeGo`, `__codioDispatch`, `__codioStreams`, ...).
+- `ios/Codio/LocalServer.swift` serves the engine on `http://127.0.0.1:11471/` and puts the shim into index.html.
+- `ios/Codio/Player/VlcShell.swift` plays video with VLC (MobileVLCKit) and speaks the protocol of Stremio's Windows shell, so the hidden web player drives it and keeps saving progress.
+- `ios/Codio/Store/` reads addons and the library from the engine's storage and loads catalogs and details straight from the addons.
 
 ### Building
 
