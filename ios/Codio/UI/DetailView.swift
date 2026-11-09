@@ -42,20 +42,22 @@ struct DetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     buttons
                     sourceStatus
                     if let d = meta.description {
-                        Text(d).font(.subheadline).foregroundColor(Color(white: 0.85)).fixedSize(horizontal: false, vertical: true)
+                        Text(d).font(.subheadline).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
                     }
                     if !meta.cast.isEmpty {
-                        Text("Cast: " + meta.cast.joined(separator: ", ")).font(.footnote).foregroundColor(Theme.dim)
+                        Text("Starring: " + meta.cast.prefix(4).joined(separator: ", ")).font(.caption).foregroundColor(Theme.dim).lineLimit(2)
                     }
                     if !meta.genres.isEmpty {
-                        Text(meta.genres.joined(separator: "  ·  ")).font(.footnote).foregroundColor(Theme.dim)
+                        Text("Genres: " + meta.genres.joined(separator: ", ")).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
                     }
+                    actionIcons
                 }
                 .padding(.horizontal, 16)
+                CastRow(meta: meta)
                 if isSeries { episodes }
             }
             .padding(.bottom, 30)
@@ -80,26 +82,66 @@ struct DetailView: View {
         .onDisappear { engine.prefetchEnd() }
     }
 
+    /// Netflix mobile: a wide picture at the top, then the title and the info line under it.
     private var header: some View {
-        ZStack(alignment: .bottomLeading) {
-            RemoteImage(url: meta.background ?? meta.poster)
-                .frame(maxWidth: .infinity)
-                .frame(height: 300)
-                .clipped()
-            LinearGradient(colors: [.black.opacity(0.5), .clear, Theme.bg], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .bottomLeading) {
+                RemoteImage(url: meta.background ?? meta.poster)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 290)
+                    .clipped()
+                LinearGradient(colors: [.black.opacity(0.55), .clear, .clear, .black], startPoint: .top, endPoint: .bottom)
                 if let logo = meta.logo {
-                    RemoteImage(url: logo, contentMode: .fit).frame(maxWidth: 240, maxHeight: 80, alignment: .leading)
-                } else {
-                    Text(meta.name).font(.title.bold()).foregroundColor(.white)
+                    RemoteImage(url: logo, contentMode: .fit).frame(maxWidth: 220, maxHeight: 70, alignment: .leading)
+                        .padding(.horizontal, 16).padding(.bottom, 4)
                 }
+            }
+            .frame(height: 290)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    BrandWordmark(height: 14)
+                    Text(isSeries ? "SERIES" : "FILM").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.dim)
+                }
+                Text(meta.name).font(.title2.bold()).foregroundColor(.white)
                 if !meta.metaLine.isEmpty {
-                    Text(meta.metaLine).font(.footnote).foregroundColor(Color(white: 0.85))
+                    Text(meta.metaLine).font(.footnote).foregroundColor(Theme.dim)
                 }
             }
             .padding(.horizontal, 16)
         }
-        .frame(height: 300)
+    }
+
+    /// My List and Sources as Netflix's small icon buttons under the description.
+    private var actionIcons: some View {
+        HStack(spacing: 34) {
+            iconButton(store.inLibrary(meta.id) ? "checkmark" : "plus", "My List") {
+                let inLib = store.inLibrary(meta.id)
+                if inLib { engine.ctx("RemoveFromLibrary", meta.id) } else { engine.ctx("AddToLibrary", Store.preview(meta)) }
+                store.markInLibrary(meta, !inLib)
+                engine.show(toast: inLib ? "Removed from My List" : "Added to My List")
+            }
+            iconButton("list.bullet", "Sources") {
+                engine.sourcesRequest = Engine.SourcesRequest(meta: meta, videoId: playTarget)
+            }
+            if let share = URL(string: "https://www.imdb.com/title/" + (SkipTimes.imdb(of: meta, nil) ?? "")), SkipTimes.imdb(of: meta, nil) != nil {
+                ShareLink(item: share) { iconLabel("paperplane", "Share") }.buttonStyle(.plain)
+            }
+        }
+        .padding(.top, 8)
+        .padding(.leading, 8)
+    }
+
+    private func iconButton(_ icon: String, _ text: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { iconLabel(icon, text) }.buttonStyle(.plain)
+    }
+
+    private func iconLabel(_ icon: String, _ text: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 22, weight: .regular))
+            Text(text).font(.caption2).foregroundColor(Theme.dim)
+        }
+        .foregroundColor(.white)
+        .frame(minWidth: 50)
     }
 
     private var buttons: some View {
@@ -110,25 +152,6 @@ struct DetailView: View {
                 Label(playLabel, systemImage: "play.fill")
             }
             .buttonStyle(RedButtonStyle())
-
-            HStack(spacing: 8) {
-                Button {
-                    let inLib = store.inLibrary(meta.id)
-                    if inLib { engine.ctx("RemoveFromLibrary", meta.id) } else { engine.ctx("AddToLibrary", Store.preview(meta)) }
-                    store.markInLibrary(meta, !inLib)
-                    engine.show(toast: inLib ? "Removed from My List" : "Added to My List")
-                } label: {
-                    Label("My List", systemImage: store.inLibrary(meta.id) ? "checkmark" : "plus")
-                }
-                .buttonStyle(RedButtonStyle(filled: false))
-
-                Button {
-                    engine.sourcesRequest = Engine.SourcesRequest(meta: meta, videoId: playTarget)
-                } label: {
-                    Label("Sources", systemImage: "list.bullet")
-                }
-                .buttonStyle(RedButtonStyle(filled: false))
-            }
             downloadButton
         }
         .confirmationDialog(askTitle, isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } }), titleVisibility: .visible) {
@@ -230,19 +253,27 @@ struct DetailView: View {
     private var episodes: some View {
         VStack(alignment: .leading, spacing: 10) {
             let seasons = meta.seasons
+            VStack(alignment: .leading, spacing: 0) {
+                Rectangle().fill(Theme.red).frame(width: 80, height: 4)
+                Text("EPISODES").font(.subheadline.weight(.bold)).foregroundColor(.white).padding(.top, 8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
             if seasons.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(seasons, id: \.self) { s in
-                            Button(s == 0 ? "Specials" : "Season \(s)") { season = s }
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14).padding(.vertical, 8)
-                                .background(Capsule().fill(s == season ? Color.white : Color(white: 0.18)))
-                                .foregroundColor(s == season ? .black : .white)
-                        }
+                Menu {
+                    ForEach(seasons, id: \.self) { s in
+                        Button(s == 0 ? "Specials" : "Season \(s)") { season = s }
                     }
-                    .padding(.horizontal, 16)
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(season == 0 ? "Specials" : "Season \(season)")
+                        Image(systemName: "chevron.down").font(.caption)
+                    }
+                    .font(.subheadline.weight(.semibold)).foregroundColor(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.17)))
                 }
+                .padding(.horizontal, 16)
             }
             LazyVStack(alignment: .leading, spacing: 14) {
                 ForEach(meta.videos.filter { $0.season == season }) { v in
@@ -269,13 +300,13 @@ private struct EpisodeRow: View {
     let download: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .top, spacing: 6) {
             episodeButton
             Button(action: download) {
                 Group {
                     if finding { ProgressView().tint(.white) } else { DownloadBadge(entry: entry) }
                 }
-                .frame(width: 40, height: 40)
+                .frame(width: 40, height: 73)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -286,27 +317,28 @@ private struct EpisodeRow: View {
         Button {
             engine.play(meta, video.id)
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RemoteImage(url: video.thumbnail ?? meta.background).frame(width: 136, height: 76).clipped()
-                    Image(systemName: "play.circle.fill").font(.title2).foregroundColor(.white.opacity(0.9))
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 12) {
+                    ZStack {
+                        RemoteImage(url: video.thumbnail ?? meta.background).frame(width: 130, height: 73).clipped()
+                        Image(systemName: "play.circle").font(.system(size: 30, weight: .light)).foregroundColor(.white).shadow(radius: 3)
+                    }
+                    .frame(width: 130, height: 73)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(video.episode). " + (video.title.isEmpty ? "Episode \(video.episode)" : video.title))
+                            .font(.subheadline.weight(.medium)).foregroundColor(.white).lineLimit(2)
+                        if let e = entry {
+                            Text(downloadStatusText(e)).font(.caption2).foregroundColor(e.state == .done ? .white : Theme.dim).lineLimit(1)
+                        } else if store.entry(meta.id)?.videoId == video.id {
+                            Text("Last watched").font(.caption2.bold()).foregroundColor(Theme.red)
+                        }
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(width: 136, height: 76)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(video.episode). " + (video.title.isEmpty ? "Episode \(video.episode)" : video.title))
-                        .font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(2)
-                    if let o = video.overview {
-                        Text(o).font(.caption).foregroundColor(Theme.dim).lineLimit(3)
-                    }
-                    if let e = entry {
-                        Text(downloadStatusText(e)).font(.caption2).foregroundColor(e.state == .done ? .white : Theme.dim).lineLimit(1)
-                    }
-                    if store.entry(meta.id)?.videoId == video.id {
-                        Text("Last watched").font(.caption2.bold()).foregroundColor(Theme.red)
-                    }
+                if let o = video.overview {
+                    Text(o).font(.caption).foregroundColor(Theme.dim).lineLimit(3)
                 }
-                Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
         }

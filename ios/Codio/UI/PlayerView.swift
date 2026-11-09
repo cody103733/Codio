@@ -39,6 +39,7 @@ struct PlayerView: View {
     @State private var dragStart: Double = 0
     @State private var skip: SkipTimes.Times?
     @State private var skipFor: String?
+    @State private var showCast = false
 
     private var meta: Meta? { engine.playMeta }
     private var title: String {
@@ -105,6 +106,9 @@ struct PlayerView: View {
             loadSkip()
         }
         .onChange(of: engine.playVideo) { _ in loadSkip() }
+        .sheet(isPresented: $showCast, onDismiss: { scheduleHide() }) {
+            if let m = meta { CastSheet(meta: m) }
+        }
     }
 
     @ViewBuilder private func controlsLayer(_ pos: Double) -> some View {
@@ -115,6 +119,9 @@ struct PlayerView: View {
                 }
                 Text(title).font(.headline).lineLimit(1)
                 Spacer()
+                Button { showCast = true; hideTask?.cancel() } label: {
+                    Image(systemName: "person.2").font(.title3).frame(width: 44, height: 44).contentShape(Rectangle())
+                }
                 trackMenu
             }
             .padding(.horizontal, 20)

@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var addonLink = ""
+    @State private var tmdbKey = UserDefaults.standard.string(forKey: "tmdb_key") ?? ""
 
     private let langCodes = ["eng", "spa", "fre", "ger", "ita", "por", "nld", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"]
     private let langNames = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"]
@@ -72,6 +73,17 @@ struct SettingsView: View {
                                 key: "dl_wifi_only", dflt: true, options: [("Wi-Fi only", true), ("Wi-Fi and mobile data", false)])]) { row($0) }
             }
             Section("Languages & subtitles") { ForEach(languages) { row($0) } }
+            Section {
+                SecureField("TMDB API key", text: $tmdbKey)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .onSubmit { UserDefaults.standard.set(tmdbKey.trimmingCharacters(in: .whitespaces), forKey: "tmdb_key") }
+                    .onChange(of: tmdbKey) { v in UserDefaults.standard.set(v.trimmingCharacters(in: .whitespaces), forKey: "tmdb_key") }
+            } header: {
+                Text("Cast & actors")
+            } footer: {
+                Text(TMDB.key == nil ? "Paste a free key from themoviedb.org to see actor photos on title pages and in the player."
+                     : "Actor photos come from TMDB.")
+            }
             Section("Account") {
                 if let e = store.signedInEmail {
                     Text(e).foregroundColor(.white)

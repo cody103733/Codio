@@ -14,7 +14,7 @@ struct RootView: View {
                         .tabItem { Label("Search", systemImage: "magnifyingglass") }.tag(1)
                     NavigationStack { LibraryView().withDetail() }
                         .tabItem { Label("My List", systemImage: "rectangle.stack.fill") }.tag(2)
-                    NavigationStack { SettingsView() }
+                    NavigationStack { SettingsView().blackTabBar() }
                         .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(3)
                 }
                 .tint(.white)
@@ -47,5 +47,12 @@ private extension View {
         navigationDestination(for: Meta.self) { DetailView(meta: $0) }
             .navigationDestination(for: DownloadedShow.self) { DownloadedShowView(show: $0) }
             .navigationDestination(for: DiscoverTarget.self) { DiscoverView(target: $0) }
+            .blackTabBar()
+    }
+}
+
+extension View {
+    func blackTabBar() -> some View {
+        toolbarBackground(Color.black, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
     }
 }

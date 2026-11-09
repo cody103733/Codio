@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Theme {
     static let red = Color(red: 0.898, green: 0.035, blue: 0.078) // #E50914
-    static let bg = Color(red: 0.055, green: 0.055, blue: 0.063) // #0e0e10
+    static let bg = Color.black
     static let card = Color(white: 0.13)
     static let dim = Color(white: 0.65)
     static let gradient = LinearGradient(colors: [Color(red: 1, green: 0.294, blue: 0.169), Color(red: 0.765, green: 0, blue: 0.114)],
