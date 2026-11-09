@@ -111,11 +111,11 @@ final class LocalServer {
         guard file.path.hasPrefix(root.path + "/") else { return respond(connection, status: 403) }
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isDir), !isDir.boolValue,
-              let body = try? Data(contentsOf: file, options: .mappedIfSafe) else {
+              let fileData = try? Data(contentsOf: file, options: .mappedIfSafe) else {
             return respond(connection, status: 404)
         }
         let ext = file.pathExtension.lowercased()
-        var body = body
+        var body = fileData
         if file.lastPathComponent == "index.html", !shim.isEmpty, var html = String(data: body, encoding: .utf8),
            let r = html.range(of: "<head>") {
             html.replaceSubrange(r, with: "<head><script>" + shim + "</script>")
