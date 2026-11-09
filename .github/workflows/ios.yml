@@ -31,7 +31,10 @@ jobs:
           xcodebuild -workspace Codio.xcworkspace -scheme Codio -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build | tee build.log | grep -E "error:|warning: .*Swift|BUILD (SUCCEEDED|FAILED)" || true
+            build > build.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
+          echo "--- warnings in Codio's own code ---"
+          grep -E "ios/Codio/.*warning:" build.log | sort -u | head -80 || true
           test -d build/Build/Products/Release-iphoneos/Codio.app
 
       - name: Package Codio.ipa
