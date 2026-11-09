@@ -147,12 +147,12 @@ final class Downloads: NSObject, ObservableObject, URLSessionDownloadDelegate {
     }()
     private var finding = false
 
-    static var wifiOnly: Bool {
+    nonisolated static var wifiOnly: Bool {
         get { UserDefaults.standard.object(forKey: "dl_wifi_only") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "dl_wifi_only") }
     }
 
-    static let dir: URL = {
+    nonisolated static let dir: URL = {
         let d = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Codio", isDirectory: true)
         try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         var u = d
@@ -161,7 +161,7 @@ final class Downloads: NSObject, ObservableObject, URLSessionDownloadDelegate {
         try? u.setResourceValues(v)
         return d
     }()
-    private static let listFile = dir.appendingPathComponent("downloads.json")
+    nonisolated private static let listFile = dir.appendingPathComponent("downloads.json")
 
     private override init() {
         super.init()
@@ -213,7 +213,7 @@ final class Downloads: NSObject, ObservableObject, URLSessionDownloadDelegate {
 
     var usedBytes: Int64 { entries.values.filter { $0.state == .done }.reduce(0) { $0 + max(0, $1.received) } }
 
-    static var freeBytes: Int64 {
+    nonisolated static var freeBytes: Int64 {
         let v = try? URL(fileURLWithPath: NSHomeDirectory()).resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return v?.volumeAvailableCapacityForImportantUsage ?? -1
     }
