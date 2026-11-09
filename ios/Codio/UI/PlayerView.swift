@@ -36,6 +36,7 @@ struct PlayerView: View {
     @State private var hideTask: Task<Void, Never>?
     @State private var dragging = false
     @State private var dragValue: Double = 0
+    @State private var dragStart: Double = 0
     @State private var skip: SkipTimes.Times?
     @State private var skipFor: String?
 
@@ -52,9 +53,40 @@ struct PlayerView: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             let pos = dragging ? dragValue : st.position
             ZStack {
-                Color.black.opacity(controls ? 0.45 : 0.001)
-                    .ignoresSafeArea()
-                    .onTapGesture { toggleControls() }
+                GeometryReader { g in
+                    Color.black.opacity(controls ? 0.45 : 0.001)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            // Double-tap the left or right side: back or forward 10 seconds; one tap shows/hides controls.
+                            SpatialTapGesture(count: 2)
+                                .onEnded { v in seek(by: v.location.x < g.size.width / 2 ? -10 : 10) }
+                                .exclusively(before: TapGesture().onEnded { toggleControls() })
+                        )
+                        .gesture(
+                            DragGesture(minimumDistance: 24)
+                                .onChanged { v in
+                                    // Sideways: scrub through the video (a full swipe across = 3 minutes).
+                                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                                    if !dragging {
+                                        dragging = true
+                                        dragStart = st.position
+                                        withAnimation { controls = true }
+                                        hideTask?.cancel()
+                                    }
+                                    let span = 180.0 * Double(v.translation.width / max(g.size.width, 1))
+                                    dragValue = min(max(0, dragStart + span), max(st.duration, dragStart + span))
+                                }
+                                .onEnded { v in
+                                    if dragging {
+                                        dragging = false
+                                        seek(to: dragValue)
+                                    } else if v.translation.height > 120 {
+                                        engine.stopPlayer() // swipe down closes the player
+                                    }
+                                }
+                        )
+                }
+                .ignoresSafeArea()
                 if st.buffering && st.error == nil {
                     ProgressView().tint(.white).scaleEffect(1.5).allowsHitTesting(false)
                 }
@@ -79,7 +111,7 @@ struct PlayerView: View {
         VStack {
             HStack(spacing: 14) {
                 Button { engine.stopPlayer() } label: {
-                    Image(systemName: "xmark").font(.title2.weight(.semibold)).frame(width: 44, height: 44)
+                    Image(systemName: "xmark").font(.title2.weight(.semibold)).frame(width: 52, height: 52).contentShape(Rectangle())
                 }
                 Text(title).font(.headline).lineLimit(1)
                 Spacer()

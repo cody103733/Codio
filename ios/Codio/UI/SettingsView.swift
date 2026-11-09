@@ -58,12 +58,19 @@ struct SettingsView: View {
                    key: "audioLanguage", dflt: "eng", options: Array(zip(langNames, langCodes)).map { ($0.0, $0.1 as Any) }),
             Choice(kind: .profile, label: "Subtitle language", help: "The language picked when you turn subtitles on.",
                    key: "subtitlesLanguage", dflt: NSNull(), options: [("None", NSNull() as Any)] + Array(zip(langNames, langCodes)).map { ($0.0, $0.1 as Any) }),
+            Choice(kind: .profile, label: "Subtitle size", help: "How big subtitles are drawn.",
+                   key: "subtitlesSize", dflt: 100, options: [75, 100, 125, 150, 175, 200, 250].map { ("\($0)%", $0 as Any) }),
         ]
     }
 
     var body: some View {
         Form {
             Section("Playback") { ForEach(playback) { row($0) } }
+            Section("Downloads") {
+                ForEach([Choice(kind: .app, label: "Download over",
+                                help: "Big video files can use a lot of mobile data. With Wi-Fi only, downloads wait until you're on Wi-Fi.",
+                                key: "dl_wifi_only", dflt: true, options: [("Wi-Fi only", true), ("Wi-Fi and mobile data", false)])]) { row($0) }
+            }
             Section("Languages & subtitles") { ForEach(languages) { row($0) } }
             Section("Account") {
                 if let e = store.signedInEmail {

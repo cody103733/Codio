@@ -23,6 +23,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        Downloads.shared.backgroundCompletion = completionHandler
+    }
+
     func applicationWillEnterForeground(_ application: UIApplication) {
         // iOS may have closed the listening socket while Codio was in the background.
         LocalServer.shared.ensureRunning()

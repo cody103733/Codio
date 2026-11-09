@@ -7,6 +7,10 @@ struct DetailView: View {
     @ObservedObject var meta: Meta
     @State private var season: Int = 1
     @State private var loaded = false
+    @ObservedObject private var dl = Downloads.shared
+    @State private var ask: DownloadAsk?
+    @State private var askingFor: String?
+    @State private var confirmDelete: Downloads.Entry?
 
     private var isSeries: Bool { meta.type == "series" || (!meta.videos.isEmpty && meta.type != "movie") }
 
@@ -125,6 +129,88 @@ struct DetailView: View {
                 }
                 .buttonStyle(RedButtonStyle(filled: false))
             }
+            downloadButton
+        }
+        .confirmationDialog(askTitle, isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } }), titleVisibility: .visible) {
+            if let a = ask {
+                if let vid = a.videoId {
+                    ForEach(a.options) { o in
+                        Button(o.label) {
+                            dl.start(meta, vid, option: o)
+                            engine.show(toast: Downloads.wifiOnly ? "Downloading (on Wi-Fi)" : "Downloading")
+                        }
+                    }
+                } else if let s = a.season {
+                    ForEach(DownloadPick.qualities, id: \.self) { q in
+                        Button(q == "2160p" ? "4K (2160p)" : q == "480p" ? "480p (smallest)" : q) {
+                            dl.queueSeason(meta, season: s, quality: q)
+                            engine.show(toast: "Downloading Season \(s)")
+                        }
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let a = ask, a.season != nil {
+                Text("If an episode isn't available in that quality, Codio takes the closest lower one.")
+            }
+        }
+        .alert("Delete this download?", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
+            Button("Delete", role: .destructive) { if let e = confirmDelete { dl.remove(e) } }
+            Button("Keep", role: .cancel) {}
+        }
+    }
+
+    private var askTitle: String {
+        if let s = ask?.season { return "Download Season \(s) in which quality?" }
+        return "Download in which quality?"
+    }
+
+    @ViewBuilder private var downloadButton: some View {
+        if isSeries {
+            let eps = meta.videos.filter { $0.season == season }
+            let got = eps.filter { dl.entry(meta.type, meta.id, $0.id)?.state == .done }.count
+            let busy = eps.filter { [.downloading, .waiting, .finding].contains(dl.entry(meta.type, meta.id, $0.id)?.state) }.count
+            Button {
+                ask = DownloadAsk(videoId: nil, season: season, options: [])
+            } label: {
+                Label(busy > 0 ? "Downloading Season \(season) (\(got)/\(eps.count))"
+                      : got == eps.count && got > 0 ? "Season \(season) downloaded" : "Download Season \(season)",
+                      systemImage: "arrow.down.to.line")
+            }
+            .buttonStyle(RedButtonStyle(filled: false))
+            .disabled(eps.isEmpty)
+        } else if let e = dl.entry(meta.type, meta.id, meta.id) {
+            Button {
+                if e.state == .failed { dl.retry(e) } else { confirmDelete = e }
+            } label: {
+                Label(downloadStatusText(e), systemImage: e.state == .done ? "checkmark.circle.fill" : "arrow.down.circle")
+            }
+            .buttonStyle(RedButtonStyle(filled: false))
+        } else {
+            Button { askQuality(meta.id) } label: {
+                Label(askingFor == meta.id ? "Finding sources…" : "Download", systemImage: "arrow.down.to.line")
+            }
+            .buttonStyle(RedButtonStyle(filled: false))
+            .disabled(askingFor != nil)
+        }
+    }
+
+    /// Look the sources up, then offer one per quality (with sizes).
+    func askQuality(_ vid: String) {
+        guard askingFor == nil else { return }
+        askingFor = vid
+        Task {
+            var s = store.sourcesFor(meta, vid)
+            if s == nil || s!.loading { s = await engine.findSources(meta, vid) }
+            askingFor = nil
+            let opts = s.map { DownloadPick.options($0) } ?? []
+            if opts.isEmpty {
+                engine.show(toast: engine.webBusy ? "Try again after the video" : "Can't download this (only debrid and direct links can be downloaded)")
+                return
+            }
+            ask = DownloadAsk(videoId: vid, season: nil, options: opts)
+            engine.prefetch(meta, playTarget)
         }
     }
 
@@ -160,7 +246,12 @@ struct DetailView: View {
             }
             LazyVStack(alignment: .leading, spacing: 14) {
                 ForEach(meta.videos.filter { $0.season == season }) { v in
-                    EpisodeRow(meta: meta, video: v)
+                    EpisodeRow(meta: meta, video: v, entry: dl.entry(meta.type, meta.id, v.id), finding: askingFor == v.id,
+                               download: {
+                                   if let e = dl.entry(meta.type, meta.id, v.id) {
+                                       if e.state == .failed { dl.retry(e) } else { confirmDelete = e }
+                                   } else { askQuality(v.id) }
+                               })
                 }
             }
             .padding(.horizontal, 16)
@@ -173,8 +264,25 @@ private struct EpisodeRow: View {
     @EnvironmentObject var store: Store
     let meta: Meta
     let video: Video
+    let entry: Downloads.Entry?
+    let finding: Bool
+    let download: () -> Void
 
     var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            episodeButton
+            Button(action: download) {
+                Group {
+                    if finding { ProgressView().tint(.white) } else { DownloadBadge(entry: entry) }
+                }
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var episodeButton: some View {
         Button {
             engine.play(meta, video.id)
         } label: {
@@ -190,6 +298,9 @@ private struct EpisodeRow: View {
                         .font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(2)
                     if let o = video.overview {
                         Text(o).font(.caption).foregroundColor(Theme.dim).lineLimit(3)
+                    }
+                    if let e = entry {
+                        Text(downloadStatusText(e)).font(.caption2).foregroundColor(e.state == .done ? .white : Theme.dim).lineLimit(1)
                     }
                     if store.entry(meta.id)?.videoId == video.id {
                         Text("Last watched").font(.caption2.bold()).foregroundColor(Theme.red)

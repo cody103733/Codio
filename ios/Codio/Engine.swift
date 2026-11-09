@@ -37,6 +37,8 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     /// The "finding your stream" screen is up.
     private var playOverlay = false
     private var prefetchRoute: String?
+    /// When the viewer closed the player (a late player page from the engine is ignored for a moment).
+    private var exitedAt = Date.distantPast
     private var revealTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var storageTask: Task<Void, Never>?
@@ -70,6 +72,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         shell.signal = { [weak self] name, arg in self?.playerSignal(name, arg) }
         shell.onActiveChanged = { playing in UIApplication.shared.isIdleTimerDisabled = playing }
         shell.onLoad = { [weak self] in self?.playerState.reset() }
+        Downloads.shared.engine = self
     }
 
     private static func shimSource() -> String {
@@ -234,7 +237,13 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     }
 
     /// Play with Smart auto-play: Codio's loading screen stays up while the engine searches and VLC starts.
+    /// A finished download plays from the phone instead.
     func play(_ m: Meta, _ vid: String?) {
+        if let e = Downloads.shared.entry(m.type, m.id, vid ?? m.id), let url = Downloads.shared.fileURL(e) {
+            playOffline(m, e, url)
+            return
+        }
+        offlinePlaying = nil
         playMeta = m
         playVideo = vid ?? m.id
         loadingText = "Finding the best source…"
@@ -275,14 +284,19 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     /// Leave the player (back to the movie page).
     func stopPlayer() {
-        js("window.__codioBack ? window.__codioBack() : history.back()")
-        // If the page doesn't react, still return to the native screens.
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            guard let self = self, self.overlay == .player else { return }
-            self.shell.handle(method: "mpv-command", params: ["stop"])
-            self.showNative()
+        if let id = offlinePlaying {
+            Downloads.shared.savePosition(id, position: playerState.position, duration: playerState.duration)
+            offlinePlaying = nil
+            shell.handle(method: "mpv-command", params: ["stop"])
+            overlay = .none
+            Downloads.shared.pump()
+            return
         }
+        // Leave right away: stop VLC, park the hidden page (that unmounts its player, which saves progress)
+        // and keep any player page the engine opens in the next few seconds from taking over again.
+        exitedAt = Date()
+        shell.handle(method: "mpv-command", params: ["stop"])
+        showNative()
     }
 
     /// A command for the video player (mpv-set-prop / mpv-command with their params).
@@ -310,6 +324,48 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     // MARK: - web routes
 
+    /// The download being played (no web player involved), or nil.
+    private(set) var offlinePlaying: String?
+
+    /// True while the engine page is busy with playback (a hidden source lookup must wait).
+    var webBusy: Bool { webShown || playOverlay || offlinePlaying != nil }
+
+    func playOffline(_ m: Meta, _ e: Downloads.Entry, _ url: URL) {
+        prefetchRoute = nil
+        webShown = false
+        park()
+        offlinePlaying = e.id
+        playOverlay = false
+        playMeta = m
+        playVideo = e.videoId
+        for p in ["time-pos", "duration", "pause", "paused-for-cache", "aid", "sid", "track-list"] {
+            shell.handle(method: "mpv-observe-prop", params: p)
+        }
+        var cmd: [Any] = ["loadfile", url.absoluteString, "replace"]
+        if e.position > 5 { cmd.append("start=\(e.position)") }
+        shell.handle(method: "mpv-command", params: cmd)
+        overlay = .player
+    }
+
+    /// Ask the hidden engine for a movie/episode's sources (for downloads). Waits until they're in, up to 45 s.
+    func findSources(_ m: Meta, _ vid: String) async -> Sources? {
+        guard !webBusy else { return nil }
+        prefetchRoute = nil
+        prefetch(m, vid)
+        let started = Date()
+        var firstAt: Date?
+        while Date().timeIntervalSince(started) < 45 {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if webBusy { return nil }
+            guard let s = store.sourcesFor(m, vid) else { continue }
+            if firstAt == nil, !DownloadPick.options(s).isEmpty { firstAt = Date() }
+            if !s.loading { prefetchEnd(); return s }
+            if let f = firstAt, Date().timeIntervalSince(f) > 25 { prefetchEnd(); return s }
+        }
+        prefetchEnd()
+        return store.sourcesFor(m, vid)
+    }
+
     private func park() {
         js("window.__codioNativePark && window.__codioNativePark()")
     }
@@ -329,6 +385,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         revealTask?.cancel()
         park()
         overlay = .none
+        Downloads.shared.pump()
         // Progress is saved a moment after the player closes.
         readStorage(after: 1.5)
         Task { [weak self] in
@@ -339,6 +396,11 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     /// Where the web UI went: once playback has ended, or it reaches a page the native screens show, take over.
     private func webRoute(_ hash: String) {
+        if hash.hasPrefix("#/player"), Date().timeIntervalSince(exitedAt) < 4 {
+            webShown = false
+            park()
+            return
+        }
         if !webShown {
             // Nothing may play behind the native screens (e.g. an auto-play the viewer backed out of).
             if hash.hasPrefix("#/player") || (hash.hasPrefix("#/detail/") && prefetchRoute == nil) { park() }
@@ -402,6 +464,10 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         park()
         readStorage(after: 1.0)
         readStorage(after: 4.0)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            if self != nil { Downloads.shared.pump() }
+        }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,

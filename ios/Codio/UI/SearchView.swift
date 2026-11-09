@@ -81,10 +81,13 @@ struct LibraryView: View {
                     Text("All").tag(String?.none)
                     Text("Movies").tag(String?.some("movie"))
                     Text("Shows").tag(String?.some("series"))
+                    Text("Downloads").tag(String?.some("downloads"))
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
-                if !store.profileLoaded {
+                if type == "downloads" {
+                    DownloadsListView()
+                } else if !store.profileLoaded {
                     HStack { Spacer(); ProgressView().tint(.white); Spacer() }.padding(.top, 40)
                 } else if items.isEmpty {
                     Text("Titles you add to My List show up here.")

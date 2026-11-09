@@ -45,5 +45,7 @@ struct RootView: View {
 private extension View {
     func withDetail() -> some View {
         navigationDestination(for: Meta.self) { DetailView(meta: $0) }
+            .navigationDestination(for: DownloadedShow.self) { DownloadedShowView(show: $0) }
+            .navigationDestination(for: DiscoverTarget.self) { DiscoverView(target: $0) }
     }
 }

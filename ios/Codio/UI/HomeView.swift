@@ -37,10 +37,14 @@ struct HomeView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .overlay(alignment: .top) {
-            HStack {
+            HStack(spacing: 14) {
                 BrandWordmark(height: 24)
                 Spacer()
+                NavigationLink(value: DiscoverTarget(type: "movie")) { Text("Movies") }
+                NavigationLink(value: DiscoverTarget(type: "series")) { Text("Series") }
             }
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.top, 4)
             .padding(.bottom, 8)
