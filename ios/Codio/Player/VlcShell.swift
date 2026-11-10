@@ -64,10 +64,10 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     }
     func mediaPlayerStateChanged(_ newState: VLCMediaPlayerState) { onMain { self.stateChanged() } }
     func mediaPlayerTimeChanged(_ aNotification: Notification) { onMain { self.timeChanged() } }
-    func mediaPlayerTrackAdded(_ trackId: String, with trackType: VLCMediaTrackType) {
+    func mediaPlayerTrackAdded(_ trackId: String, with trackType: VLCMedia.TrackType) {
         onMain { self.sendTracks(); self.sendSelection() }
     }
-    func mediaPlayerTrackSelected(_ trackType: VLCMediaTrackType, selectedId: String, unselectedId: String) {
+    func mediaPlayerTrackSelected(_ trackType: VLCMedia.TrackType, selectedId: String, unselectedId: String) {
         onMain { self.sendSelection() }
     }
     func mediaPlayerLengthChanged(_ length: Int64) {
@@ -357,7 +357,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     }
 
     /// mpv numbers tracks from 1 within each type; VLCKit 4 lists them in arrays, so id = position + 1.
-    private static func selectedId(_ tracks: [VLCMediaPlayerTrack]) -> Any {
+    private static func selectedId(_ tracks: [VLCMediaPlayer.Track]) -> Any {
         if let i = tracks.firstIndex(where: { $0.isSelected }) { return i + 1 }
         return "no"
     }
@@ -370,7 +370,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
 
     private func sendTracks() {
         var out: [[String: Any]] = []
-        func add(_ type: String, _ tracks: [VLCMediaPlayerTrack]) {
+        func add(_ type: String, _ tracks: [VLCMediaPlayer.Track]) {
             for (i, tr) in tracks.enumerated() {
                 var t: [String: Any] = ["id": i + 1, "type": type, "external": false, "selected": tr.isSelected]
                 if !tr.trackName.isEmpty { t["title"] = tr.trackName }
@@ -414,10 +414,12 @@ final class PiPBridge: NSObject, VLCDrawable, VLCPictureInPictureDrawable, VLCPi
     func bounds() -> CGRect { view?.bounds ?? .zero }
 
     // VLCPictureInPictureDrawable
-    func mediaController() -> VLCPictureInPictureMediaControlling { self }
+    func mediaController() -> VLCPictureInPictureMediaControlling! { self }
 
-    func pictureInPictureReady() -> ((VLCPictureInPictureWindowControlling) -> Void) {
+    // The header has no nullability notes, so Swift sees these as implicitly unwrapped / optional.
+    func pictureInPictureReady() -> ((VLCPictureInPictureWindowControlling?) -> Void)! {
         return { [weak self] w in
+            guard let w = w else { return }
             self?.window = w
             w.stateChangeEventHandler = { started in
                 DispatchQueue.main.async { self?.onState?(started) }
@@ -429,11 +431,11 @@ final class PiPBridge: NSObject, VLCDrawable, VLCPictureInPictureDrawable, VLCPi
     func play() { DispatchQueue.main.async { self.onPause?(false) } }
     func pause() { DispatchQueue.main.async { self.onPause?(true) } }
 
-    func seek(by offset: Int64, completion: @escaping () -> Void) {
-        guard let p = player else { completion(); return }
+    func seek(by offset: Int64, completion: (() -> Void)!) {
+        guard let p = player else { completion?(); return }
         let t = Int64(p.time.intValue) + offset
         p.time = VLCTime(int: Int32(max(0, t)))
-        completion()
+        completion?()
     }
 
     func mediaLength() -> Int64 { Int64(player?.media?.length.intValue ?? 0) }

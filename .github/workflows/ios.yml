@@ -34,6 +34,8 @@ jobs:
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             build > build.log 2>&1 || true
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
+          echo "--- notes ---"
+          grep -E "ios/Codio/.*note:|^\s+func |candidate" build.log | sort -u | head -40 || true
           echo "--- warnings in Codio's own code ---"
           grep -E "ios/Codio/.*warning:" build.log | sort -u | head -80 || true
           test -d build/Build/Products/Release-iphoneos/Codio.app
