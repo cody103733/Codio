@@ -46,6 +46,8 @@ struct SettingsView: View {
                    key: "preferCached", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .profile, label: "Next episode", help: "At the end of an episode, play the next one automatically.",
                    key: "bingeWatching", dflt: true, options: [("Plays automatically", true), ("Off", false)]),
+            Choice(kind: .app, label: "Mini player", help: "When you leave Codio during a video, it keeps playing in a small window over your other apps.",
+                   key: "pip_auto", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .app, label: "Skip Intro button", help: "Skip Intro / Recap and Next Episode buttons, with times from IntroDB (not every show has them).",
                    key: "skip_buttons", dflt: true, options: [("On", true), ("Off", false)]),
         ]

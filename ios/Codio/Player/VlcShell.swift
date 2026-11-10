@@ -1,11 +1,11 @@
 import Foundation
-import MobileVLCKit
+import VLCKit
 import UIKit
 
 /// Plays video with VLC and speaks the same protocol as Stremio's Windows shell (mpv over WebView2 IPC),
 /// so the Codio web player (Stremio's ShellVideo) drives it unchanged: auto-play, source fallback,
 /// Skip Intro and progress saving all keep working. Ported from the Android TV app's VlcShell.
-final class VlcShell: NSObject {
+final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     /// Sends a signal (name, argument) to the web page.
     var signal: ((String, Any) -> Void)?
     /// Told when playback starts or stops (keeps the screen awake, shows the video layer).
@@ -30,17 +30,52 @@ final class VlcShell: NSObject {
     private var lastProgressAt = Date()
     private var buffering = false
     private var stallTimer: Timer?
+    private var loadAt = Date.distantPast
+    /// Picture-in-picture: VLC draws through this, and it hands iOS's mini player window back to us.
+    let pip = PiPBridge()
+    /// True while the mini player is showing.
+    private(set) var inPiP = false
 
     init(view: UIView) {
         super.init()
-        player.drawable = view
-        // Notifications instead of the delegate: VLCKit posts these on the main thread.
+        pip.view = view
+        pip.player = player
+        pip.onPause = { [weak self] p in self?.setProp("pause", p) }
+        pip.onState = { [weak self] on in self?.inPiP = on }
+        player.delegate = self
+        player.drawable = pip
+        // Leaving the app while a video plays: carry on in the mini player (Settings can turn this off).
         let nc = NotificationCenter.default
-        nc.addObserver(forName: NSNotification.Name("VLCMediaPlayerStateChanged"), object: player, queue: .main) { [weak self] _ in
-            self?.stateChanged()
+        nc.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.active, self.started, !self.wantPause,
+                  UserDefaults.standard.object(forKey: "pip_auto") as? Bool ?? true else { return }
+            self.pip.window?.startPictureInPicture()
         }
-        nc.addObserver(forName: NSNotification.Name("VLCMediaPlayerTimeChanged"), object: player, queue: .main) { [weak self] _ in
-            self?.timeChanged()
+        nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.inPiP else { return }
+            self.pip.window?.stopPictureInPicture() // back in Codio: the video goes back to full screen
+        }
+    }
+
+    // MARK: VLCMediaPlayerDelegate (VLCKit 4)
+
+    private func onMain(_ f: @escaping () -> Void) {
+        if Thread.isMainThread { f() } else { DispatchQueue.main.async(execute: f) }
+    }
+    func mediaPlayerStateChanged(_ newState: VLCMediaPlayerState) { onMain { self.stateChanged() } }
+    func mediaPlayerTimeChanged(_ aNotification: Notification) { onMain { self.timeChanged() } }
+    func mediaPlayerTrackAdded(_ trackId: String, with trackType: VLCMediaTrackType) {
+        onMain { self.sendTracks(); self.sendSelection() }
+    }
+    func mediaPlayerTrackSelected(_ trackType: VLCMediaTrackType, selectedId: String, unselectedId: String) {
+        onMain { self.sendSelection() }
+    }
+    func mediaPlayerLengthChanged(_ length: Int64) {
+        onMain {
+            if length > 0, self.lengthMs <= 0 {
+                self.lengthMs = Int32(length)
+                self.forward("duration", Double(length) / 1000)
+            }
         }
     }
 
@@ -125,8 +160,9 @@ final class VlcShell: NSObject {
             muted = VlcShell.truthy(value)
             audio?.volume = muted ? 0 : volume
         case "aid":
-            let id = VlcShell.trackId(value)
-            if id >= 0 { player.currentAudioTrackIndex = id }
+            let id = Int(VlcShell.trackId(value))
+            let tracks = player.audioTracks
+            if id >= 1, id <= tracks.count { tracks[id - 1].isSelectedExclusively = true }
             sendSelection()
         case "sid":
             let id = VlcShell.trackId(value)
@@ -136,7 +172,8 @@ final class VlcShell: NSObject {
                 sendSelection()
                 return
             }
-            player.currentVideoSubTitleIndex = id
+            let tracks = player.textTracks
+            if id >= 1, Int(id) <= tracks.count { tracks[Int(id) - 1].isSelectedExclusively = true } else { player.deselectAllTextTracks() }
             sendSelection()
         case "sub-delay":
             let s = VlcShell.num(value, 0)
@@ -155,9 +192,9 @@ final class VlcShell: NSObject {
         case "stop":
             stopPlayback()
         case "sub-add":
-            if cmd.count > 1, let url = URL(string: cmd[1]) { player.addPlaybackSlave(url, type: .subtitle, enforce: true) }
+            if cmd.count > 1, let url = URL(string: cmd[1]) { _ = player.addPlaybackSlave(url, type: .subtitle, enforce: true) }
         case "audio-add":
-            if cmd.count > 1, let url = URL(string: cmd[1]) { player.addPlaybackSlave(url, type: .audio, enforce: false) }
+            if cmd.count > 1, let url = URL(string: cmd[1]) { _ = player.addPlaybackSlave(url, type: .audio, enforce: false) }
         case "seek":
             if cmd.count > 1 {
                 let s = VlcShell.num(cmd[1], 0)
@@ -186,7 +223,8 @@ final class VlcShell: NSObject {
         lengthMs = 0
         lastValues.removeAll()
         onLoad?()
-        let media = VLCMedia(url: url)
+        loadAt = Date()
+        guard let media = VLCMedia(url: url) else { return }
         // A shorter buffer than the TV app (8 s) so the picture starts sooner on a phone.
         media.addOption(":network-caching=3000")
         media.addOption(":file-caching=3000")
@@ -207,6 +245,7 @@ final class VlcShell: NSObject {
         stallTimer?.invalidate()
         stallTimer = nil
         if was {
+            if inPiP { pip.window?.stopPictureInPicture() }
             player.stop()
             onActiveChanged?(false)
         }
@@ -233,22 +272,21 @@ final class VlcShell: NSObject {
     // MARK: - VLC -> web UI
 
     private func stateChanged() {
+        pip.window?.invalidatePlaybackState()
         switch player.state {
-        case .opening, .buffering:
+        case .opening:
             if !started { setBuffering(true) }
         case .playing:
             onPlaying()
         case .paused:
             forward("pause", true)
-        case .ended:
-            ended(error: false)
+        case .stopped:
+            // The previous video stopping right after a new one loads is not the new one ending.
+            if Date().timeIntervalSince(loadAt) > 1.5 { ended(error: false) }
         case .error:
             ended(error: true)
         default:
-            if player.state.rawValue == 7 { // ESAdded: a track appeared
-                sendTracks()
-                sendSelection()
-            }
+            break
         }
     }
 
@@ -318,35 +356,35 @@ final class VlcShell: NSObject {
         signal?("mpv-event-ended", o)
     }
 
+    /// mpv numbers tracks from 1 within each type; VLCKit 4 lists them in arrays, so id = position + 1.
+    private static func selectedId(_ tracks: [VLCMediaPlayerTrack]) -> Any {
+        if let i = tracks.firstIndex(where: { $0.isSelected }) { return i + 1 }
+        return "no"
+    }
+
     private func sendSelection() {
-        let a = player.currentAudioTrackIndex
-        let s = player.currentVideoSubTitleIndex
-        let v = player.currentVideoTrackIndex
-        forward("aid", a >= 0 ? Int(a) as Any : "no")
-        forward("sid", s >= 0 ? Int(s) as Any : "no")
-        forward("vid", v >= 0 ? Int(v) as Any : "no")
+        forward("aid", VlcShell.selectedId(player.audioTracks))
+        forward("sid", VlcShell.selectedId(player.textTracks))
+        forward("vid", VlcShell.selectedId(player.videoTracks))
     }
 
     private func sendTracks() {
         var out: [[String: Any]] = []
-        func add(_ type: String, ids: [Any]?, names: [Any]?, selected: Int32) {
-            guard let ids = ids else { return }
-            for (i, raw) in ids.enumerated() {
-                guard let id = (raw as? NSNumber)?.int32Value, id >= 0 else { continue }
-                var t: [String: Any] = ["id": Int(id), "type": type, "external": false, "selected": id == selected]
-                if let names = names, i < names.count, let n = names[i] as? String, !n.isEmpty {
-                    t["title"] = n
-                    // VLC names look like "Track 1 - [English]"; pass the language on too.
-                    if let open = n.lastIndex(of: "["), let close = n.lastIndex(of: "]"), open < close {
-                        t["lang"] = String(n[n.index(after: open)..<close])
-                    }
+        func add(_ type: String, _ tracks: [VLCMediaPlayerTrack]) {
+            for (i, tr) in tracks.enumerated() {
+                var t: [String: Any] = ["id": i + 1, "type": type, "external": false, "selected": tr.isSelected]
+                if !tr.trackName.isEmpty { t["title"] = tr.trackName }
+                if let l = tr.language, !l.isEmpty {
+                    t["lang"] = l
+                } else if let open = tr.trackName.lastIndex(of: "["), let close = tr.trackName.lastIndex(of: "]"), open < close {
+                    t["lang"] = String(tr.trackName[tr.trackName.index(after: open)..<close])
                 }
                 out.append(t)
             }
         }
-        add("video", ids: player.videoTrackIndexes, names: player.videoTrackNames, selected: player.currentVideoTrackIndex)
-        add("audio", ids: player.audioTrackIndexes, names: player.audioTrackNames, selected: player.currentAudioTrackIndex)
-        add("sub", ids: player.videoSubTitlesIndexes, names: player.videoSubTitlesNames, selected: player.currentVideoSubTitleIndex)
+        add("video", player.videoTracks)
+        add("audio", player.audioTracks)
+        add("sub", player.textTracks)
         forward("track-list", out)
     }
 
@@ -355,4 +393,51 @@ final class VlcShell: NSObject {
         guard observed.contains(name) else { return }
         signal?("mpv-prop-change", ["name": name, "data": data])
     }
+}
+
+/// What VLC draws into, and the bridge to iOS picture-in-picture (VLCKit 4).
+final class PiPBridge: NSObject, VLCDrawable, VLCPictureInPictureDrawable, VLCPictureInPictureMediaControlling {
+    weak var view: UIView?
+    weak var player: VLCMediaPlayer?
+    var window: VLCPictureInPictureWindowControlling?
+    var onPause: ((Bool) -> Void)?
+    var onState: ((Bool) -> Void)?
+
+    // VLCDrawable: VLC adds its video view here.
+    func addSubview(_ v: UIView) {
+        guard let host = view else { return }
+        v.frame = host.bounds
+        v.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        host.addSubview(v)
+    }
+
+    func bounds() -> CGRect { view?.bounds ?? .zero }
+
+    // VLCPictureInPictureDrawable
+    func mediaController() -> VLCPictureInPictureMediaControlling { self }
+
+    func pictureInPictureReady() -> ((VLCPictureInPictureWindowControlling) -> Void) {
+        return { [weak self] w in
+            self?.window = w
+            w.stateChangeEventHandler = { started in
+                DispatchQueue.main.async { self?.onState?(started) }
+            }
+        }
+    }
+
+    // VLCPictureInPictureMediaControlling: the mini player's own buttons.
+    func play() { DispatchQueue.main.async { self.onPause?(false) } }
+    func pause() { DispatchQueue.main.async { self.onPause?(true) } }
+
+    func seek(by offset: Int64, completion: @escaping () -> Void) {
+        guard let p = player else { completion(); return }
+        let t = Int64(p.time.intValue) + offset
+        p.time = VLCTime(int: Int32(max(0, t)))
+        completion()
+    }
+
+    func mediaLength() -> Int64 { Int64(player?.media?.length.intValue ?? 0) }
+    func mediaTime() -> Int64 { Int64(player?.time.intValue ?? 0) }
+    func isMediaSeekable() -> Bool { player?.isSeekable ?? false }
+    func isMediaPlaying() -> Bool { player?.isPlaying ?? false }
 }
