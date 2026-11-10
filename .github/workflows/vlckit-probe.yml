@@ -15,4 +15,6 @@ jobs:
           unzip -q vk.zip -d vk
           H=$(find vk -path "*ios-arm64/VLCKit.framework/Headers" -type d | head -1)
           echo "HEADERS: $H"; ls $H
-          for f in $H/VLCDrawable.h $H/VLCMediaPlayer.h $H/VLCMediaPlayerTrack.h $H/VLCMedia.h; do echo "=== $f"; grep -vE '^\s*(//|\*|/\*)' "$f" | grep -v '^\s*$'; done
+          cd $H
+          grep -l "VLCMediaPlayerTrack" *.h
+          for f in VLCMedia.h VLCTime.h VLCAudio.h; do echo "=== $f"; grep -vE '^\s*(//|\*|/\*)' "$f" | grep -v '^\s*$' || true; done
