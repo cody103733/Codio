@@ -1,0 +1,18 @@
+name: Probe VLCKit 4 headers
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/vlckit-probe.yml]
+
+jobs:
+  probe:
+    runs-on: macos-15
+    steps:
+      - name: Download VLCKit 4 and print its headers
+        run: |
+          curl -sL -o vk.zip https://download.videolan.org/cocoapods/unstable/VLCKit-4.0-20261109-1916.zip
+          unzip -q vk.zip -d vk
+          H=$(find vk -path "*ios-arm64/VLCKit.framework/Headers" -type d | head -1)
+          echo "HEADERS: $H"; ls $H
+          for f in $H/VLCDrawable.h $H/VLCMediaPlayer.h $H/VLCMediaPlayerTrack.h $H/VLCMedia.h; do echo "=== $f"; grep -vE '^\s*(//|\*|/\*)' "$f" | grep -v '^\s*$'; done
