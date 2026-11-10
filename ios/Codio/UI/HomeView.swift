@@ -60,7 +60,7 @@ struct HomeView: View {
     private var backdrop: some View {
         ZStack {
             if let f = featured {
-                RemoteImage(url: f.poster ?? f.background).blur(radius: 60).opacity(0.75)
+                Color.clear.overlay(RemoteImage(url: f.poster ?? f.background).blur(radius: 60).opacity(0.75))
             }
             LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
         }

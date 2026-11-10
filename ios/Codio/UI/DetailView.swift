@@ -86,9 +86,11 @@ struct DetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomLeading) {
-                RemoteImage(url: meta.background ?? meta.poster)
+                // The picture fills a fixed box; on its own a .fill image widens the page past the screen.
+                Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: 290)
+                    .overlay(RemoteImage(url: meta.background ?? meta.poster))
                     .clipped()
                 LinearGradient(colors: [.black.opacity(0.55), .clear, .clear, .black], startPoint: .top, endPoint: .bottom)
                 if let logo = meta.logo {

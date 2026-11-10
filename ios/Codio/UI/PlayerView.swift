@@ -8,7 +8,7 @@ struct LoadingView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if let m = engine.playMeta {
-                RemoteImage(url: m.background ?? m.poster).ignoresSafeArea().opacity(0.35).blur(radius: 2)
+                Color.clear.overlay(RemoteImage(url: m.background ?? m.poster).opacity(0.35).blur(radius: 2)).clipped().ignoresSafeArea()
             }
             VStack(spacing: 18) {
                 if let m = engine.playMeta, !m.name.isEmpty {
