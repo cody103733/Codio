@@ -23,7 +23,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 26) {
                 header
                 UpdateBanner()
-                if let f = featured { FeaturedCard(meta: f).padding(.horizontal, 22) } else { Color.clear.frame(height: 420) }
+                if let f = featured { FeaturedCard(meta: f, rank: filled.first.map { "#1 in " + typeLabel($0.catalog.type) + " Today" }).padding(.horizontal, 22) } else { Color.clear.frame(height: 420) }
                 if !store.continueWatching.isEmpty {
                     ContinueRow(items: store.continueWatching)
                 }
@@ -35,7 +35,7 @@ struct HomeView: View {
                     }
                 }
                 if rows.isEmpty || (filled.isEmpty && loading) {
-                    HStack { Spacer(); ProgressView().tint(.white); Spacer() }.padding(.top, 20)
+                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 20)
                 }
             }
             .padding(.bottom, 30)
@@ -124,11 +124,12 @@ struct Pill: View {
     }
 }
 
-/// The big rounded featured card with Play and My List.
+/// The big rounded featured card with Play and Library.
 private struct FeaturedCard: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
     @ObservedObject var meta: Meta
+    var rank: String?
 
     private var playLabel: some View {
         Label("Play", systemImage: "play.fill").font(.headline).foregroundColor(.black)
@@ -150,6 +151,12 @@ private struct FeaturedCard: View {
                 if let logo = meta.logo {
                     RemoteImage(url: logo, contentMode: .fit).frame(maxWidth: 220, maxHeight: 70)
                 }
+                if let r = rank {
+                    HStack(spacing: 6) {
+                        Top10Badge()
+                        Text(r).font(.subheadline.weight(.bold)).foregroundColor(.white)
+                    }
+                }
                 if !meta.genres.isEmpty {
                     Text(meta.genres.prefix(3).joined(separator: " • ")).font(.footnote.weight(.medium)).foregroundColor(.white)
                 }
@@ -163,9 +170,9 @@ private struct FeaturedCard: View {
                         let inLib = store.inLibrary(meta.id)
                         if inLib { engine.ctx("RemoveFromLibrary", meta.id) } else { engine.ctx("AddToLibrary", Store.preview(meta)) }
                         store.markInLibrary(meta, !inLib)
-                        engine.show(toast: inLib ? "Removed from My List" : "Added to My List")
+                        engine.show(toast: inLib ? "Removed from Library" : "Added to Library")
                     } label: {
-                        Label("My List", systemImage: store.inLibrary(meta.id) ? "checkmark" : "plus").font(.headline).foregroundColor(.white)
+                        Label("Library", systemImage: store.inLibrary(meta.id) ? "checkmark" : "plus").font(.headline).foregroundColor(.white)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                             .background(RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.25).opacity(0.9)))
                     }
@@ -255,6 +262,7 @@ private struct TopTenRow: View {
                                     .shadow(color: Color(white: 0.75), radius: 0, x: -1.5, y: 1.5)
                                     .offset(y: 22)
                                 PosterCard(meta: m, width: 100)
+                                    .overlay(alignment: .topTrailing) { Top10Badge(small: true) }
                             }
                         }
                         .buttonStyle(.plain)
@@ -263,5 +271,19 @@ private struct TopTenRow: View {
                 .padding(.horizontal, 16)
             }
         }
+    }
+}
+
+/// Netflix's little red TOP 10 square.
+struct Top10Badge: View {
+    var small = false
+    var body: some View {
+        VStack(spacing: -2) {
+            Text("TOP").font(.system(size: small ? 6 : 8, weight: .heavy))
+            Text("10").font(.system(size: small ? 11 : 15, weight: .black))
+        }
+        .foregroundColor(.white)
+        .frame(width: small ? 18 : 26, height: small ? 22 : 30)
+        .background(Rectangle().fill(Theme.red))
     }
 }

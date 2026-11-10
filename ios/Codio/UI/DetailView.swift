@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A movie or show: backdrop, Play / Resume, My List, sources, episodes.
+/// A movie or show: backdrop, Play / Resume, Library, sources, episodes.
 struct DetailView: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
@@ -100,7 +100,7 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     BrandWordmark(height: 14)
-                    Text(isSeries ? "SERIES" : "FILM").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.dim)
+                    Text(isSeries ? "SERIES" : "FILM").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.red)
                 }
                 Text(meta.name).font(.title2.bold()).foregroundColor(.white)
                 if !meta.metaLine.isEmpty {
@@ -111,14 +111,14 @@ struct DetailView: View {
         }
     }
 
-    /// My List and Sources as Netflix's small icon buttons under the description.
+    /// Library and Sources as Netflix's small icon buttons under the description.
     private var actionIcons: some View {
         HStack(spacing: 34) {
-            iconButton(store.inLibrary(meta.id) ? "checkmark" : "plus", "My List") {
+            iconButton(store.inLibrary(meta.id) ? "checkmark" : "plus", "Library") {
                 let inLib = store.inLibrary(meta.id)
                 if inLib { engine.ctx("RemoveFromLibrary", meta.id) } else { engine.ctx("AddToLibrary", Store.preview(meta)) }
                 store.markInLibrary(meta, !inLib)
-                engine.show(toast: inLib ? "Removed from My List" : "Added to My List")
+                engine.show(toast: inLib ? "Removed from Library" : "Added to Library")
             }
             iconButton("list.bullet", "Sources") {
                 engine.sourcesRequest = Engine.SourcesRequest(meta: meta, videoId: playTarget)
@@ -304,7 +304,7 @@ private struct EpisodeRow: View {
             episodeButton
             Button(action: download) {
                 Group {
-                    if finding { ProgressView().tint(.white) } else { DownloadBadge(entry: entry) }
+                    if finding { ProgressView().tint(Theme.red) } else { DownloadBadge(entry: entry) }
                 }
                 .frame(width: 40, height: 73)
                 .contentShape(Rectangle())

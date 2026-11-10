@@ -9,6 +9,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Netflix red on the segmented pickers (Library, Search).
+        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(red: 0.898, green: 0.035, blue: 0.078, alpha: 1)
+        UISegmentedControl.appearance().setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
         // Sound plays even with the silent switch on, like any video app.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)

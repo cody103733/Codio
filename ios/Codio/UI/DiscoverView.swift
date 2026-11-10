@@ -45,7 +45,7 @@ struct DiscoverView: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                if loading { HStack { Spacer(); ProgressView().tint(.white); Spacer() }.padding() }
+                if loading { HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding() }
             }
             .padding(.vertical, 10)
         }

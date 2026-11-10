@@ -21,7 +21,7 @@ struct SearchView: View {
                     .padding(.horizontal, 16)
                     PosterGrid(items: browse)
                 } else if searching && results.isEmpty {
-                    HStack { Spacer(); ProgressView().tint(.white); Spacer() }.padding(.top, 40)
+                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
                 } else if results.isEmpty {
                     Text("Nothing found for \u{201C}\(query)\u{201D}").foregroundColor(Theme.dim).frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
@@ -88,9 +88,9 @@ struct LibraryView: View {
                 if type == "downloads" {
                     DownloadsListView()
                 } else if !store.profileLoaded {
-                    HStack { Spacer(); ProgressView().tint(.white); Spacer() }.padding(.top, 40)
+                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
                 } else if items.isEmpty {
-                    Text("Titles you add to My List show up here.")
+                    Text("Titles you add to your Library show up here.")
                         .foregroundColor(Theme.dim).frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
                     PosterGrid(items: items, showProgress: true)
@@ -99,6 +99,6 @@ struct LibraryView: View {
             .padding(.vertical, 10)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("My List")
+        .navigationTitle("Library")
     }
 }

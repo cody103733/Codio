@@ -13,11 +13,11 @@ struct RootView: View {
                     NavigationStack { SearchView().withDetail() }
                         .tabItem { Label("Search", systemImage: "magnifyingglass") }.tag(1)
                     NavigationStack { LibraryView().withDetail() }
-                        .tabItem { Label("My List", systemImage: "rectangle.stack.fill") }.tag(2)
+                        .tabItem { Label("Library", systemImage: "rectangle.stack.fill") }.tag(2)
                     NavigationStack { SettingsView().blackTabBar() }
                         .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(3)
                 }
-                .tint(.white)
+                .tint(Theme.red)
                 .transition(.opacity)
             }
             if engine.overlay == .loading {

@@ -16,7 +16,7 @@ struct LoadingView: View {
                 } else {
                     BrandWordmark(height: 32)
                 }
-                ProgressView().tint(.white).scaleEffect(1.3)
+                ProgressView().tint(Theme.red).scaleEffect(1.3)
                 Text(engine.loadingText).font(.subheadline).foregroundColor(Color(white: 0.85)).multilineTextAlignment(.center)
                 Button("Cancel") { engine.cancelPlay() }
                     .font(.headline).foregroundColor(.white)
@@ -65,7 +65,7 @@ struct PlayerView: View {
                 }
                 .ignoresSafeArea()
                 if st.buffering && st.error == nil {
-                    ProgressView().tint(.white).scaleEffect(1.5).allowsHitTesting(false)
+                    ProgressView().tint(Theme.red).scaleEffect(1.5).allowsHitTesting(false)
                 }
                 if let e = st.error {
                     Text(e + "\nTrying the next source…").multilineTextAlignment(.center).foregroundColor(.white)
@@ -301,14 +301,14 @@ struct SourcesView: View {
                         .listRowBackground(Color(white: 0.1))
                     }
                     if s.loading {
-                        HStack { ProgressView().tint(.white); Text("Still asking your addons…").foregroundColor(Theme.dim) }
+                        HStack { ProgressView().tint(Theme.red); Text("Still asking your addons…").foregroundColor(Theme.dim) }
                             .listRowBackground(Color(white: 0.1))
                     } else if s.list.isEmpty {
                         Text("No playable sources (Codio only plays debrid and direct links).").foregroundColor(Theme.dim)
                             .listRowBackground(Color(white: 0.1))
                     }
                 } else {
-                    HStack { ProgressView().tint(.white); Text("Finding sources…").foregroundColor(Theme.dim) }
+                    HStack { ProgressView().tint(Theme.red); Text("Finding sources…").foregroundColor(Theme.dim) }
                         .listRowBackground(Color(white: 0.1))
                 }
             }

@@ -111,7 +111,7 @@ struct CastSheet: View {
                         .scrollContentBackground(.hidden)
                     }
                 } else {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(Theme.red)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
