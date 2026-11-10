@@ -54,38 +54,14 @@ struct PlayerView: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             let pos = dragging ? dragValue : st.position
             ZStack {
-                GeometryReader { g in
-                    Color.black.opacity(controls ? 0.45 : 0.001)
-                        .contentShape(Rectangle())
-                        .gesture(
-                            // Double-tap the left or right side: back or forward 10 seconds; one tap shows/hides controls.
-                            SpatialTapGesture(count: 2)
-                                .onEnded { v in seek(by: v.location.x < g.size.width / 2 ? -10 : 10) }
-                                .exclusively(before: TapGesture().onEnded { toggleControls() })
-                        )
-                        .gesture(
-                            DragGesture(minimumDistance: 24)
-                                .onChanged { v in
-                                    // Sideways: scrub through the video (a full swipe across = 3 minutes).
-                                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
-                                    if !dragging {
-                                        dragging = true
-                                        dragStart = st.position
-                                        withAnimation { controls = true }
-                                        hideTask?.cancel()
-                                    }
-                                    let span = 180.0 * Double(v.translation.width / max(g.size.width, 1))
-                                    dragValue = min(max(0, dragStart + span), max(st.duration, dragStart + span))
-                                }
-                                .onEnded { v in
-                                    if dragging {
-                                        dragging = false
-                                        seek(to: dragValue)
-                                    } else if v.translation.height > 120 {
-                                        engine.stopPlayer() // swipe down closes the player
-                                    }
-                                }
-                        )
+                // UIKit gestures: SwiftUI's taps on a see-through layer didn't fire on device.
+                ZStack {
+                    Color.black.opacity(controls ? 0.45 : 0).allowsHitTesting(false)
+                    TouchSurface(
+                        onTap: { toggleControls() },
+                        onDoubleTap: { left in seek(by: left ? -10 : 10) },
+                        onPan: { dx, dy, width, ended in pan(dx, dy, width, ended) }
+                    )
                 }
                 .ignoresSafeArea()
                 if st.buffering && st.error == nil {
@@ -267,6 +243,27 @@ struct PlayerView: View {
         engine.play(m, v.id)
     }
 
+    /// Sideways drag scrubs (a full swipe across = 3 minutes); a downward swipe closes the player.
+    private func pan(_ dx: CGFloat, _ dy: CGFloat, _ width: CGFloat, _ ended: Bool) {
+        if !dragging, !ended, abs(dx) > 24, abs(dx) > abs(dy) {
+            dragging = true
+            dragStart = st.position
+            withAnimation { controls = true }
+            hideTask?.cancel()
+        }
+        if dragging {
+            let span = 180.0 * Double(dx / max(width, 1))
+            dragValue = min(max(0, dragStart + span), max(st.duration, dragStart + span))
+            if ended {
+                dragging = false
+                seek(to: dragValue)
+                scheduleHide()
+            }
+        } else if ended, dy > 120, dy > abs(dx) {
+            engine.stopPlayer()
+        }
+    }
+
     private func toggleControls() {
         withAnimation(.easeOut(duration: 0.15)) { controls.toggle() }
         if controls { scheduleHide() }
@@ -346,5 +343,51 @@ struct SourcesView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// A clear UIKit view that catches taps, double taps and drags over the video.
+private struct TouchSurface: UIViewRepresentable {
+    var onTap: () -> Void
+    var onDoubleTap: (_ leftSide: Bool) -> Void
+    var onPan: (_ dx: CGFloat, _ dy: CGFloat, _ width: CGFloat, _ ended: Bool) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.backgroundColor = .clear
+        v.isUserInteractionEnabled = true
+        let c = context.coordinator
+        let double = UITapGestureRecognizer(target: c, action: #selector(Coordinator.double(_:)))
+        double.numberOfTapsRequired = 2
+        let single = UITapGestureRecognizer(target: c, action: #selector(Coordinator.single(_:)))
+        single.require(toFail: double)
+        let pan = UIPanGestureRecognizer(target: c, action: #selector(Coordinator.pan(_:)))
+        v.addGestureRecognizer(double)
+        v.addGestureRecognizer(single)
+        v.addGestureRecognizer(pan)
+        return v
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) { context.coordinator.parent = self }
+
+    final class Coordinator: NSObject {
+        var parent: TouchSurface
+        init(_ p: TouchSurface) { parent = p }
+
+        @objc func single(_ g: UITapGestureRecognizer) { parent.onTap() }
+
+        @objc func double(_ g: UITapGestureRecognizer) {
+            guard let v = g.view else { return }
+            parent.onDoubleTap(g.location(in: v).x < v.bounds.width / 2)
+        }
+
+        @objc func pan(_ g: UIPanGestureRecognizer) {
+            guard let v = g.view else { return }
+            let t = g.translation(in: v)
+            let ended = g.state == .ended || g.state == .cancelled || g.state == .failed
+            parent.onPan(t.x, t.y, v.bounds.width, ended)
+        }
     }
 }

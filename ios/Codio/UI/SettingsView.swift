@@ -84,6 +84,19 @@ struct SettingsView: View {
                 Text(TMDB.key == nil ? "Paste a free key from themoviedb.org to see actor photos on title pages and in the player."
                      : "Actor photos come from TMDB.")
             }
+            Section {
+                Button("Check for updates") {
+                    Task {
+                        Updater.shared.dismissed = false
+                        await Updater.shared.forceCheck()
+                        if Updater.shared.available != nil { Updater.shared.install() } else { engine.show(toast: "Codio is up to date") }
+                    }
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("New versions install through SideStore and keep your data.")
+            }
             Section("Account") {
                 if let e = store.signedInEmail {
                     Text(e).foregroundColor(.white)

@@ -22,6 +22,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 header
+                UpdateBanner()
                 if let f = featured { FeaturedCard(meta: f).padding(.horizontal, 22) } else { Color.clear.frame(height: 420) }
                 if !store.continueWatching.isEmpty {
                     ContinueRow(items: store.continueWatching)
@@ -43,6 +44,7 @@ struct HomeView: View {
         .background(Color.black.ignoresSafeArea())
         .navigationBarHidden(true)
         .task(id: store.generation) { await load() }
+        .task { await Updater.shared.check() }
         .refreshable {
             loadedFor = -1
             await load()

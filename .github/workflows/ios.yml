@@ -31,6 +31,7 @@ jobs:
           xcodebuild -workspace Codio.xcworkspace -scheme Codio -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             build > build.log 2>&1 || true
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
           echo "--- warnings in Codio's own code ---"
@@ -68,3 +69,10 @@ jobs:
           name: Codio for iPhone ${{ env.VERSION }} (build ${{ github.run_number }})
           files: ios/Codio-*.ipa
           body: Unsigned build. Install it with SideStore (+ button) using your spare Apple ID.
+
+      - name: Publish to codio-releases (SideStore updates), when the RELEASES_TOKEN secret is set
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No RELEASES_TOKEN secret; skipping."; exit 0; fi
+          ios/publish-release.sh ios/Codio-$VERSION.ipa "$VERSION" "${{ github.run_number }}"
