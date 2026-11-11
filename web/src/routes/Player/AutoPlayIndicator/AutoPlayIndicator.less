@@ -1,0 +1,83 @@
+.next-button.compact {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--border-radius);
+    background-color: var(--modal-background-color);
+    color: var(--primary-foreground-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.85;
+
+    .icon {
+        width: 1rem;
+        height: 1rem;
+        color: var(--primary-foreground-color);
+    }
+
+    &:hover {
+        opacity: 1;
+        background-color: var(--primary-accent-color);
+    }
+}
+
+.auto-play-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: 26rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--border-radius);
+    background-color: var(--modal-background-color);
+    backdrop-filter: blur(15px);
+    color: var(--primary-foreground-color);
+
+    .info {
+        flex: 1 1 auto;
+        min-width: 0;
+
+        .heading {
+            font-size: 0.85rem;
+            font-weight: 600;
+
+            .quality {
+                margin-left: 0.5rem;
+                padding: 0.1rem 0.4rem;
+                border-radius: 0.3rem;
+                background-color: var(--primary-accent-color);
+                font-size: 0.75rem;
+            }
+        }
+
+        .label {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .next-button {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: var(--border-radius);
+        background-color: var(--overlay-color);
+        font-size: 0.85rem;
+        font-weight: 500;
+
+        .icon {
+            width: 1rem;
+            height: 1rem;
+            color: var(--primary-foreground-color);
+        }
+
+        &:hover {
+            background-color: var(--primary-accent-color);
+        }
+    }
+}

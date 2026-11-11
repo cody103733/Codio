@@ -1,0 +1,42 @@
+diff --git a/src/withStreamingServer/withStreamingServer.js b/src/withStreamingServer/withStreamingServer.js
+index 4b023ea00d7f915c5b0d769a44ca5eb28e466633..52838fd57449ba6eb21e5ed512fece28769ffe26 100644
+--- a/src/withStreamingServer/withStreamingServer.js
++++ b/src/withStreamingServer/withStreamingServer.js
+@@ -31,6 +31,10 @@ var FONT_MIME_TYPES = [
+ 
+ function withStreamingServer(Video) {
+     function prepareSubtitleTrack(track, streamingServerURL) {
++        // Stremio AutoPlay fork: without a streaming server, pass subtitles through unchanged.
++        if (typeof streamingServerURL !== 'string') {
++            return track;
++        }
+         return Object.assign({}, track, {
+             fallbackUrl: track.url,
+             url: typeof track.url === 'string' ?
+@@ -450,6 +454,26 @@ function withStreamingServer(Video) {
+                                     streamingServerURL: commandArgs.streamingServerURL
+                                 }));
+                             });
++                    } else if (commandArgs && commandArgs.stream && typeof commandArgs.stream.url === 'string' && /^https?:\/\//i.test(commandArgs.stream.url)) {
++                        // Stremio AutoPlay fork: the streaming server is not reachable, but this is a
++                        // plain HTTP(S) stream (e.g. debrid / HTTP addons), so hand it straight to the player.
++                        command('unload');
++                        video.dispatch({ type: 'command', commandName: 'unload' });
++                        loadArgs = commandArgs;
++                        onPropChanged('stream');
++                        video.dispatch({
++                            type: 'command',
++                            commandName: 'load',
++                            commandArgs: Object.assign({}, commandArgs, {
++                                stream: {
++                                    url: commandArgs.stream.url,
++                                    subtitles: Array.isArray(commandArgs.stream.subtitles) ? commandArgs.stream.subtitles : [],
++                                    behaviorHints: commandArgs.stream.behaviorHints
++                                }
++                            })
++                        });
++                        loaded = true;
++                        flushActionsQueue();
+                     } else {
+                         onError(Object.assign({}, ERROR.UNSUPPORTED_STREAM, {
+                             critical: true,

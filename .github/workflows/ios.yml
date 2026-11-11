@@ -3,6 +3,7 @@ name: Build Codio for iPhone
 on:
   push:
     branches: [main]
+    paths: ['ios/**', 'web/**', '.github/workflows/ios.yml']
   workflow_dispatch:
 
 permissions:
@@ -70,11 +71,10 @@ jobs:
           tag_name: ios-v${{ env.VERSION }}-build${{ github.run_number }}
           name: Codio for iPhone ${{ env.VERSION }} (build ${{ github.run_number }})
           files: ios/Codio-*.ipa
-          body: Unsigned build. Install it with SideStore (+ button) using your spare Apple ID.
+          body: Unofficial personal build, provided as is. Unsigned; SideStore signs it on the device. Source is this repository at this tag (GPL-2.0).
 
-      - name: Publish to codio-releases (SideStore updates), when the RELEASES_TOKEN secret is set
+      - name: Update the SideStore source (apps.json in this repo)
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then echo "No RELEASES_TOKEN secret; skipping."; exit 0; fi
           ios/publish-release.sh ios/Codio-$VERSION.ipa "$VERSION" "${{ github.run_number }}"
