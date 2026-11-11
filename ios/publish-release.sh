@@ -1,5 +1,5 @@
 #!/bin/bash
-# Publish an iPhone build as a Release of this repo and update the SideStore source (apps.json in this repo).
+# Publish an iPhone build as a Release of this repo and update the app's update list (apps.json in this repo).
 # Usage: GH_TOKEN=... ios/publish-release.sh <ipa> <version> <build>
 set -euo pipefail
 IPA=$1; VER=$2; BUILD=$3
@@ -9,7 +9,7 @@ NAME="Codio-$VER.ipa"
 cp "$IPA" "/tmp/$NAME"
 gh release view "$TAG" -R $R >/dev/null 2>&1 || \
   gh release create "$TAG" -R $R --title "Codio for iPhone $VER (build $BUILD)" \
-    --notes "Install or update with SideStore. Source link: https://raw.githubusercontent.com/$R/main/apps.json" "/tmp/$NAME"
+    --notes "Unofficial personal build, provided as is, not for general use. Unsigned. Source is this repository at this tag (GPL-2.0)." "/tmp/$NAME"
 URL="https://github.com/$R/releases/download/$TAG/$NAME"
 SIZE=$(wc -c < "/tmp/$NAME" | tr -d ' ')
 SHA=$(gh api "repos/$R/contents/apps.json" --jq .sha 2>/dev/null || true)
@@ -44,7 +44,7 @@ src["apps"] = [app]
 src.setdefault("news", [])
 json.dump(src, open("/tmp/apps.json", "w"), indent=2)
 PY
-ARGS=(-X PUT "repos/$R/contents/apps.json" -f message="SideStore source: Codio $VER (build $BUILD) [skip ci]" -f content="$(base64 < /tmp/apps.json | tr -d '\n')")
+ARGS=(-X PUT "repos/$R/contents/apps.json" -f message="Update list: Codio $VER (build $BUILD) [skip ci]" -f content="$(base64 < /tmp/apps.json | tr -d '\n')")
 [ -n "$SHA" ] && ARGS+=(-f sha="$SHA")
 gh api "${ARGS[@]}" >/dev/null
 echo "published $URL"
