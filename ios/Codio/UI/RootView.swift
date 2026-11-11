@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var engine: Engine
     @State private var tab = 0
+    @ObservedObject private var profiles = Profiles.shared
 
     var body: some View {
         ZStack {
@@ -25,6 +26,9 @@ struct RootView: View {
             }
             if engine.overlay == .player {
                 PlayerView().environmentObject(engine.playerState)
+            }
+            if profiles.showPicker, engine.overlay == .none {
+                ProfilePicker().transition(.opacity).zIndex(2)
             }
             if engine.overlay == .none, let m = engine.askRating {
                 ZStack(alignment: .bottom) {

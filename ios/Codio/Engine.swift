@@ -77,6 +77,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         shell.onActiveChanged = { playing in UIApplication.shared.isIdleTimerDisabled = playing }
         shell.onLoad = { [weak self] in self?.playerState.reset(); self?.watchedFrac = 0 }
         Downloads.shared.engine = self
+        Profiles.shared.engine = self
     }
 
     private static func shimSource() -> String {
@@ -133,6 +134,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
             self.js("window.__codioNativeStorage ? window.__codioNativeStorage() : null") { [weak self] value in
                 guard let self = self, let s = value as? String, let o = parseJSON(s) as? JSON else { return }
                 self.store.update(storage: o)
+                Profiles.shared.profileChanged()
             }
         }
     }

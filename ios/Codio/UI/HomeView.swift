@@ -13,6 +13,7 @@ struct HomeView: View {
     @EnvironmentObject var store: Store
     @ObservedObject private var recommender = Recommender.shared
     @ObservedObject private var ratings = Ratings.shared
+    @ObservedObject private var profiles = Profiles.shared
     @State private var rows: [HomeRow] = []
     @State private var loadedFor = -1
     @State private var loading = false
@@ -83,6 +84,10 @@ struct HomeView: View {
             HStack {
                 BrandWordmark(height: 26)
                 Spacer()
+                if let p = profiles.current {
+                    Button { profiles.showPicker = true } label: { ProfileAvatar(profile: p, size: 30) }
+                        .buttonStyle(.plain)
+                }
             }
             HStack(spacing: 8) {
                 NavigationLink(value: DiscoverTarget(type: "series")) { Pill(text: "Shows") }

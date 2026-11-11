@@ -16,11 +16,28 @@ final class Ratings: ObservableObject {
     @Published private(set) var all: [String: Rated] = [:]
     /// Titles we already asked "How was it?" about, so we only ask once.
     private var asked: Set<String> = []
-    private let key = "ratings_v1"
+    private var key = "ratings_v1"
+    private var loadedFor: String?
 
     init() {
         if let d = UserDefaults.standard.data(forKey: key), let r = try? JSONDecoder().decode([String: Rated].self, from: d) { all = r }
         asked = Set(UserDefaults.standard.stringArray(forKey: "ratings_asked") ?? [])
+    }
+
+    /// Each profile has its own ratings. The first account keeps the ratings made before profiles existed.
+    func load(for email: String) {
+        let e = email.lowercased()
+        guard loadedFor != e else { return }
+        loadedFor = e
+        let k = "ratings_v1|" + e
+        if UserDefaults.standard.data(forKey: k) == nil, let old = UserDefaults.standard.data(forKey: "ratings_v1"),
+           !UserDefaults.standard.bool(forKey: "ratings_migrated") {
+            UserDefaults.standard.set(old, forKey: k)
+            UserDefaults.standard.set(true, forKey: "ratings_migrated")
+        }
+        key = k
+        all = UserDefaults.standard.data(forKey: k).flatMap { try? JSONDecoder().decode([String: Rated].self, from: $0) } ?? [:]
+        Recommender.shared.reset()
     }
 
     func stars(_ id: String) -> Int { all[id]?.stars ?? 0 }
@@ -60,6 +77,12 @@ final class Recommender: ObservableObject {
     private var recs: [String: [JSON]] = [:]                // "tv:123" -> TMDB results
 
     func invalidate() { builtAt = nil }
+
+    /// A different profile: drop its rows straight away and rebuild.
+    func reset() {
+        builtAt = nil
+        rows = []
+    }
 
     private struct Seed {
         let imdb: String
