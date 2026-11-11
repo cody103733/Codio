@@ -54,10 +54,14 @@ struct HomeView: View {
             await recommender.refresh(store)
         }
         .refreshable {
-            recommender.invalidate()
-            await recommender.refresh(store)
-            loadedFor = -1
-            await load()
+            // SwiftUI cancels the pull-to-refresh task as soon as the list redraws, which used to abort
+            // the catalog downloads halfway (black featured poster, only a few rows). Run it detached.
+            await Task { @MainActor in
+                loadedFor = -1
+                await load()
+                recommender.invalidate()
+                await recommender.refresh(store)
+            }.value
         }
     }
 
@@ -104,7 +108,9 @@ struct HomeView: View {
         defer { loading = false }
         let gen = store.generation
         let cats = Array(store.homeCatalogs().prefix(20))
-        var out: [HomeRow] = cats.map { HomeRow(catalog: $0, items: []) }
+        // Keep what's on screen while the fresh lists load, so a refresh never blanks Home.
+        let old = Dictionary(rows.map { ($0.id, $0.items) }, uniquingKeysWith: { a, _ in a })
+        var out: [HomeRow] = cats.map { HomeRow(catalog: $0, items: old[$0.id] ?? []) }
         rows = out
         // A few catalogs at a time, top rows first.
         let st = store
@@ -119,7 +125,7 @@ struct HomeView: View {
                 for await x in group { r.append(x) }
                 return r
             }
-            for (i, metas) in got { out[i].items = metas }
+            for (i, metas) in got where !metas.isEmpty || out[i].items.isEmpty { out[i].items = metas }
             rows = out
         }
         loadedFor = gen
