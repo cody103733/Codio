@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class Updater: ObservableObject {
     static let shared = Updater()
-    static let source = "https://raw.githubusercontent.com/cody103733/codio-releases/main/apps.json"
+    static let source = "https://raw.githubusercontent.com/cody103733/Codio/main/apps.json"
 
     struct Available: Equatable {
         let version: String
@@ -41,7 +41,7 @@ final class Updater: ObservableObject {
         let enc = a.url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? a.url
         if let u = URL(string: "sidestore://install?url=" + enc) {
             UIApplication.shared.open(u) { ok in
-                if !ok, let page = URL(string: "https://github.com/cody103733/codio-releases/releases/latest") {
+                if !ok, let page = URL(string: "https://github.com/cody103733/Codio/releases/latest") {
                     UIApplication.shared.open(page)
                 }
             }

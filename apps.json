@@ -1,0 +1,23 @@
+{
+  "name": "Codio",
+  "identifier": "com.codio.source",
+  "sourceURL": "https://raw.githubusercontent.com/cody103733/Codio/main/apps.json",
+  "iconURL": "https://raw.githubusercontent.com/cody103733/Codio/main/icon.png",
+  "apps": [
+    {
+      "name": "Codio",
+      "bundleIdentifier": "com.codio.ios",
+      "developerName": "Cody",
+      "subtitle": "Personal, unofficial build. Not for general use.",
+      "localizedDescription": "A personal, unofficial fork of the Stremio web app (GPL-2.0), provided as is. Not affiliated with or endorsed by Stremio. Source: https://github.com/cody103733/Codio",
+      "iconURL": "https://raw.githubusercontent.com/cody103733/Codio/main/icon.png",
+      "tintColor": "#E50914",
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      },
+      "versions": []
+    }
+  ],
+  "news": []
+}

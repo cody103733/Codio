@@ -1,9 +1,9 @@
 #!/bin/bash
-# Publish an iPhone build to the public cody103733/codio-releases repo and update the SideStore source (apps.json).
+# Publish an iPhone build as a Release of this repo and update the SideStore source (apps.json in this repo).
 # Usage: GH_TOKEN=... ios/publish-release.sh <ipa> <version> <build>
 set -euo pipefail
 IPA=$1; VER=$2; BUILD=$3
-R=cody103733/codio-releases
+R=${GITHUB_REPOSITORY:-cody103733/Codio}
 TAG="ios-v$VER-build$BUILD"
 NAME="Codio-$VER.ipa"
 cp "$IPA" "/tmp/$NAME"
@@ -17,7 +17,8 @@ gh api "repos/$R/contents/apps.json" -H "Accept: application/vnd.github.raw" > /
 python3 - "$VER" "$BUILD" "$URL" "$SIZE" <<'PY'
 import json, sys, datetime
 ver, build, url, size = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
-R = "cody103733/codio-releases"
+import os
+R = os.environ.get("GITHUB_REPOSITORY", "cody103733/Codio")
 try: src = json.load(open("/tmp/apps.json"))
 except Exception: src = {}
 src.update({
@@ -43,7 +44,7 @@ src["apps"] = [app]
 src.setdefault("news", [])
 json.dump(src, open("/tmp/apps.json", "w"), indent=2)
 PY
-ARGS=(-X PUT "repos/$R/contents/apps.json" -f message="Codio $VER (build $BUILD)" -f content="$(base64 < /tmp/apps.json | tr -d '\n')")
+ARGS=(-X PUT "repos/$R/contents/apps.json" -f message="SideStore source: Codio $VER (build $BUILD) [skip ci]" -f content="$(base64 < /tmp/apps.json | tr -d '\n')")
 [ -n "$SHA" ] && ARGS+=(-f sha="$SHA")
 gh api "${ARGS[@]}" >/dev/null
 echo "published $URL"

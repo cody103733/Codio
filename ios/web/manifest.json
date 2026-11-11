@@ -6,7 +6,9 @@
     "theme_color": "#0e0e10",
     "orientation": "any",
     "display": "standalone",
-    "display_override": ["standalone"],
+    "display_override": [
+        "standalone"
+    ],
     "id": "./",
     "scope": "./",
     "start_url": "./",
@@ -63,22 +65,6 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "monochrome"
-        }
-    ],
-    "screenshots": [
-        {
-            "src": "screenshots/board_wide.webp",
-            "sizes": "1440x900",
-            "type": "image/webp",
-            "form_factor": "wide",
-            "label": "Homescreen of Stremio"
-        },
-        {
-            "src": "screenshots/board_narrow.webp",
-            "sizes": "414x896",
-            "type": "image/webp",
-            "form_factor": "narrow",
-            "label": "Homescreen of Stremio"
         }
     ]
 }

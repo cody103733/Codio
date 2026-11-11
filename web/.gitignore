@@ -1,0 +1,9 @@
+/node_modules
+/build
+/yarn.lock
+/npm-debug.log
+.DS_Store
+.prettierignore
+/dist
+
+/windows/installer/*.exe
