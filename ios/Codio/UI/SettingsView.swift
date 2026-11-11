@@ -26,6 +26,8 @@ struct SettingsView: View {
     @State private var password = ""
     @State private var addonLink = ""
     @State private var tmdbKey = UserDefaults.standard.string(forKey: "tmdb_key") ?? ""
+    @State private var keyStatus: KeyStatus = .empty
+    @State private var keyTask: Task<Void, Never>?
 
     private let langCodes = ["eng", "spa", "fre", "ger", "ita", "por", "nld", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"]
     private let langNames = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"]
@@ -76,15 +78,18 @@ struct SettingsView: View {
             }
             Section("Languages & subtitles") { ForEach(languages) { row($0) } }
             Section {
-                SecureField("TMDB API key", text: $tmdbKey)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .onSubmit { UserDefaults.standard.set(tmdbKey.trimmingCharacters(in: .whitespaces), forKey: "tmdb_key") }
-                    .onChange(of: tmdbKey) { v in UserDefaults.standard.set(v.trimmingCharacters(in: .whitespaces), forKey: "tmdb_key") }
+                HStack {
+                    SecureField("TMDB API key", text: $tmdbKey)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button("Paste") { if let v = UIPasteboard.general.string { tmdbKey = v } }
+                        .buttonStyle(.borderless)
+                }
+                .onChange(of: tmdbKey) { _ in scheduleKeyCheck() }
+                keyStatusRow
             } header: {
-                Text("Cast & actors")
+                Text("Cast, actors & Top Picks")
             } footer: {
-                Text(TMDB.key == nil ? "Paste a free key from themoviedb.org to see actor photos on title pages and in the player."
-                     : "Actor photos come from TMDB.")
+                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away.")
             }
             Section {
                 Button("Check for updates") {
@@ -122,6 +127,7 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Settings")
+        .onAppear { if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) } }
         .alert("Sign in", isPresented: $showSignIn) {
             TextField("Email", text: $email).textInputAutocapitalization(.never).keyboardType(.emailAddress)
             SecureField("Password", text: $password)
@@ -142,6 +148,71 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Paste the addon's link (it ends in manifest.json).")
+        }
+    }
+
+    // MARK: - TMDB key check
+
+    enum KeyStatus: Equatable { case empty, checking, ok, bad(String), offline }
+
+    @ViewBuilder private var keyStatusRow: some View {
+        switch keyStatus {
+        case .empty:
+            Label("No key yet", systemImage: "key").foregroundColor(Theme.dim)
+        case .checking:
+            HStack(spacing: 8) { ProgressView().tint(Theme.red); Text("Checking the key…").foregroundColor(Theme.dim) }
+        case .ok:
+            Label("Key works. Cast photos and Top Picks are on.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+        case .bad(let why):
+            Label(why, systemImage: "xmark.circle.fill").foregroundColor(Theme.red)
+        case .offline:
+            HStack {
+                Label("Couldn't reach TMDB to check it", systemImage: "wifi.exclamationmark").foregroundColor(.orange)
+                Spacer()
+                Button("Retry") { scheduleKeyCheck(now: true) }.buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private func scheduleKeyCheck(now: Bool = false) {
+        keyTask?.cancel()
+        let k = tmdbKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !k.isEmpty else {
+            UserDefaults.standard.removeObject(forKey: "tmdb_key")
+            keyStatus = .empty
+            return
+        }
+        keyStatus = .checking
+        keyTask = Task {
+            if !now { try? await Task.sleep(nanoseconds: 600_000_000) }
+            if Task.isCancelled { return }
+            let result = await SettingsView.checkKey(k)
+            if Task.isCancelled { return }
+            keyStatus = result
+            if result == .ok {
+                UserDefaults.standard.set(k, forKey: "tmdb_key")
+                Recommender.shared.invalidate()
+                await Recommender.shared.refresh(store)
+            } else if case .bad = result {
+                UserDefaults.standard.removeObject(forKey: "tmdb_key")
+            }
+        }
+    }
+
+    /// Asks TMDB with the key: 200 = good, 401 = wrong key.
+    static func checkKey(_ k: String) async -> KeyStatus {
+        if k.count > 60 { return .bad("That's the long Read Access Token. Paste the shorter API Key instead.") }
+        if k.count != 32 || !k.allSatisfy({ $0.isHexDigit }) { return .bad("That doesn't look like a TMDB API Key (32 letters and numbers).") }
+        guard let u = URL(string: "https://api.themoviedb.org/3/configuration?api_key=" + k) else { return .bad("Invalid key") }
+        do {
+            let (_, r) = try await URLSession.shared.data(from: u)
+            switch (r as? HTTPURLResponse)?.statusCode ?? 0 {
+            case 200: return .ok
+            case 401: return .bad("TMDB says this key isn't valid.")
+            default: return .offline
+            }
+        } catch {
+            return .offline
         }
     }
 
