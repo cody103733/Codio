@@ -30,6 +30,10 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     @Published var toast: String?
     @Published private(set) var playMeta: Meta?
     @Published private(set) var playVideo: String?
+    /// "How was it?" after a movie or a show's last episode.
+    @Published var askRating: Meta?
+    /// How far through the current video playback got (0...1).
+    private var watchedFrac = 0.0
 
     /// A web page (player, source search) is driving instead of the native screens.
     private var webShown = false
@@ -71,7 +75,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         shell = VlcShell(view: videoView)
         shell.signal = { [weak self] name, arg in self?.playerSignal(name, arg) }
         shell.onActiveChanged = { playing in UIApplication.shared.isIdleTimerDisabled = playing }
-        shell.onLoad = { [weak self] in self?.playerState.reset() }
+        shell.onLoad = { [weak self] in self?.playerState.reset(); self?.watchedFrac = 0 }
         Downloads.shared.engine = self
     }
 
@@ -191,6 +195,9 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         switch name {
         case "mpv-prop-change":
             if let n = jstr(o, "name"), let d = o["data"] { playerState.prop(n, d) }
+            if jstr(o, "name") == "time-pos", playerState.duration > 60 {
+                watchedFrac = max(watchedFrac, playerState.position / playerState.duration)
+            }
             if jstr(o, "name") == "time-pos", let t = o["data"] as? NSNumber, t.doubleValue > 0.3, playOverlay {
                 revealPlayer() // the picture is moving: take the loading screen away
             }
@@ -288,6 +295,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
             Downloads.shared.savePosition(id, position: playerState.position, duration: playerState.duration)
             offlinePlaying = nil
             shell.handle(method: "mpv-command", params: ["stop"])
+            maybeAskRating()
             overlay = .none
             Downloads.shared.pump()
             return
@@ -377,7 +385,16 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         js("window.__codioNativeGo && window.__codioNativeGo(\(jsQuote(route)))")
     }
 
+    /// Ask for stars once a movie, or a show's last episode, has been watched to the end.
+    private func maybeAskRating() {
+        defer { watchedFrac = 0 }
+        guard watchedFrac > 0.88, let m = playMeta, m.id.hasPrefix("tt"), Ratings.shared.shouldAsk(m.id) else { return }
+        if m.type == "series", let v = playVideo, m.video(v) != nil, m.next(after: v) != nil { return }
+        askRating = m
+    }
+
     private func showNative() {
+        maybeAskRating()
         webShown = false
         playOverlay = false
         prefetchRoute = nil

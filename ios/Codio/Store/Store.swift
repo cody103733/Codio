@@ -96,6 +96,7 @@ final class Store: ObservableObject {
             e.duration = jdouble(st, "duration") ?? 0
             e.videoId = jstr(st, "video_id")
             e.lastWatched = jstr(st, "lastWatched")
+            e.watched = (jint(st, "timesWatched") ?? 0) > 0 || (jint(st, "flaggedWatched") ?? 0) > 0
             lib[id] = e
             if e.offset > 0, !e.removed || e.temp, e.type != "other" {
                 meta.progress = e.duration > 0 ? min(1, e.offset / e.duration) : 0

@@ -8,6 +8,7 @@ struct DetailView: View {
     @State private var season: Int = 1
     @State private var loaded = false
     @ObservedObject private var dl = Downloads.shared
+    @ObservedObject private var ratings = Ratings.shared
     @State private var ask: DownloadAsk?
     @State private var askingFor: String?
     @State private var confirmDelete: Downloads.Entry?
@@ -55,6 +56,7 @@ struct DetailView: View {
                         Text("Genres: " + meta.genres.joined(separator: ", ")).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
                     }
                     actionIcons
+                    rating
                 }
                 .padding(.horizontal, 16)
                 CastRow(meta: meta)
@@ -111,6 +113,18 @@ struct DetailView: View {
             }
             .padding(.horizontal, 16)
         }
+    }
+
+    /// Your stars for this title (they feed Top Picks for You).
+    private var rating: some View {
+        HStack(spacing: 12) {
+            Text(ratings.stars(meta.id) > 0 ? "Your rating" : "Rate this").font(.caption).foregroundColor(Theme.dim)
+            StarRating(stars: ratings.stars(meta.id), size: 22) { s in
+                ratings.set(meta, s)
+                if s > 0 { engine.show(toast: "Rated \(s) star" + (s == 1 ? "" : "s")) }
+            }
+        }
+        .padding(.top, 10)
     }
 
     /// Library and Sources as Netflix's small icon buttons under the description.

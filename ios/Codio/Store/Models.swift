@@ -282,6 +282,8 @@ struct LibraryEntry {
     var mtime: String = ""
     var removed = false
     var temp = false
+    /// Stremio marks a title watched when it was finished or ticked off.
+    var watched = false
     var meta: Meta
 }
 

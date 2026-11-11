@@ -26,6 +26,13 @@ struct RootView: View {
             if engine.overlay == .player {
                 PlayerView().environmentObject(engine.playerState)
             }
+            if engine.overlay == .none, let m = engine.askRating {
+                ZStack(alignment: .bottom) {
+                    Color.black.opacity(0.5).ignoresSafeArea().onTapGesture { engine.askRating = nil }
+                    RateCard(meta: m).padding(.bottom, 70)
+                }
+                .transition(.opacity)
+            }
             if let t = engine.toast {
                 VStack { Spacer(); ToastView(text: t).padding(.bottom, 90) }
                     .allowsHitTesting(false)

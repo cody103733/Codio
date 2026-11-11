@@ -11,6 +11,8 @@ private struct HomeRow: Identifiable {
 struct HomeView: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
+    @ObservedObject private var recommender = Recommender.shared
+    @ObservedObject private var ratings = Ratings.shared
     @State private var rows: [HomeRow] = []
     @State private var loadedFor = -1
     @State private var loading = false
@@ -27,6 +29,7 @@ struct HomeView: View {
                 if !store.continueWatching.isEmpty {
                     ContinueRow(items: store.continueWatching)
                 }
+                ForEach(recommender.rows) { r in PosterRow(title: r.title, items: r.items) }
                 ForEach(Array(filled.enumerated()), id: \.element.id) { i, row in
                     if i == 0 {
                         TopTenRow(title: "Top 10 " + typeLabel(row.catalog.type) + " Today", items: Array(row.items.dropFirst().prefix(10)))
@@ -45,7 +48,13 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .task(id: store.generation) { await load() }
         .task { await Updater.shared.check() }
+        // Personal rows: rebuilt when ratings or the watch history change.
+        .task(id: "\(ratings.all.values.map { $0.stars }.reduce(0, +))|\(ratings.all.count)|\(store.library.count)|\(store.continueWatching.first?.id ?? "")") {
+            await recommender.refresh(store)
+        }
         .refreshable {
+            recommender.invalidate()
+            await recommender.refresh(store)
             loadedFor = -1
             await load()
         }
