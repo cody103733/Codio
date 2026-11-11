@@ -1,0 +1,30 @@
+name: Tidy release notes
+
+# Older iPhone releases had install instructions in their notes. This replaces those notes with the plain
+# description, after each iPhone build and whenever this file changes.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tidy-releases.yml']
+  workflow_run:
+    workflows: ['Build Codio for iPhone']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rewrite old release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          BODY="Unofficial personal build, provided as is, not for general use. Unsigned. Source is this repository at this tag (GPL-2.0)."
+          gh api "repos/$R/releases" --paginate --jq '.[] | select(.body | test("SideStore|Apple ID"; "i")) | .id' |
+          while read -r id; do
+            gh api -X PATCH "repos/$R/releases/$id" -f body="$BODY" --jq .tag_name
+          done

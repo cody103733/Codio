@@ -25,7 +25,7 @@ jobs:
           xcodegen generate
           pod install --repo-update
 
-      - name: Build (unsigned; SideStore signs it on the iPhone)
+      - name: Build (unsigned)
         working-directory: ios
         run: |
           set -o pipefail
@@ -71,9 +71,9 @@ jobs:
           tag_name: ios-v${{ env.VERSION }}-build${{ github.run_number }}
           name: Codio for iPhone ${{ env.VERSION }} (build ${{ github.run_number }})
           files: ios/Codio-*.ipa
-          body: Unofficial personal build, provided as is. Unsigned; SideStore signs it on the device. Source is this repository at this tag (GPL-2.0).
+          body: Unofficial personal build, provided as is, not for general use. Unsigned. Source is this repository at this tag (GPL-2.0).
 
-      - name: Update the SideStore source (apps.json in this repo)
+      - name: Update the app's update list (apps.json in this repo)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

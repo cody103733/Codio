@@ -18,6 +18,6 @@ Codio ships no content and no add-ons. It plays only http(s) sources from add-on
 - `ios/`: the iPhone app (native SwiftUI screens, VLCKit player). See [ios/README.md](ios/README.md).
 - `android/`: the Android TV and phone app. See [android/README.md](android/README.md).
 - `builds/` and `updates.json`: the Android builds and the list the apps check for updates.
-- `apps.json` and `icon.png`: the SideStore source used for iPhone updates.
+- `apps.json` and `icon.png`: the update list the iPhone app checks.
 
 iPhone builds are on the Releases page. The source of any build is this repository at the commit or tag that published it.
