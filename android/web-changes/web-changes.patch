@@ -1,0 +1,109 @@
+diff --git a/src/components/BrandLogo/BrandLogo.tsx b/src/components/BrandLogo/BrandLogo.tsx
+index 489738b..186b07c 100644
+--- a/src/components/BrandLogo/BrandLogo.tsx
++++ b/src/components/BrandLogo/BrandLogo.tsx
+@@ -1,7 +1,7 @@
+ // Codio logo: a "C" wrapped around a play button, plus the "codio" wordmark.
+ // Drawn with plain strokes so it looks the same everywhere (no font needed).
+ 
+-import React from 'react';
++import React, { useId } from 'react';
+ 
+ type Props = {
+     className?: string,
+@@ -17,18 +17,23 @@ const Gradient = ({ id }: { id: string }) => (
+     </defs>
+ );
+ 
+-const BrandLogo = ({ className, compact = false }: Props) => (
+-    compact ?
++// Each logo gets its own gradient id: with a shared id, a hidden copy of the logo elsewhere on the
++// page can "own" the gradient and the C disappears from the visible one.
++const BrandLogo = ({ className, compact = false }: Props) => {
++    const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
++    const markId = `codio-mark-gradient-${uid}`;
++    const wordId = `codio-word-gradient-${uid}`;
++    return compact ?
+         <svg className={className} viewBox={'0 0 64 64'} role={'img'} aria-label={'Codio'}>
+-            <Gradient id={'codio-mark-gradient'} />
+-            <path d={'M44.71 46.12 A19 19 0 1 1 44.71 17.88'} fill={'none'} stroke={'url(#codio-mark-gradient)'} strokeWidth={'8'} strokeLinecap={'round'} />
++            <Gradient id={markId} />
++            <path d={'M44.71 46.12 A19 19 0 1 1 44.71 17.88'} fill={'none'} stroke={`url(#${markId})`} strokeWidth={'8'} strokeLinecap={'round'} />
+             <path d={'M27 22.5 L42.5 32 L27 41.5 Z'} fill={'#fff'} stroke={'#fff'} strokeWidth={'3'} strokeLinejoin={'round'} />
+         </svg>
+         :
+         <svg className={className} viewBox={'0 0 129 40'} role={'img'} aria-label={'Codio'}>
+-            <Gradient id={'codio-word-gradient'} />
++            <Gradient id={wordId} />
+             <g fill={'none'} strokeWidth={'4.6'} strokeLinecap={'round'}>
+-                <path d={'M26.90 29.50 A14.25 14.25 0 1 1 26.90 9.00'} stroke={'url(#codio-word-gradient)'} />
++                <path d={'M26.90 29.50 A14.25 14.25 0 1 1 26.90 9.00'} stroke={`url(#${wordId})`} />
+                 <path d={'M12.5 12.8 L24 19.25 L12.5 25.7 Z'} fill={'#fff'} stroke={'#fff'} strokeWidth={'2'} strokeLinejoin={'round'} />
+                 <g stroke={'#fff'}>
+                     <circle cx={'45'} cy={'24'} r={'9.5'} />
+@@ -38,8 +43,8 @@ const BrandLogo = ({ className, compact = false }: Props) => (
+                     <circle cx={'114'} cy={'24'} r={'9.5'} />
+                 </g>
+             </g>
+-            <circle cx={'93'} cy={'7.5'} r={'3'} fill={'url(#codio-word-gradient)'} />
+-        </svg>
+-);
++            <circle cx={'93'} cy={'7.5'} r={'3'} fill={`url(#${wordId})`} />
++        </svg>;
++};
+ 
+ export default BrandLogo;
+diff --git a/src/routes/Board/Board.js b/src/routes/Board/Board.js
+index 7ccca23..a2a0f35 100644
+--- a/src/routes/Board/Board.js
++++ b/src/routes/Board/Board.js
+@@ -115,7 +115,7 @@ const Board = () => {
+                 </div>
+             </MainNavBars>
+             {
+-                showStreamingServerWarning && !(autoPlaySettings.enabled && autoPlaySettings.hideSources) ?
++                showStreamingServerWarning && !(autoPlaySettings.enabled && autoPlaySettings.hideSources) && !window.__codioAndroid ?
+                     <StreamingServerWarning className={styles['board-warning-container']} />
+                     :
+                     null
+diff --git a/src/routes/Board/Hero/Hero.less b/src/routes/Board/Hero/Hero.less
+index 61eacc7..83ca7bd 100644
+--- a/src/routes/Board/Hero/Hero.less
++++ b/src/routes/Board/Hero/Hero.less
+@@ -38,14 +38,24 @@
+     .content {
+         position: absolute;
+         left: 3rem;
+-        bottom: 9rem;
++        // Stay between the top menu and the bottom of the banner; on short screens (TVs whose
++        // WebView is 960x540) the logo shrinks instead of sliding under the menu.
++        top: calc(var(--horizontal-nav-bar-size) + var(--safe-area-inset-top, 0rem) + 1rem);
++        bottom: min(9rem, 15vh);
+         max-width: 40rem;
+         display: flex;
+         flex-direction: column;
+-        gap: 1rem;
++        justify-content: flex-end;
++        gap: min(1rem, 2vh);
+         color: rgba(255, 255, 255, 1);
+ 
++        > * {
++            flex-shrink: 0;
++        }
++
+         .logo {
++            flex-shrink: 1;
++            min-height: 0;
+             max-width: 26rem;
+             max-height: 9rem;
+             object-fit: contain;
+@@ -151,3 +161,9 @@
+         opacity: 1;
+     }
+ }
++
++@media only screen and (max-height: 600px) {
++    .hero .content .description {
++        -webkit-line-clamp: 2;
++    }
++}

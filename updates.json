@@ -1,0 +1,14 @@
+{
+  "androidtv": {
+    "version": "1.4.8",
+    "versionCode": 32,
+    "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
+    "notes": "Updates now come from Codio's own repo. Cast photos use your own TMDB key (Settings)."
+  },
+  "phone": {
+    "version": "1.0.7",
+    "versionCode": 8,
+    "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
+    "notes": "Updates now come from Codio's own repo. Cast photos use your own TMDB key (Settings)."
+  }
+}

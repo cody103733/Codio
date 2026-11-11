@@ -1,0 +1,163 @@
+package com.codio.tv.ui;
+
+import android.content.Context;
+import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/** Search every addon that can search; results as you type. */
+final class PhoneSearch extends PhoneUi.Page {
+    private EditText box;
+    private PhoneGrid grid;
+    private TextView hint;
+    private int request = 0;
+    private final Handler h = new Handler(Looper.getMainLooper());
+    private static String lastQuery = "";
+
+    PhoneSearch(PhoneUi ui) {
+        super(ui);
+    }
+
+    @Override
+    View build() {
+        LinearLayout col = new LinearLayout(ctx());
+        col.setOrientation(LinearLayout.VERTICAL);
+        box = new EditText(ctx());
+        box.setHint("Movies, shows…");
+        box.setHintTextColor(0xFF8C8C8C);
+        box.setTextColor(Color.WHITE);
+        box.setTextSize(16);
+        box.setSingleLine(true);
+        box.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        box.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        box.setPadding(dp(14), dp(10), dp(14), dp(10));
+        box.setBackground(PhoneKit.round(0xFF262626, dp(8)));
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-1, -2);
+        bl.setMargins(dp(12), dp(12), dp(12), dp(8));
+        col.addView(box, bl);
+        FrameLayout area = new FrameLayout(ctx());
+        grid = new PhoneGrid(ui);
+        area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
+        hint = PhoneKit.text(ctx(), "", 14, PhoneKit.TEXT2, false);
+        hint.setGravity(Gravity.CENTER);
+        hint.setPadding(dp(24), dp(40), dp(24), 0);
+        area.addView(hint, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
+        col.addView(area, new LinearLayout.LayoutParams(-1, 0, 1));
+        box.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                h.removeCallbacks(run);
+                h.postDelayed(run, 450);
+            }
+        });
+        box.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int id, KeyEvent e) {
+                h.removeCallbacks(run);
+                run.run();
+                keyboard(false);
+                return true;
+            }
+        });
+        box.setText(lastQuery);
+        if (lastQuery.isEmpty()) {
+            hint.setText("Search your addons for movies and shows.");
+            box.requestFocus();
+            box.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    keyboard(true);
+                }
+            }, 200);
+        }
+        return col;
+    }
+
+    private void keyboard(boolean show) {
+        InputMethodManager imm = (InputMethodManager) ctx().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm == null) return;
+        if (show) imm.showSoftInput(box, InputMethodManager.SHOW_IMPLICIT);
+        else imm.hideSoftInputFromWindow(box.getWindowToken(), 0);
+    }
+
+    @Override
+    void onHide() {
+        keyboard(false);
+    }
+
+    @Override
+    void refresh() {
+        if (grid != null) grid.changed();
+    }
+
+    private final Runnable run = new Runnable() {
+        @Override
+        public void run() {
+            search(box.getText().toString().trim());
+        }
+    };
+
+    private void search(String q) {
+        lastQuery = q;
+        final int id = ++request;
+        grid.items.clear();
+        grid.changed();
+        if (q.isEmpty()) {
+            hint.setText("Search your addons for movies and shows.");
+            return;
+        }
+        final List<Store.Catalog> cats = ui.store.searchCatalogs();
+        if (cats.isEmpty()) {
+            hint.setText(ui.online() ? "None of your addons can search." : "You're offline.");
+            return;
+        }
+        hint.setText("Searching…");
+        final int[] pending = {cats.size()};
+        final List<List<Store.Meta>> parts = new ArrayList<>();
+        for (int i = 0; i < cats.size(); i++) parts.add(null);
+        for (int i = 0; i < cats.size(); i++) {
+            final int slot = i;
+            ui.store.loadCatalog(cats.get(i), null, 0, q, new Store.Callback<List<Store.Meta>>() {
+                @Override
+                public void done(List<Store.Meta> result, Exception error) {
+                    if (id != request) return;
+                    pending[0]--;
+                    parts.set(slot, result != null ? result : new ArrayList<Store.Meta>());
+                    grid.items.clear();
+                    Set<String> seen = new HashSet<>();
+                    for (List<Store.Meta> p : parts) {
+                        if (p == null) continue;
+                        for (Store.Meta m : p) if (seen.add(m.type + m.id)) grid.items.add(m);
+                    }
+                    grid.changed();
+                    hint.setText(grid.items.isEmpty() ? (pending[0] > 0 ? "Searching…" : "Nothing found.") : "");
+                }
+            });
+        }
+    }
+}

@@ -1,0 +1,6 @@
+libVLC 3.7.7 Java API (org.videolan.android:libvlc-all:3.7.7, its -sources.jar), compiled into Codio instead of
+the AAR's classes.jar (which is Java 11 bytecode that the old dx tool can't read). Changes from upstream:
+- removed VideoHelper, util/VLCVideoLayout, util/DisplayManager, media/VideoView, media/MediaPlayer (need AndroidX UI)
+- MediaPlayer.java: attachViews(VLCVideoLayout) and VideoHelper use removed; Codio attaches surfaces through IVLCVout
+- androidx/ holds tiny stand-ins for the AndroidX annotations and LongSparseArray
+- AndroidUtil: Build.VERSION_CODES constants replaced by numbers (Codio compiles against android-23)
