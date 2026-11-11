@@ -48,6 +48,8 @@ struct SettingsView: View {
                    key: "preferCached", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .profile, label: "Next episode", help: "At the end of an episode, play the next one automatically.",
                    key: "bingeWatching", dflt: true, options: [("Plays automatically", true), ("Off", false)]),
+            Choice(kind: .app, label: "Auto-skip", help: "Skips intros and recaps for you, no tap needed (times from IntroDB, so not every show has them). With credits, the next episode starts when the credits roll.",
+                   key: "auto_skip", dflt: 0, options: [("Off", 0), ("Intros and recaps", 1), ("Intros, recaps and credits", 2)]),
             Choice(kind: .app, label: "Who's watching?", help: "With more than one profile, Codio asks who's watching when it opens.",
                    key: "ask_profile", dflt: true, options: [("Ask when Codio opens", true), ("Don't ask", false)]),
             Choice(kind: .app, label: "Mini player", help: "When you leave Codio during a video, it keeps playing in a small window over your other apps.",

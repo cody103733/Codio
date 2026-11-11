@@ -40,6 +40,8 @@ struct PlayerView: View {
     @State private var skip: SkipTimes.Times?
     @State private var skipFor: String?
     @State private var showCast = false
+    /// Segments already auto-skipped in this video, so going back to watch one doesn't skip it again.
+    @State private var autoSkipped: Set<String> = []
 
     private var meta: Meta? { engine.playMeta }
     private var title: String {
@@ -82,6 +84,7 @@ struct PlayerView: View {
             loadSkip()
         }
         .onChange(of: engine.playVideo) { _ in loadSkip() }
+        .onChange(of: st.position) { p in autoSkip(p) }
         .sheet(isPresented: $showCast, onDismiss: { scheduleHide() }) {
             if let m = meta { CastSheet(meta: m) }
         }
@@ -218,11 +221,31 @@ struct PlayerView: View {
         guard let vid = vid, vid != skipFor else { return }
         skipFor = vid
         skip = nil
+        autoSkipped = []
         let m = meta
         Task {
             if let m = m, !m.full, m.type == "series" { await engine.store.loadMeta(m) }
             let t = await SkipTimes.load(meta: m, vid: vid)
             if engine.playVideo == vid { skip = t }
+        }
+    }
+
+    /// Settings, Playback, Auto-skip: 1 = intros and recaps, 2 = also credits (straight to the next episode).
+    private func autoSkip(_ t: Double) {
+        let mode = UserDefaults.standard.integer(forKey: "auto_skip")
+        guard mode > 0, let s = skip, st.started, st.error == nil, !st.paused, !dragging else { return }
+        if let i = s.intro, i.contains(t), t < i.end - 1.5, !autoSkipped.contains("intro") {
+            autoSkipped.insert("intro")
+            seek(to: i.end)
+            engine.show(toast: "Skipped intro")
+        } else if let r = s.recap, r.contains(t), t < r.end - 1.5, !autoSkipped.contains("recap") {
+            autoSkipped.insert("recap")
+            seek(to: r.end)
+            engine.show(toast: "Skipped recap")
+        } else if mode >= 2, let o = s.outro, o.contains(t), let n = nextVideo, !autoSkipped.contains("credits") {
+            autoSkipped.insert("credits")
+            engine.show(toast: "Skipping the credits")
+            playNext(n)
         }
     }
 
