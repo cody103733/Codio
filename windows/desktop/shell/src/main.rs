@@ -82,7 +82,9 @@ fn main() {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
-    if focus_running_instance() {
+    // Debug builds with CODIO_DEBUG_PORT run next to an installed Codio, for testing.
+    let testing = cfg!(debug_assertions) && std::env::var_os("CODIO_DEBUG_PORT").is_some();
+    if !testing && focus_running_instance() {
         return;
     }
     start_interface_server();
@@ -264,7 +266,16 @@ fn create_webview(window: HWND) -> webview2_com::Result<()> {
     let environment = {
         let (tx, rx) = std::sync::mpsc::channel();
         let options = CoreWebView2EnvironmentOptions::default();
-        unsafe { options.set_additional_browser_arguments("--autoplay-policy=no-user-gesture-required".to_string()) };
+        // SmartScreen URL checks and Edge's out-of-process UI only slow the page down here.
+        #[allow(unused_mut)]
+        let mut arguments = String::from(
+            "--autoplay-policy=no-user-gesture-required --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection",
+        );
+        #[cfg(debug_assertions)]
+        if let Ok(port) = std::env::var("CODIO_DEBUG_PORT") {
+            arguments.push_str(&format!(" --remote-debugging-port={port}"));
+        }
+        unsafe { options.set_additional_browser_arguments(arguments) };
         let options: ICoreWebView2EnvironmentOptions = options.into();
         CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
             Box::new(move |handler| unsafe {
