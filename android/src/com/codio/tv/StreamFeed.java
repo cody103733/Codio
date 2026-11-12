@@ -20,7 +20,10 @@ import java.util.List;
 final class StreamFeed {
     private static final String TAG = "CodioDV";
     private static final int CHUNK = 512 * 1024;
-    private static final long AHEAD = 40L << 20, BEHIND = 24L << 20, JOIN_GAP = 6L << 20;
+    // AHEAD past the furthest reader; data a reader still needs is kept while it's at most MAX_GAP behind the furthest
+    // (the player reads audio and video at two places ~20 MB apart, and dropping the slower one froze the picture);
+    // with nobody reading, BEHIND stays for a quick reopen.
+    private static final long AHEAD = 32L << 20, BEHIND = 48L << 20, MAX_GAP = 64L << 20, JOIN_GAP = 6L << 20;
     private static final int MAX_FEEDS = 2;
     private static final long IDLE_MS = 20000;
 
@@ -35,6 +38,7 @@ final class StreamFeed {
     private String contentType;
     private boolean eof, dead;
     private int readers;
+    private final List<long[]> positions = new ArrayList<>(); // where each active reader is
     private long lastUsed = SystemClock.uptimeMillis();
     private HttpURLConnection conn;
 
@@ -81,10 +85,13 @@ final class StreamFeed {
                 }
             }
             if (best == null) {
-                // Drop the least recently used feed beyond the limit (feeds of other files go first).
+                // Drop a feed beyond the limit: an idle one if there is one, else the least recently used.
                 while (feeds.size() >= MAX_FEEDS) {
                     StreamFeed old = null;
-                    for (StreamFeed f : feeds) if (old == null || f.lastUsed < old.lastUsed) old = f;
+                    for (StreamFeed f : feeds) {
+                        boolean idle = f.readers == 0, oldIdle = old != null && old.readers == 0;
+                        if (old == null || (idle && !oldIdle) || (idle == oldIdle && f.lastUsed < old.lastUsed)) old = f;
+                    }
                     feeds.remove(old);
                     old.kill();
                 }
@@ -133,6 +140,11 @@ final class StreamFeed {
         out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
         long pos = start;
         byte[] buf = new byte[CHUNK];
+        long[] me = {start};
+        synchronized (this) {
+            positions.add(me);
+        }
+        try {
         while (pos <= last) {
             int n;
             synchronized (this) {
@@ -143,7 +155,10 @@ final class StreamFeed {
                         throw new IOException("interrupted");
                     }
                 }
-                if (pos < base) throw new IOException("position already dropped");
+                if (pos < base) {
+                    Log.e(TAG, "feed: reader at " + (pos >> 20) + " MB fell behind the window (" + (base >> 20) + " MB)");
+                    throw new IOException("position already dropped");
+                }
                 if (pos >= end) throw new IOException(dead ? "download stopped" : "end of file");
                 n = copy(pos, buf, (int) Math.min(buf.length, last - pos + 1));
                 if (pos + n > furthest) furthest = pos + n;
@@ -152,8 +167,17 @@ final class StreamFeed {
             }
             out.write(buf, 0, n);
             pos += n;
+            synchronized (this) {
+                me[0] = pos;
+            }
         }
         out.flush();
+        } finally {
+            synchronized (this) {
+                positions.remove(me);
+                notifyAll();
+            }
+        }
     }
 
     /** Copies from the window at pos; holds the lock. */
@@ -262,8 +286,16 @@ final class StreamFeed {
                 }
                 if (dead) return;
                 if (readers == 0 && SystemClock.uptimeMillis() - lastUsed > IDLE_MS) return;
-                // Drop what's further behind than BEHIND.
-                while (chunks.size() > 1 && furthest - (base + CHUNK) > BEHIND) {
+                // Drop what nobody needs any more (see AHEAD / BEHIND / MAX_GAP).
+                long floor;
+                if (positions.isEmpty()) {
+                    floor = furthest - BEHIND;
+                } else {
+                    long slowest = Long.MAX_VALUE;
+                    for (long[] p : positions) slowest = Math.min(slowest, p[0]);
+                    floor = Math.max(Math.min(furthest - BEHIND, slowest - (2L << 20)), furthest - MAX_GAP);
+                }
+                while (chunks.size() > 1 && base + CHUNK <= floor) {
                     chunks.remove(0);
                     base += CHUNK;
                 }

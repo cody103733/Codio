@@ -71,7 +71,8 @@ final class DvShell {
     private boolean prepared, started, wantPause, surfaceReady;
     private double startAt;
     private int aid = -1, sid = -1;
-    private long lastTime = -1;
+    private long lastTime = -1, lastMove;
+    private boolean cacheShown = true;
     private final List<String> pendingSubs = new ArrayList<>();
 
     DvShell(MpvShell.Sink sink, Listener listener, SurfaceView view, TextView subs, View vlcView, View vlcSubs, File cacheDir) {
@@ -330,9 +331,9 @@ final class DvShell {
             p.setOnInfoListener(new MediaPlayer.OnInfoListener() {
                 @Override public boolean onInfo(MediaPlayer m, int what, int extra) {
                     if (m != mp) return false;
-                    if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) forward("paused-for-cache", true);
-                    else if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) forward("paused-for-cache", false);
-                    else if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+                    if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START || what == MediaPlayer.MEDIA_INFO_BUFFERING_END) {
+                        Log.e(TAG, what == MediaPlayer.MEDIA_INFO_BUFFERING_START ? "player buffering" : "player buffering done");
+                    } else if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
                         Log.e(TAG, "picture running");
                         videoReady(true);
                     }
@@ -394,6 +395,8 @@ final class DvShell {
 
     private void onStarted() {
         started = true;
+        lastMove = SystemClock.uptimeMillis();
+        cacheShown = false;
         forward("pause", wantPause);
         forward("paused-for-cache", false);
         sink.onPlayingChanged(!wantPause);
@@ -408,9 +411,18 @@ final class DvShell {
             if (p == null || !active) return;
             try {
                 long t = p.getCurrentPosition();
+                long now = SystemClock.uptimeMillis();
                 if (t != lastTime) {
                     lastTime = t;
+                    lastMove = now;
                     forward("time-pos", t / 1000.0);
+                }
+                // The loading spinner follows the clock: this TV's player doesn't always say when buffering ends.
+                boolean stalled = !wantPause && prepared && now - lastMove > 1200;
+                if (stalled != cacheShown) {
+                    cacheShown = stalled;
+                    forward("paused-for-cache", stalled);
+                    if (stalled) Log.e(TAG, "picture waiting for data at " + t / 1000 + " s");
                 }
             } catch (Throwable ignored) {
             }
@@ -427,6 +439,7 @@ final class DvShell {
                         case "pause": {
                             boolean want = truthy(value);
                             wantPause = want;
+                            lastMove = SystemClock.uptimeMillis();
                             if (p != null && prepared) {
                                 if (want && p.isPlaying()) p.pause();
                                 else if (!want && !p.isPlaying()) p.start();
@@ -438,6 +451,7 @@ final class DvShell {
                         case "time-pos": {
                             double s = num(value, -1);
                             if (s >= 0 && p != null && prepared) p.seekTo((long) (s * 1000), MediaPlayer.SEEK_CLOSEST_SYNC);
+                            lastMove = SystemClock.uptimeMillis();
                             if (s >= 0) forward("time-pos", s);
                             forward("seeking", false);
                             break;

@@ -1,7 +1,7 @@
 {
   "androidtv": {
-    "version": "1.4.22",
-    "versionCode": 46,
+    "version": "1.4.23",
+    "versionCode": 47,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
     "notes": "Auto-play now picks Dolby Vision sources first on TVs that show real Dolby Vision (Settings > Dolby Vision)."
   },
