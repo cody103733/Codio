@@ -5,6 +5,21 @@
     var native = window.CodioNative;
     if (!native) return;
     window.__codioAndroid = true;
+    // Auto-play ranking (patched into the web build): Dolby Vision sources this TV shows in real Dolby Vision go
+    // first. Big Blu-ray remuxes (Profile 7, TrueHD) only play as HDR10 here, so they don't count.
+    var dvOn = null, dvAt = 0;
+    window.__codioDvRank = function (text) {
+        var now = Date.now();
+        if (dvOn === null || now - dvAt > 3000) {
+            try { dvOn = !!(native.dvPreferred && native.dvPreferred()); } catch (e) { dvOn = false; }
+            dvAt = now;
+        }
+        if (!dvOn) return 0;
+        var t = String(text || '').replace(/_/g, ' ');
+        var dv = /(\bdv\b|\bdovi\b|dolby[ ._-]?vision)/i.test(t);
+        var remux = /remux|\bbdmv\b|\biso\b|\bcomplete[ ._-]?(uhd[ ._-]?)?blu-?ray\b/i.test(t);
+        return dv && !remux ? 0 : 1;
+    };
     // First run on a TV: Smart auto-play with sources hidden (a remote can't wade through hundreds of sources).
     // On a TV that can show 4K, Smart auto-play aims for 4K (it still falls back to 1080p and below).
     try {

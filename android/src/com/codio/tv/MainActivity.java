@@ -782,6 +782,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
             onShellMessage(message);
         }
 
+        /** Auto-play should put Dolby Vision sources first: the setting is on and this TV shows real Dolby Vision. */
+        @JavascriptInterface
+        public boolean dvPreferred() {
+            if (BuildConfig.PHONE) return false;
+            if ("off".equals(getSharedPreferences("codio", MODE_PRIVATE).getString("dolby_vision", "on"))) return false;
+            return DvShell.deviceSupports(MainActivity.this);
+        }
+
         @JavascriptInterface
         public void streams(final String json) {
             if (store == null) return;
