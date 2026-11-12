@@ -174,7 +174,7 @@ final class DvShell {
                     }
                     Log.e(TAG, "video track " + i + ": " + mime + " profile " + (f.containsKey(MediaFormat.KEY_PROFILE) ? f.getInteger(MediaFormat.KEY_PROFILE) : -1) + " -> " + (dv ? "Dolby Vision decoder" : "no"));
                 } else if (mime.startsWith("audio/")) {
-                    boolean ok = decodable(codecs, f);
+                    boolean ok = playable(codecs, f);
                     audio |= ok;
                     Log.e(TAG, "audio track " + i + ": " + mime + (ok ? "" : " (can't decode)"));
                 }
@@ -187,6 +187,45 @@ final class DvShell {
         } finally {
             x.release();
         }
+    }
+
+    /** An audio track the TV can decode, or send as it is to its own Dolby/DTS audio (TV speakers, ARC). */
+    private static boolean playable(MediaCodecList codecs, MediaFormat f) {
+        if (decodable(codecs, f)) return true;
+        String mime = f.getString(MediaFormat.KEY_MIME);
+        int enc;
+        if ("audio/ac3".equals(mime)) enc = android.media.AudioFormat.ENCODING_AC3;
+        else if ("audio/eac3".equals(mime)) enc = android.media.AudioFormat.ENCODING_E_AC3;
+        else if ("audio/eac3-joc".equals(mime)) enc = android.media.AudioFormat.ENCODING_E_AC3_JOC;
+        else if ("audio/ac4".equals(mime)) enc = android.media.AudioFormat.ENCODING_AC4;
+        else if ("audio/true-hd".equals(mime)) enc = android.media.AudioFormat.ENCODING_DOLBY_TRUEHD;
+        else if ("audio/vnd.dts".equals(mime)) enc = android.media.AudioFormat.ENCODING_DTS;
+        else if ("audio/vnd.dts.hd".equals(mime)) enc = android.media.AudioFormat.ENCODING_DTS_HD;
+        else return false;
+        if (android.os.Build.VERSION.SDK_INT < 29) return false;
+        android.media.AudioAttributes attrs = new android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE).build();
+        int[] masks = {android.media.AudioFormat.CHANNEL_OUT_5POINT1, android.media.AudioFormat.CHANNEL_OUT_STEREO,
+                android.media.AudioFormat.CHANNEL_OUT_7POINT1_SURROUND};
+        for (int mask : masks) {
+            try {
+                android.media.AudioFormat af = new android.media.AudioFormat.Builder().setEncoding(enc)
+                        .setSampleRate(48000).setChannelMask(mask).build();
+                if (android.media.AudioTrack.isDirectPlaybackSupported(af, attrs)) {
+                    Log.e(TAG, mime + ": the TV plays it directly");
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        // JOC (Atmos) is plain E-AC3 underneath.
+        if (enc == android.media.AudioFormat.ENCODING_E_AC3_JOC) {
+            MediaFormat plain = new MediaFormat(f);
+            plain.setString(MediaFormat.KEY_MIME, "audio/eac3");
+            return playable(codecs, plain);
+        }
+        return false;
     }
 
     private static boolean decodable(MediaCodecList codecs, MediaFormat f) {
@@ -610,7 +649,7 @@ final class DvShell {
                     String lang = info[i].getLanguage() != null ? info[i].getLanguage().toLowerCase() : "";
                     if (pass == 0 && !lang.startsWith("en")) continue;
                     MediaFormat f = i < probe.tracks.size() ? probe.tracks.get(i) : null;
-                    if (f != null && !decodable(codecs, f)) continue;
+                    if (f != null && !playable(codecs, f)) continue;
                     int ch = f != null && f.containsKey(MediaFormat.KEY_CHANNEL_COUNT) ? f.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 2;
                     if (ch > bestScore) {
                         bestScore = ch;
