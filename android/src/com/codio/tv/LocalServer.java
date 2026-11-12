@@ -327,10 +327,7 @@ final class LocalServer {
                     } catch (Throwable ignored) {
                     }
                 } finally {
-                    try {
-                        body.close();
-                    } catch (Throwable ignored) {
-                    }
+                    // disconnect() rather than close(): close() first tries to read the rest of the response.
                     try {
                         conn.disconnect();
                     } catch (Throwable ignored) {
