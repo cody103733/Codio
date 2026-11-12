@@ -1,0 +1,28 @@
+name: Delete old releases
+
+# One-off: removes iPhone releases (and their tags) older than 0.7.3, as Cody asked on 2026-11-12.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/delete-old-releases.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          gh api "repos/$R/releases" --paginate --jq '.[] | "\(.id) \(.tag_name)"' |
+          while read -r id tag; do
+            ver=${tag#ios-v}; ver=${ver%%-build*}
+            if [ "$(printf '%s\n0.7.3\n' "$ver" | sort -V | head -1)" != "0.7.3" ]; then
+              echo "deleting $tag"
+              gh api -X DELETE "repos/$R/releases/$id"
+              gh api -X DELETE "repos/$R/git/refs/tags/$tag" || true
+            fi
+          done
