@@ -62,10 +62,11 @@ final class HybridShell implements PlayerShell, DvShell.Listener {
             load(cmd, method, params);
             return true;
         }
+        // Not dv.isActive(): right after the switch DvShell's own flag isn't set yet, and checking it here sent every
+        // later seek and pause to VLC (rewinding did nothing).
         boolean toDv;
         synchronized (this) {
-            toDv = dvActive && dv.isActive();
-            if (dvActive && !toDv) dvActive = false;
+            toDv = dvActive;
         }
         if (!toDv) return vlc.handle(method, params);
         if (cmd != null && cmd.length > 0) {

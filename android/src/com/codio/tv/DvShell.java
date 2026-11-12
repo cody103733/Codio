@@ -266,6 +266,7 @@ final class DvShell {
     }
 
     void load(final String[] cmd, final Probe p) {
+        active = true;
         worker.post(new Runnable() {
             @Override public void run() {
                 release();
