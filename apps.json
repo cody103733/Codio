@@ -18,6 +18,15 @@
       },
       "versions": [
         {
+          "version": "0.7.7",
+          "buildVersion": "25",
+          "date": "2026-11-12",
+          "size": 28103421,
+          "downloadURL": "https://github.com/cody103733/Codio/releases/download/ios-v0.7.7-build25/Codio-0.7.7.ipa",
+          "minOSVersion": "16.0",
+          "localizedDescription": "Codio 0.7.7 (build 25)"
+        },
+        {
           "version": "0.7.6",
           "buildVersion": "24",
           "date": "2026-11-12",
