@@ -121,8 +121,8 @@ final class LocalServer {
                 if (parts.length < 2) break;
                 String method = parts[0];
                 String path = parts[1];
-                if (path.startsWith(STREAM_PREFIX)) {
-                    proxy(out, method, path, headers, socket);
+                if (path.startsWith(STREAM_PREFIX) || path.startsWith(BUFFERED_PREFIX)) {
+                    proxy(out, method, path, headers, socket, path.startsWith(BUFFERED_PREFIX));
                     break; // one request per proxied connection
                 }
                 int q = path.indexOf('?');
@@ -180,6 +180,12 @@ final class LocalServer {
     // through unchanged.
 
     private static final String STREAM_PREFIX = "/stream/";
+    /** Same, plus a large read-ahead (Android's own player keeps only a small buffer of its own). */
+    private static final String BUFFERED_PREFIX = "/streamb/";
+
+    static String bufferedStreamPath(String url) {
+        return BUFFERED_PREFIX + streamPath(url).substring(STREAM_PREFIX.length());
+    }
     private static final String USER_AGENT = "Codio/1.0 (Android TV)";
 
     static String streamPath(String url) {
@@ -192,8 +198,9 @@ final class LocalServer {
         return STREAM_PREFIX + id + "/" + name;
     }
 
-    private void proxy(OutputStream out, String method, String path, Map<String, String> reqHeaders, Socket client) throws IOException {
-        String rest = path.substring(STREAM_PREFIX.length());
+    private void proxy(OutputStream out, String method, String path, Map<String, String> reqHeaders, Socket client,
+                       boolean buffered) throws IOException {
+        String rest = path.substring((buffered ? BUFFERED_PREFIX : STREAM_PREFIX).length());
         int slash = rest.indexOf('/');
         String target;
         try {
@@ -260,9 +267,13 @@ final class LocalServer {
                 if (body != null) {
                     try {
                         client.setSoTimeout(0);
-                        byte[] buf = new byte[256 * 1024];
-                        int n;
-                        while ((n = body.read(buf)) > 0) out.write(buf, 0, n);
+                        if (buffered && code < 300) {
+                            readAhead(body, out);
+                        } else {
+                            byte[] buf = new byte[256 * 1024];
+                            int n;
+                            while ((n = body.read(buf)) > 0) out.write(buf, 0, n);
+                        }
                     } finally {
                         body.close();
                     }
@@ -282,6 +293,76 @@ final class LocalServer {
             }
         } finally {
             if (c != null) c.disconnect();
+        }
+    }
+
+    private static final int CHUNK = 512 * 1024, AHEAD_CHUNKS = 192; // 96 MB ahead of the player
+    private static final byte[] END = new byte[0];
+
+    /**
+     * Keeps downloading while the player isn't reading (its own buffer is full), up to 96 MB ahead, so a slow moment
+     * on the connection is covered by what's already here instead of the picture pausing to load.
+     */
+    private static void readAhead(final InputStream body, OutputStream out) throws IOException {
+        final java.util.concurrent.ArrayBlockingQueue<byte[]> q = new java.util.concurrent.ArrayBlockingQueue<>(AHEAD_CHUNKS);
+        final boolean[] stop = {false};
+        final IOException[] failed = {null};
+        Thread reader = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (true) {
+                        byte[] chunk = new byte[CHUNK];
+                        int len = 0, n = 0;
+                        while (len < CHUNK && (n = body.read(chunk, len, CHUNK - len)) > 0) len += n;
+                        if (len > 0) {
+                            byte[] c = len == CHUNK ? chunk : java.util.Arrays.copyOf(chunk, len);
+                            while (!q.offer(c, 500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                                synchronized (stop) {
+                                    if (stop[0]) return;
+                                }
+                            }
+                        }
+                        if (n <= 0 && len < CHUNK) break;
+                    }
+                } catch (IOException e) {
+                    failed[0] = e;
+                } catch (InterruptedException e) {
+                    return;
+                }
+                try {
+                    while (!q.offer(END, 500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        synchronized (stop) {
+                            if (stop[0]) return;
+                        }
+                    }
+                } catch (InterruptedException ignored) {
+                }
+            }
+        }, "codio-readahead");
+        reader.start();
+        try {
+            while (true) {
+                byte[] c;
+                try {
+                    c = q.take();
+                } catch (InterruptedException e) {
+                    throw new IOException("interrupted");
+                }
+                if (c == END) break;
+                out.write(c);
+            }
+            if (failed[0] != null) throw failed[0];
+        } finally {
+            synchronized (stop) {
+                stop[0] = true;
+            }
+            q.clear();
+            try {
+                body.close();
+            } catch (IOException ignored) {
+            }
+            reader.interrupt();
         }
     }
 

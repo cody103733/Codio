@@ -154,7 +154,7 @@ final class DvShell {
         MediaExtractor x = new MediaExtractor();
         long t0 = SystemClock.uptimeMillis();
         try {
-            x.setDataSource(url, new HashMap<String, String>());
+            x.setDataSource(viaProxy(url, false), new HashMap<String, String>());
             MediaCodecList codecs = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
             Probe p = new Probe();
             boolean dv = false, audio = false;
@@ -226,6 +226,13 @@ final class DvShell {
             return playable(codecs, plain);
         }
         return false;
+    }
+
+    /** Through Codio's local proxy: it remembers the debrid redirect, and (buffered) reads far ahead of the player. */
+    private static String viaProxy(String url, boolean buffered) {
+        String origin = MpvShell.streamProxy;
+        if (origin == null || url == null || !(url.startsWith("http://") || url.startsWith("https://"))) return url;
+        return origin + (buffered ? LocalServer.bufferedStreamPath(url) : LocalServer.streamPath(url));
     }
 
     private static boolean decodable(MediaCodecList codecs, MediaFormat f) {
@@ -360,7 +367,7 @@ final class DvShell {
                     });
                 }
             });
-            p.setDataSource(cmd[1]);
+            p.setDataSource(viaProxy(cmd[1], true));
             p.prepareAsync();
             worker.removeCallbacks(prepareTimeout);
             worker.postDelayed(prepareTimeout, 25000);
