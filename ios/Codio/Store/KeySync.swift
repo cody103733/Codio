@@ -43,9 +43,41 @@ enum KeySync {
     static func push(_ key: String, authKey: String) async {
         let mark = authKey + "|" + key
         if UserDefaults.standard.string(forKey: pushedKey) == mark { return }
+        if await put(itemId, name: key, authKey: authKey) {
+            UserDefaults.standard.set(mark, forKey: pushedKey)
+        }
+    }
+
+    // MARK: - Profiles
+
+    static let profilesId = "codio:profiles"
+
+    /// Shares the profile list (names, colours, sign-in tokens; never passwords) with every profile's account,
+    /// so a TV or phone signed in to any of them can show "Who's watching" and switch. Skips unchanged writes.
+    static func pushProfiles(_ list: [Profiles.Profile]) {
+        let entries: [[String: Any]] = list.map { p in
+            ["email": p.email, "name": p.name, "color": p.color, "token": p.token ?? ""]
+        }
+        guard let d = try? JSONSerialization.data(withJSONObject: ["v": 1, "profiles": entries], options: [.sortedKeys]),
+              let json = String(data: d, encoding: .utf8) else { return }
+        let tokens = list.compactMap { $0.token }.filter { !$0.isEmpty }
+        Task {
+            for t in tokens {
+                let markKey = "profiles_pushed_" + String(t.prefix(16))
+                let mark = json
+                if UserDefaults.standard.string(forKey: markKey) == mark { continue }
+                if await put(profilesId, name: json, authKey: t) {
+                    UserDefaults.standard.set(mark, forKey: markKey)
+                }
+            }
+        }
+    }
+
+    /// Writes one hidden entry (type other, removed + temp) with this name. True when Stremio accepted it.
+    private static func put(_ id: String, name: String, authKey: String) async -> Bool {
         let now = ISO8601DateFormatter.withFractions.string(from: Date())
         let item: [String: Any] = [
-            "_id": itemId, "name": key, "type": "other", "poster": NSNull(), "posterShape": "poster",
+            "_id": id, "name": name, "type": "other", "poster": NSNull(), "posterShape": "poster",
             "removed": true, "temp": true, "_ctime": now, "_mtime": now,
             "state": ["lastWatched": NSNull(), "timeWatched": 0, "timeOffset": 0, "overallTimeWatched": 0,
                       "timesWatched": 0, "flaggedWatched": 0, "duration": 0, "video_id": NSNull(),
@@ -53,9 +85,8 @@ enum KeySync {
             "behaviorHints": ["defaultVideoId": NSNull(), "featuredVideoId": NSNull(), "hasScheduledVideos": false] as [String: Any],
         ]
         let body: [String: Any] = ["authKey": authKey, "collection": "libraryItem", "changes": [item]]
-        if let r = await call("datastorePut", body), r["result"] != nil {
-            UserDefaults.standard.set(mark, forKey: pushedKey)
-        }
+        if let r = await call("datastorePut", body), r["result"] != nil { return true }
+        return false
     }
 
     /// The key saved with the account, if any.

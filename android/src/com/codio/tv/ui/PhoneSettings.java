@@ -150,6 +150,7 @@ final class PhoneSettings extends PhoneUi.Page {
                 new Object[]{75, 100, 125, 150, 175, 200, 250}, new String[]{"75%", "100%", "125%", "150%", "175%", "200%", "250%"}));
         items.add("Account");
         items.add("account");
+        items.add("profiles");
         items.add("tmdb");
         items.add("updates");
         items.add("Addons");
@@ -186,6 +187,7 @@ final class PhoneSettings extends PhoneUi.Page {
         for (Object o : items) {
             if (o instanceof Choice) list.addView(choiceRow((Choice) o));
             else if ("account".equals(o)) list.addView(accountRow());
+            else if ("profiles".equals(o)) list.addView(profilesRow());
             else if ("tmdb".equals(o)) list.addView(tmdbRow());
             else if ("updates".equals(o)) list.addView(updatesRow());
             else if ("addons".equals(o)) addAddons();
@@ -263,6 +265,62 @@ final class PhoneSettings extends PhoneUi.Page {
                 } else {
                     signIn();
                 }
+            }
+        });
+        return r;
+    }
+
+    /** Who's watching: the profiles made on the iPhone (each its own account), switched with their sign-in tokens. */
+    private View profilesRow() {
+        final org.json.JSONArray l = KeySync.profiles(ui.host.prefs());
+        final String e = email();
+        int cur = -1;
+        final String[] names = new String[l.length()];
+        for (int i = 0; i < l.length(); i++) {
+            JSONObject p = l.optJSONObject(i);
+            names[i] = p != null ? p.optString("name", "?") : "?";
+            if (p != null && e != null && e.equalsIgnoreCase(p.optString("email"))) cur = i;
+        }
+        final int current = cur;
+        LinearLayout r = row("Who's watching", l.length() == 0 ? "None yet" : (cur >= 0 ? names[cur] : "Pick"),
+                "Profiles you made on the iPhone. Each has its own library, Continue Watching and addons.");
+        r.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (l.length() == 0) {
+                    ui.toast("Make profiles on the iPhone first. They show up here on their own.");
+                    return;
+                }
+                ui.dialog().setTitle("Who's watching?")
+                        .setSingleChoiceItems(names, current, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int which) {
+                                d.dismiss();
+                                if (which == current) return;
+                                final JSONObject p = l.optJSONObject(which);
+                                final String name = names[which];
+                                String token = p != null ? p.optString("token", "") : "";
+                                if (token.isEmpty()) {
+                                    ui.toast("Open " + name + " once on the iPhone, then try again.");
+                                    return;
+                                }
+                                try {
+                                    ui.ctx("Authenticate", new JSONObject().put("type", "LoginWithToken").put("token", token));
+                                } catch (Exception ignored) {
+                                }
+                                ui.toast("Switching to " + name + "…");
+                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        String now = email();
+                                        if (now == null || !now.equalsIgnoreCase(p.optString("email"))) {
+                                            ui.toast("Couldn't switch to " + name + ". Open " + name + " once on the iPhone, then try again.");
+                                        }
+                                    }
+                                }, 15000);
+                            }
+                        })
+                        .setNegativeButton("Cancel", null).show();
             }
         });
         return r;

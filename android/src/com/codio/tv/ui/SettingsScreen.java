@@ -170,6 +170,76 @@ final class SettingsScreen extends Screen {
         }
     }
 
+    /** Who's watching: the profiles made on the iPhone (each its own account), switched with their sign-in tokens. */
+    private final class ProfilePick extends Item {
+        private int pick = -1;
+
+        ProfilePick() {
+            super("Who's watching", "Profiles you made on the iPhone. Left and Right pick one, OK switches to it. Each profile has its own library, Continue Watching and addons.");
+        }
+
+        private org.json.JSONArray list() {
+            return KeySync.profiles(tv.host.prefs());
+        }
+
+        private int current(org.json.JSONArray l) {
+            String e = new Account().email();
+            for (int i = 0; i < l.length(); i++) {
+                JSONObject p = l.optJSONObject(i);
+                if (p != null && e != null && e.equalsIgnoreCase(p.optString("email"))) return i;
+            }
+            return -1;
+        }
+
+        @Override
+        String value() {
+            org.json.JSONArray l = list();
+            if (l.length() == 0) return "Make profiles on the iPhone";
+            int cur = current(l);
+            if (pick < 0 || pick >= l.length()) pick = Math.max(0, cur);
+            String name = l.optJSONObject(pick).optString("name", "?");
+            return pick == cur ? name + " (watching)" : name + " · OK to switch";
+        }
+
+        @Override
+        void change(int dir) {
+            int n = list().length();
+            if (n > 0) pick = ((pick < 0 ? 0 : pick) + dir + n) % n;
+        }
+
+        @Override
+        void ok() {
+            org.json.JSONArray l = list();
+            if (l.length() == 0 || pick < 0 || pick >= l.length() || pick == current(l)) return;
+            final JSONObject p = l.optJSONObject(pick);
+            String token = p.optString("token", "");
+            final String name = p.optString("name", "that profile");
+            if (token.isEmpty()) {
+                tv.toast("Open " + name + " once on the iPhone, then try again.");
+                return;
+            }
+            try {
+                tv.ctx("Authenticate", new JSONObject().put("type", "LoginWithToken").put("token", token));
+            } catch (Exception ignored) {
+            }
+            tv.toast("Switching to " + name + "…");
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    String e = new Account().email();
+                    if (e == null || !e.equalsIgnoreCase(p.optString("email"))) {
+                        tv.toast("Couldn't switch to " + name + ". Open " + name + " once on the iPhone, then try again.");
+                    }
+                }
+            }, 15000);
+        }
+
+        @Override
+        boolean cycles() {
+            return true;
+        }
+    }
+
     private void signIn() {
         tv.push(new TextEntryScreen(tv, "Sign in: email", null, null, false, new TextEntryScreen.Done() {
             @Override
@@ -297,6 +367,7 @@ final class SettingsScreen extends Screen {
         String[] seekLabels = {"5 seconds", "10 seconds", "15 seconds", "20 seconds", "30 seconds"};
         items.add(new ProfileChoice("Skip forward / back", "How far Left and Right jump in the player.", "seekTimeDuration", 10000, seeks, seekLabels));
         items.add(new Account());
+        items.add(new ProfilePick());
         items.add(new Item("Cast photos (TMDB key)", "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). Press OK to type it in. It's saved with your Stremio account, so your other devices get it. Without a key, the cast shows names only.") {
             @Override
             String value() {

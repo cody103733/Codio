@@ -35,6 +35,7 @@ final class Profiles: ObservableObject {
 
     private func save() {
         if let d = try? JSONEncoder().encode(list) { UserDefaults.standard.set(d, forKey: "profiles_v1") }
+        KeySync.pushProfiles(list)
     }
 
     private var store: Store? { engine?.store }
@@ -55,6 +56,7 @@ final class Profiles: ObservableObject {
         }
         Ratings.shared.load(for: email)
         KeySync.sync(authKey: token)
+        KeySync.pushProfiles(list)
         if !askedAtLaunch {
             askedAtLaunch = true
             if list.count > 1, UserDefaults.standard.object(forKey: "ask_profile") as? Bool ?? true { showPicker = true }

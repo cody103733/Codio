@@ -50,6 +50,7 @@ public final class KeySync {
         Net.IO.execute(new Runnable() {
             @Override
             public void run() {
+                pullProfiles(prefs, authKey);
                 if (CastInfo.looksLikeKey(local)) {
                     pushNow(prefs, local, authKey);
                     return;
@@ -105,20 +106,50 @@ public final class KeySync {
 
     /** The key saved with the account, if any. */
     static String pull(String authKey) {
+        String k = itemName(authKey, ITEM_ID);
+        k = k != null ? k.trim() : null;
+        return CastInfo.looksLikeKey(k) ? k : null;
+    }
+
+    // ---- Profiles (made on the iPhone; each is its own Stremio account) ----
+
+    static final String PROFILES_ID = "codio:profiles";
+
+    /** The iPhone's profile list, saved with the account: [{email, name, color, token}], newest copy kept in prefs. */
+    private static void pullProfiles(SharedPreferences prefs, String authKey) {
+        String s = itemName(authKey, PROFILES_ID);
+        if (s == null) return;
+        try {
+            JSONArray list = new JSONObject(s).optJSONArray("profiles");
+            if (list != null && list.length() > 0) prefs.edit().putString("profiles_synced", list.toString()).apply();
+        } catch (Exception e) {
+            Log.w(TAG, "profiles unreadable", e);
+        }
+    }
+
+    /** The synced profiles (may be empty). */
+    public static JSONArray profiles(SharedPreferences prefs) {
+        try {
+            return new JSONArray(prefs.getString("profiles_synced", "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    /** The name field of one hidden entry, or null. */
+    private static String itemName(String authKey, String id) {
         try {
             JSONObject body = new JSONObject().put("authKey", authKey).put("collection", "libraryItem")
-                    .put("ids", new JSONArray().put(ITEM_ID)).put("all", false);
+                    .put("ids", new JSONArray().put(id)).put("all", false);
             JSONObject r = call("datastoreGet", body);
             JSONArray items = r != null ? r.optJSONArray("result") : null;
             if (items == null) return null;
             for (int i = 0; i < items.length(); i++) {
                 JSONObject it = items.optJSONObject(i);
-                if (it == null || !ITEM_ID.equals(it.optString("_id"))) continue;
-                String k = it.optString("name", "").trim();
-                if (CastInfo.looksLikeKey(k)) return k;
+                if (it != null && id.equals(it.optString("_id"))) return it.optString("name", null);
             }
         } catch (Exception e) {
-            Log.w(TAG, "pull failed", e);
+            Log.w(TAG, "read " + id + " failed", e);
         }
         return null;
     }
