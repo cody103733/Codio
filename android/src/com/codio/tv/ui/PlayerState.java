@@ -24,6 +24,8 @@ public final class PlayerState {
     public int aid = -1, sid = -1;
     /** The address the player was last told to open (any thread); lets the controls tell which source is on. */
     public static volatile String playingUrl;
+    /** True while the TV's own Dolby Vision decoder is playing (DvShell); otherwise VLC shows DV files as HDR10. */
+    public static volatile boolean playingDv;
     /** Set when playback ended with an error. */
     public String error;
 

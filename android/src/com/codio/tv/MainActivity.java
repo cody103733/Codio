@@ -194,14 +194,29 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
             final HybridShell h = new HybridShell(p, dv, new HybridShell.Policy() {
                 @Override
                 public boolean wantsDv(String url) {
-                    if ("off".equals(dvPrefs.getString("dolby_vision", "on"))) return false;
-                    if (!DvShell.deviceSupports(MainActivity.this)) return false;
+                    // Error level: this Hisense drops everything below it from logcat.
+                    if ("off".equals(dvPrefs.getString("dolby_vision", "on"))) {
+                        Log.e("CodioDV", "VLC: Dolby Vision is off in Settings");
+                        return false;
+                    }
+                    if (!DvShell.deviceSupports(MainActivity.this)) {
+                        Log.e("CodioDV", "VLC: this TV has no Dolby Vision");
+                        return false;
+                    }
                     com.codio.tv.ui.Store st = store;
                     com.codio.tv.ui.Store.Sources list = st != null ? st.sources : null;
-                    if (list == null || url == null) return false;
-                    for (com.codio.tv.ui.Store.Source src : list.list) {
-                        if (url.equals(src.url)) return "Dolby Vision".equals(src.videoTag());
+                    if (list == null || url == null) {
+                        Log.e("CodioDV", "VLC: no source list to look the stream up in");
+                        return false;
                     }
+                    for (com.codio.tv.ui.Store.Source src : list.list) {
+                        if (url.equals(src.url)) {
+                            String tag = src.videoTag();
+                            Log.e("CodioDV", "source tag " + tag + " (" + list.list.size() + " sources)");
+                            return "Dolby Vision".equals(tag);
+                        }
+                    }
+                    Log.e("CodioDV", "VLC: stream not found among " + list.list.size() + " sources");
                     return false;
                 }
             });

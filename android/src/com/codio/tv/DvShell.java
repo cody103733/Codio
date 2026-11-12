@@ -125,6 +125,7 @@ final class DvShell {
 
     private static Boolean supported;
 
+
     /** The screen takes Dolby Vision and there's a Dolby Vision decoder apps can use. */
     static synchronized boolean deviceSupports(android.content.Context c) {
         if (supported != null) return supported;
@@ -138,10 +139,10 @@ final class DvShell {
                 for (String type : i.getSupportedTypes()) if (MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION.equalsIgnoreCase(type)) decoder = true;
             }
         } catch (Throwable t) {
-            Log.w(TAG, "capability check failed", t);
+            Log.e(TAG, "capability check failed", t);
         }
         supported = screen && decoder;
-        Log.i(TAG, "Dolby Vision: screen " + screen + ", decoder " + decoder);
+        Log.e(TAG, "Dolby Vision: screen " + screen + ", decoder " + decoder);
         return supported;
     }
 
@@ -171,17 +172,17 @@ final class DvShell {
                             p.fps = f.getFloat(MediaFormat.KEY_FRAME_RATE);
                         }
                     }
-                    Log.i(TAG, "video track " + i + ": " + mime + " profile " + (f.containsKey(MediaFormat.KEY_PROFILE) ? f.getInteger(MediaFormat.KEY_PROFILE) : -1) + " -> " + (dv ? "Dolby Vision decoder" : "no"));
+                    Log.e(TAG, "video track " + i + ": " + mime + " profile " + (f.containsKey(MediaFormat.KEY_PROFILE) ? f.getInteger(MediaFormat.KEY_PROFILE) : -1) + " -> " + (dv ? "Dolby Vision decoder" : "no"));
                 } else if (mime.startsWith("audio/")) {
                     boolean ok = decodable(codecs, f);
                     audio |= ok;
-                    Log.i(TAG, "audio track " + i + ": " + mime + (ok ? "" : " (can't decode)"));
+                    Log.e(TAG, "audio track " + i + ": " + mime + (ok ? "" : " (can't decode)"));
                 }
             }
-            Log.i(TAG, "probe " + (SystemClock.uptimeMillis() - t0) + " ms: dv=" + dv + " audio=" + audio);
+            Log.e(TAG, "probe " + (SystemClock.uptimeMillis() - t0) + " ms: dv=" + dv + " audio=" + audio);
             return dv && audio ? p : null;
         } catch (Throwable t) {
-            Log.w(TAG, "probe failed after " + (SystemClock.uptimeMillis() - t0) + " ms: " + t);
+            Log.e(TAG, "probe failed after " + (SystemClock.uptimeMillis() - t0) + " ms: " + t);
             return null;
         } finally {
             x.release();
@@ -263,7 +264,7 @@ final class DvShell {
                 @Override public void onPrepared(MediaPlayer m) {
                     if (m != mp) return;
                     prepared = true;
-                    Log.i(TAG, "prepared, " + m.getDuration() + " ms");
+                    Log.e(TAG, "prepared, " + m.getDuration() + " ms");
                     forward("duration", m.getDuration() / 1000.0);
                     pickAudio();
                     for (String s : pendingSubs) addSub(s);
@@ -285,7 +286,7 @@ final class DvShell {
                     if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) forward("paused-for-cache", true);
                     else if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) forward("paused-for-cache", false);
                     else if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
-                        Log.i(TAG, "picture running");
+                        Log.e(TAG, "picture running");
                         videoReady(true);
                     }
                     return false;
@@ -299,7 +300,7 @@ final class DvShell {
             p.setOnErrorListener(new MediaPlayer.OnErrorListener() {
                 @Override public boolean onError(MediaPlayer m, int what, int extra) {
                     if (m != mp) return true;
-                    Log.w(TAG, "error " + what + "/" + extra + (started ? " while playing" : " before the start"));
+                    Log.e(TAG, "error " + what + "/" + extra + (started ? " while playing" : " before the start"));
                     if (!started) {
                         final String[] c = cmd;
                         stopQuietly();
@@ -324,9 +325,9 @@ final class DvShell {
             p.prepareAsync();
             worker.removeCallbacks(prepareTimeout);
             worker.postDelayed(prepareTimeout, 25000);
-            Log.i(TAG, "opening with the TV's Dolby Vision decoder");
+            Log.e(TAG, "opening with the TV's Dolby Vision decoder");
         } catch (Throwable t) {
-            Log.w(TAG, "open failed", t);
+            Log.e(TAG, "open failed", t);
             final String[] c = cmd;
             stopQuietly();
             listener.startFailed(c);
@@ -337,7 +338,7 @@ final class DvShell {
     private final Runnable prepareTimeout = new Runnable() {
         @Override public void run() {
             if (!active || prepared) return;
-            Log.w(TAG, "not ready after 25 s");
+            Log.e(TAG, "not ready after 25 s");
             final String[] c = cmd;
             stopQuietly();
             listener.startFailed(c);
@@ -437,7 +438,7 @@ final class DvShell {
                             break;
                     }
                 } catch (Throwable t) {
-                    Log.w(TAG, "set " + name + " failed", t);
+                    Log.e(TAG, "set " + name + " failed", t);
                 }
             }
         });
@@ -469,7 +470,7 @@ final class DvShell {
                             break;
                     }
                 } catch (Throwable t) {
-                    Log.w(TAG, "command " + c[0] + " failed", t);
+                    Log.e(TAG, "command " + c[0] + " failed", t);
                 }
             }
         });
@@ -494,6 +495,7 @@ final class DvShell {
     /** Worker. Releases the player and gives the screen back to VLC, without telling the UI. */
     private void stopQuietly() {
         active = false;
+        com.codio.tv.ui.PlayerState.playingDv = false;
         release();
         VlcShell.videoFps = 0;
         sink.onVideoSize(0, 0);
@@ -538,7 +540,7 @@ final class DvShell {
     private void ended(String error) {
         if (!active) return;
         long t = mp != null ? safePos() : 0;
-        Log.i(TAG, "ended " + (error != null ? error : "eof") + " at " + t);
+        Log.e(TAG, "ended " + (error != null ? error : "eof") + " at " + t);
         stopQuietly();
         sink.onPlayingChanged(false);
         forward("eof-reached", error == null);
@@ -579,7 +581,8 @@ final class DvShell {
         }
         VlcShell.videoFps = probe != null ? probe.fps : 0;
         sink.onVideoSize(w, h);
-        Log.i(TAG, "playing Dolby Vision " + w + "x" + h);
+        com.codio.tv.ui.PlayerState.playingDv = true;
+        Log.e(TAG, "playing Dolby Vision " + w + "x" + h);
         main.post(new Runnable() {
             @Override public void run() {
                 View parent = (View) view.getParent();
@@ -618,10 +621,10 @@ final class DvShell {
             if (best >= 0) {
                 mp.selectTrack(best);
                 aid = best;
-                Log.i(TAG, "audio track " + best);
+                Log.e(TAG, "audio track " + best);
             }
         } catch (Throwable t) {
-            Log.w(TAG, "audio pick failed", t);
+            Log.e(TAG, "audio pick failed", t);
         }
     }
 
@@ -661,7 +664,7 @@ final class DvShell {
             forward("aid", aid >= 0 ? (Object) (long) aid : "no");
             forward("sid", sid >= 0 ? (Object) (long) sid : "no");
         } catch (Throwable t) {
-            Log.w(TAG, "track list failed", t);
+            Log.e(TAG, "track list failed", t);
         }
     }
 
@@ -704,7 +707,7 @@ final class DvShell {
             mp.addTimedTextSource(f.getAbsolutePath(), MediaPlayer.MEDIA_MIMETYPE_TEXT_SUBRIP);
             sendTracks();
         } catch (Throwable t) {
-            Log.w(TAG, "subtitle failed: " + t);
+            Log.e(TAG, "subtitle failed: " + t);
         }
     }
 

@@ -95,7 +95,7 @@ final class HybridShell implements PlayerShell, DvShell.Listener {
         synchronized (this) {
             deciding = true;
         }
-        Log.i(TAG, "Dolby Vision source: checking the file");
+        Log.e(TAG, "Dolby Vision source: checking the file");
         decider.post(new Runnable() {
             @Override public void run() {
                 DvShell.Probe p = DvShell.probe(cmd[1]);
@@ -107,7 +107,7 @@ final class HybridShell implements PlayerShell, DvShell.Listener {
                     }
                     dv.load(cmd, p);
                 } else {
-                    Log.i(TAG, "playing with VLC instead");
+                    Log.e(TAG, "playing with VLC instead");
                     vlc.handle(method, params);
                 }
                 flush();
@@ -130,7 +130,7 @@ final class HybridShell implements PlayerShell, DvShell.Listener {
         synchronized (this) {
             dvActive = false;
         }
-        Log.i(TAG, "Dolby Vision start failed; playing with VLC");
+        Log.e(TAG, "Dolby Vision start failed; playing with VLC");
         JSONArray a = new JSONArray();
         for (String s : cmd) a.put(s);
         vlc.handle("mpv-command", a);

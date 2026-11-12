@@ -309,6 +309,8 @@ final class PlayerScreen extends Screen {
     private void drawControls(Canvas c, long now) {
         c.drawText(tv.fit(meta.name != null ? meta.name : "", tv.tTitle, 1500), TvView.MARGIN, 110, tv.tTitle);
         String vt = videoTag();
+        // Say what the TV really gets: VLC drops the Dolby Vision layer and sends the HDR10 picture.
+        if ("Dolby Vision".equals(vt) && !PlayerState.playingDv) vt = "HDR10";
         if (vt != null) {
             float w = tv.tSmall.measureText(vt) + 28;
             tv.videoTag(c, vt, TvView.W - TvView.MARGIN - w, 100, false);
