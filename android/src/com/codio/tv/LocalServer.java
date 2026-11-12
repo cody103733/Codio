@@ -268,14 +268,19 @@ final class LocalServer {
                     try {
                         client.setSoTimeout(0);
                         if (buffered && code < 300) {
-                            readAhead(body, out);
+                            // The read-ahead thread owns the connection from here and closes it itself: closing it
+                            // from this thread while that one reads crashed the app (okhttp "Unbalanced enter/exit").
+                            HttpURLConnection owned = c;
+                            c = null;
+                            body = null;
+                            readAhead(owned.getInputStream(), out, owned);
                         } else {
                             byte[] buf = new byte[256 * 1024];
                             int n;
                             while ((n = body.read(buf)) > 0) out.write(buf, 0, n);
                         }
                     } finally {
-                        body.close();
+                        if (body != null) body.close();
                     }
                 }
             }
@@ -306,7 +311,7 @@ final class LocalServer {
      * Keeps downloading while the player isn't reading (its own buffer is full), far ahead, so a slow moment
      * on the connection is covered by what's already here instead of the picture pausing to load. 64 MB across all streams.
      */
-    private static void readAhead(final InputStream body, OutputStream out) throws IOException {
+    private static void readAhead(final InputStream body, OutputStream out, final HttpURLConnection conn) throws IOException {
         final java.util.concurrent.ArrayBlockingQueue<byte[]> q = new java.util.concurrent.ArrayBlockingQueue<>(AHEAD_CHUNKS);
         final boolean[] stop = {false};
         final IOException[] failed = {null};
@@ -315,7 +320,21 @@ final class LocalServer {
             public void run() {
                 try {
                     fill();
+                } catch (Throwable t) {
+                    Log.e(TAG, "read-ahead stopped: " + t);
+                    try {
+                        q.offer(END);
+                    } catch (Throwable ignored) {
+                    }
                 } finally {
+                    try {
+                        body.close();
+                    } catch (Throwable ignored) {
+                    }
+                    try {
+                        conn.disconnect();
+                    } catch (Throwable ignored) {
+                    }
                     boolean stopped;
                     synchronized (stop) {
                         stopped = stop[0];
@@ -327,6 +346,9 @@ final class LocalServer {
             private void fill() {
                 try {
                     while (true) {
+                        synchronized (stop) {
+                            if (stop[0]) return;
+                        }
                         while (aheadTotal.get() >= AHEAD_CHUNKS && q.size() >= 8) { // each stream may always keep 4 MB
                             synchronized (stop) {
                                 if (stop[0]) return;
@@ -390,10 +412,6 @@ final class LocalServer {
                 stop[0] = true;
             }
             drain(q);
-            try {
-                body.close();
-            } catch (IOException ignored) {
-            }
             reader.interrupt();
         }
     }
