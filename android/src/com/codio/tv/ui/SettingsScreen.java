@@ -324,6 +324,8 @@ final class SettingsScreen extends Screen {
         }
         items.add(new Choice("Skip intro & credits buttons", "Shows a \"Skip Intro\" button during an episode's opening (and recaps), and \"Next Episode\" once the credits start, like Netflix. Times come from IntroDB, a community database, so not every show has them.",
                 "skip_buttons", false, "on", new Object[]{"on", "off"}, new String[]{"On", "Off"}));
+        items.add(new Choice("Dolby Vision", "On: Dolby Vision sources play with this TV's own Dolby Vision decoder, so the TV switches to Dolby Vision. If a file doesn't work that way, Codio plays it as before. Off: always play as HDR10.",
+                "dolby_vision", false, "on", new Object[]{"on", "off"}, new String[]{"On", "Off"}));
         items.add(new Choice("Audio sync", "Codio measures how long this TV's speakers take and corrects for it automatically. If voices still don't match lips, fine-tune here: \"earlier\" when the sound lags, \"later\" when it comes first. Applies to the next thing you play.",
                 "audio_delay_ms", false, 0, delays, delayLabels) {
             @Override

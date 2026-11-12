@@ -45,6 +45,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     private WebView web;
     private SurfaceView video;
     private SurfaceView subtitles;
+    private SurfaceView dvVideo;
+    private android.widget.TextView dvSubs;
     private PlayerShell mpv;
     private long lastBackAt = 0;
     private String shim;
@@ -66,6 +68,21 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         // VLC draws embedded subtitles on their own transparent surface, just above the video.
         subtitles = new SurfaceView(this);
         root.addView(subtitles, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Dolby Vision sources play on their own surface with Android's player (DvShell); hidden otherwise.
+        dvVideo = new SurfaceView(this);
+        dvVideo.setVisibility(View.GONE);
+        root.addView(dvVideo, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, android.view.Gravity.CENTER));
+        dvSubs = new android.widget.TextView(this);
+        dvSubs.setVisibility(View.GONE);
+        dvSubs.setTextColor(Color.WHITE);
+        dvSubs.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, getResources().getDisplayMetrics().heightPixels / 22f);
+        dvSubs.setShadowLayer(6, 0, 2, Color.BLACK);
+        dvSubs.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        dvSubs.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        FrameLayout.LayoutParams subLp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM);
+        subLp.bottomMargin = getResources().getDisplayMetrics().heightPixels / 12;
+        root.addView(dvSubs, subLp);
 
         web = new WebView(this);
         web.setBackgroundColor(Color.TRANSPARENT);
@@ -170,6 +187,26 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         }
         if (p == null || !"vlc".equals(p.engine())) {
             subtitles.setVisibility(View.GONE);
+        }
+        if (p != null && "vlc".equals(p.engine()) && !BuildConfig.PHONE) {
+            final android.content.SharedPreferences dvPrefs = prefs;
+            DvShell dv = new DvShell(this, null, dvVideo, dvSubs, video, subtitles, getCacheDir());
+            final HybridShell h = new HybridShell(p, dv, new HybridShell.Policy() {
+                @Override
+                public boolean wantsDv(String url) {
+                    if ("off".equals(dvPrefs.getString("dolby_vision", "on"))) return false;
+                    if (!DvShell.deviceSupports(MainActivity.this)) return false;
+                    com.codio.tv.ui.Store st = store;
+                    com.codio.tv.ui.Store.Sources list = st != null ? st.sources : null;
+                    if (list == null || url == null) return false;
+                    for (com.codio.tv.ui.Store.Source src : list.list) {
+                        if (url.equals(src.url)) return "Dolby Vision".equals(src.videoTag());
+                    }
+                    return false;
+                }
+            });
+            dv.setListener(h);
+            return h;
         }
         return p;
     }

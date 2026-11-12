@@ -1,9 +1,9 @@
 {
   "androidtv": {
-    "version": "1.4.13",
-    "versionCode": 37,
+    "version": "1.4.14",
+    "versionCode": 38,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Sources and the player now show a Dolby Vision, HDR10+ or HDR tag when the source has one."
+    "notes": "Dolby Vision sources now play in real Dolby Vision on TVs that support it (Settings > Dolby Vision)."
   },
   "phone": {
     "version": "1.0.10",
