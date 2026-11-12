@@ -1,9 +1,9 @@
 {
   "androidtv": {
-    "version": "1.4.12",
-    "versionCode": 36,
+    "version": "1.4.13",
+    "versionCode": 37,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Profiles made on the iPhone show up in Settings > Who's watching. Updates show a progress bar and say what went wrong if they fail."
+    "notes": "Sources and the player now show a Dolby Vision, HDR10+ or HDR tag when the source has one."
   },
   "phone": {
     "version": "1.0.10",

@@ -257,6 +257,28 @@ public final class Store {
         public double mbps = -1;
         /** Position in Smart auto-play's ranking (0 = what Play would pick), -1 when it isn't a candidate. */
         public int rank = -1;
+
+        /** "Dolby Vision", "HDR10+", "HDR10", "HLG" or "HDR" when the source's name or details say so, else null. */
+        public String videoTag() {
+            return videoTag((name != null ? name : "") + " " + (description != null ? description : ""));
+        }
+
+        private static final java.util.regex.Pattern DV = java.util.regex.Pattern.compile("(?i)(\\bdv\\b|\\bdovi\\b|dolby[ ._-]?vision)");
+        private static final java.util.regex.Pattern HDR10P = java.util.regex.Pattern.compile("(?i)hdr[ ._-]?10[ ._-]?(\\+|plus)");
+        private static final java.util.regex.Pattern HDR10 = java.util.regex.Pattern.compile("(?i)\\bhdr[ ._-]?10\\b");
+        private static final java.util.regex.Pattern HLG = java.util.regex.Pattern.compile("(?i)\\bhlg\\b");
+        private static final java.util.regex.Pattern HDR = java.util.regex.Pattern.compile("(?i)\\bhdr\\b");
+
+        static String videoTag(String text) {
+            // Addons write the stream's file name in, e.g. "Movie.2160p.DV.HDR10.mkv" or "🎞 DV | HDR".
+            String t = text.replace('_', ' ');
+            if (DV.matcher(t).find()) return "Dolby Vision";
+            if (HDR10P.matcher(t).find()) return "HDR10+";
+            if (HDR10.matcher(t).find()) return "HDR10";
+            if (HLG.matcher(t).find()) return "HLG";
+            if (HDR.matcher(t).find()) return "HDR";
+            return null;
+        }
     }
 
     /** The sources for one movie/episode, auto-play's picks first. key = type/id/videoId. */

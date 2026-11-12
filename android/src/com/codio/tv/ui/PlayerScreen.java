@@ -285,8 +285,34 @@ final class PlayerScreen extends Screen {
         if (sk != SKIP_NONE || upNextWindow() || (skip != null && st.started && !st.paused)) tv.moving();
     }
 
+    private String tagFor;
+    private String tag;
+
+    /** "Dolby Vision" / "HDR10" ... for the source that's playing, from its name in the sources list. */
+    private String videoTag() {
+        String url = PlayerState.playingUrl;
+        if (url == null) return null;
+        if (url.equals(tagFor)) return tag;
+        Store.Sources s = tv.store.sourcesFor(meta.type, meta.id, videoId);
+        if (s == null) return null; // not loaded yet: look again next frame
+        tagFor = url;
+        tag = null;
+        for (Store.Source src : s.list) {
+            if (url.equals(src.url)) {
+                tag = src.videoTag();
+                break;
+            }
+        }
+        return tag;
+    }
+
     private void drawControls(Canvas c, long now) {
         c.drawText(tv.fit(meta.name != null ? meta.name : "", tv.tTitle, 1500), TvView.MARGIN, 110, tv.tTitle);
+        String vt = videoTag();
+        if (vt != null) {
+            float w = tv.tSmall.measureText(vt) + 28;
+            tv.videoTag(c, vt, TvView.W - TvView.MARGIN - w, 100, false);
+        }
         String sub = subtitle();
         if (sub != null) c.drawText(tv.fit(sub, tv.tMeta, 1500), TvView.MARGIN, 156, tv.tMeta);
 

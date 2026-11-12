@@ -22,6 +22,8 @@ public final class PlayerState {
     public boolean paused, buffering = true, started;
     public final List<Track> audio = new ArrayList<>(), subs = new ArrayList<>();
     public int aid = -1, sid = -1;
+    /** The address the player was last told to open (any thread); lets the controls tell which source is on. */
+    public static volatile String playingUrl;
     /** Set when playback ended with an error. */
     public String error;
 

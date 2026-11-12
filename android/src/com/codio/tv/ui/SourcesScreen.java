@@ -144,8 +144,12 @@ final class SourcesScreen extends Screen {
         float descVis = descH > 0 ? descH - above - tv.tSmall.getTextSize() * 0.3f : 0;
         float block = capH + (descH > 0 ? 10 + descVis : 0);
         float top = y + (boxH - block) / 2;
+        // Dolby Vision / HDR goes first on the name line, so it's easy to spot while scrolling.
+        String vt = s.videoTag();
+        float hx = tx;
+        if (vt != null) hx += tv.videoTag(c, vt, tx, top + capH, focused) + 16;
         tv.tLabel.setColor(focused ? Color.BLACK : Color.WHITE);
-        c.drawText(tv.fit(head, tv.tLabel, tw), tx, top + capH, tv.tLabel);
+        c.drawText(tv.fit(head, tv.tLabel, tw - (hx - tx)), hx, top + capH, tv.tLabel);
         tv.tLabel.setColor(Color.WHITE);
         if (d != null) {
             // StaticLayout's first line has the font's ascent above the capitals.

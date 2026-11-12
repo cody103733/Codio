@@ -691,6 +691,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 js("window.__codioNativePark && window.__codioNativePark()");
                 return;
             }
+            if ("mpv-command".equals(method) && params instanceof JSONArray && "loadfile".equals(((JSONArray) params).optString(0))) {
+                com.codio.tv.ui.PlayerState.playingUrl = ((JSONArray) params).optString(1, null);
+            }
             if (mpv != null && mpv.handle(method, params)) return;
             switch (method) {
                 case "quit":

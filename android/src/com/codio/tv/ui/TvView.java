@@ -692,6 +692,28 @@ public final class TvView extends View implements Images.Listener, NativeUi {
 
     /** Wrapped text, at most maxLines (ellipsized); returns its height. */
     /** Height drawWrapped would use, without drawing. */
+    private final RectF tagR = new RectF();
+    private final Paint tagLine = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * A small outlined tag such as "Dolby Vision" whose text sits on baseline y; returns its width.
+     * dark = drawn on a white card.
+     */
+    float videoTag(Canvas c, String tag, float x, float y, boolean dark) {
+        float cap = tSmall.getTextSize() * 0.72f, padX = 14, padY = 9;
+        float w = tSmall.measureText(tag) + padX * 2;
+        tagR.set(x, y - cap - padY, x + w, y + padY);
+        tagLine.setStyle(Paint.Style.STROKE);
+        tagLine.setStrokeWidth(2);
+        tagLine.setColor(dark ? 0xFF111111 : 0xCCFFFFFF);
+        c.drawRoundRect(tagR, 6, 6, tagLine);
+        int was = tSmall.getColor();
+        tSmall.setColor(dark ? 0xFF111111 : Color.WHITE);
+        c.drawText(tag, x + padX, y, tSmall);
+        tSmall.setColor(was);
+        return w;
+    }
+
     float wrappedHeight(String s, TextPaint p, float width, int maxLines) {
         if (s == null || s.isEmpty()) return 0;
         return layout(s, p, width, maxLines).getHeight();
