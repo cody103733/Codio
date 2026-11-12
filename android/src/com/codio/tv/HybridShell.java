@@ -125,6 +125,19 @@ final class HybridShell implements PlayerShell, DvShell.Listener {
         for (Object[] m : q) handle((String) m[0], m[1]);
     }
 
+    /** The viewer left the player: make sure the Dolby Vision player stops even if the page's stop never comes. */
+    void leftPlayer() {
+        boolean d;
+        synchronized (this) {
+            d = dvActive;
+            dvActive = false;
+        }
+        if (d || dv.isActive()) {
+            Log.e(TAG, "left the player: stopping the Dolby Vision player");
+            dv.stop();
+        }
+    }
+
     /** DvShell couldn't start the file: VLC plays it (the UI never notices). */
     @Override public void startFailed(String[] cmd) {
         synchronized (this) {

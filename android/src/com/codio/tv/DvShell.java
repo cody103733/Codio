@@ -67,7 +67,8 @@ final class DvShell {
     private Probe probe;
     private String[] cmd;
     private int loadId = 1000000; // apart from VlcShell's ids
-    private boolean active, prepared, started, wantPause, surfaceReady;
+    private volatile boolean active;
+    private boolean prepared, started, wantPause, surfaceReady;
     private double startAt;
     private int aid = -1, sid = -1;
     private long lastTime = -1;
@@ -496,6 +497,7 @@ final class DvShell {
                 try {
                     switch (c[0]) {
                         case "stop":
+                            Log.e(TAG, "stop from the page");
                             stop();
                             break;
                         case "seek":

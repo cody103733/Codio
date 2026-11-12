@@ -1135,6 +1135,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 return;
             }
             Log.i(TAG, "leaving the player");
+            if (mpv instanceof HybridShell) ((HybridShell) mpv).leftPlayer();
             if (web != null) web.evaluateJavascript("window.__codioBack ? window.__codioBack() : history.back()", null);
         }
 

@@ -210,6 +210,15 @@ final class LocalServer {
             return;
         }
         boolean head = "HEAD".equals(method);
+        String wantRange = reqHeaders.get("range");
+        if (buffered && !head && wantRange != null) {
+            try {
+                if (StreamFeed.serve(target, wantRange, out)) return;
+            } catch (IOException e) {
+                Log.d(TAG, "feed reader ended: " + e.getMessage());
+                return;
+            }
+        }
         HttpURLConnection c = null;
         boolean sent = false;
         try {
@@ -416,6 +425,37 @@ final class LocalServer {
     private static void drain(java.util.concurrent.BlockingQueue<byte[]> q) {
         byte[] left;
         while ((left = q.poll()) != null) if (left != END) aheadTotal.decrementAndGet();
+    }
+
+    /** Opens target (following redirects, remembering the final address) with the given Range header. */
+    static HttpURLConnection openUpstream(String target, String range) throws IOException {
+        String cached = cachedRedirect(target);
+        String url = cached != null ? cached : target;
+        for (int hop = 0; hop < 8; hop++) {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(30000);
+            c.setRequestProperty("User-Agent", USER_AGENT);
+            c.setRequestProperty("Accept-Encoding", "identity");
+            if (range != null) c.setRequestProperty("Range", range);
+            int code = c.getResponseCode();
+            if (code >= 300 && code < 400 && c.getHeaderField("Location") != null) {
+                url = new URL(new URL(url), c.getHeaderField("Location")).toString();
+                c.disconnect();
+                continue;
+            }
+            if (code >= 400 && cached != null) {
+                forgetRedirect(target);
+                cached = null;
+                url = target;
+                c.disconnect();
+                continue;
+            }
+            if (code < 400 && !url.equals(target)) rememberRedirect(target, url);
+            return c;
+        }
+        throw new IOException("too many redirects");
     }
 
     private static final long REDIRECT_TTL_MS = 10 * 60 * 1000;
