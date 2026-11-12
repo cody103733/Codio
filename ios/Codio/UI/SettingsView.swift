@@ -93,7 +93,7 @@ struct SettingsView: View {
             } header: {
                 Text("Cast, actors & Top Picks")
             } footer: {
-                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
+                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away, and saves it with your Stremio account so your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
             }
             Section {
                 Button("Check for updates") {
@@ -196,6 +196,7 @@ struct SettingsView: View {
             keyStatus = result
             if result == .ok {
                 UserDefaults.standard.set(k, forKey: "tmdb_key")
+                if let auth = jstr(store.profile["auth"] as? JSON, "key") { await KeySync.push(k, authKey: auth) }
                 Recommender.shared.invalidate()
                 await Recommender.shared.refresh(store)
             } else if case .bad = result {

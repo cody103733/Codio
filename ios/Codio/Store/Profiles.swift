@@ -54,6 +54,7 @@ final class Profiles: ObservableObject {
             save()
         }
         Ratings.shared.load(for: email)
+        KeySync.sync(authKey: token)
         if !askedAtLaunch {
             askedAtLaunch = true
             if list.count > 1, UserDefaults.standard.object(forKey: "ask_profile") as? Bool ?? true { showPicker = true }

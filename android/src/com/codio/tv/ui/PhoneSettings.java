@@ -270,7 +270,7 @@ final class PhoneSettings extends PhoneUi.Page {
 
     private View tmdbRow() {
         LinearLayout r = row("Cast photos (TMDB key)", CastInfo.key() != null ? "Key saved" : "Add key",
-                "Actors' photos come from TMDB with your own free API key (themoviedb.org, Settings, API). Without one, the cast shows names only.");
+                "Actors' photos come from TMDB with your own free API key (themoviedb.org, Settings, API). It's saved with your Stremio account, so your other devices get it. Without one, the cast shows names only.");
         r.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -290,6 +290,7 @@ final class PhoneSettings extends PhoneUi.Page {
                                     return;
                                 }
                                 ui.host.prefs().edit().putString("tmdb_key", k).apply();
+                                KeySync.push(ui.host.prefs(), k, KeySync.authKey(ui.store.profileJson));
                                 fill();
                             }
                         }).setNegativeButton("Cancel", null).show();

@@ -1342,6 +1342,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                                 public void done(Boolean changed, Exception error) {
                                     if (tvUi == null) return;
                                     if (autoPlay != null) store.autoPlay = autoPlay;
+                                    // TMDB key: shared through the Stremio account (ui/KeySync).
+                                    com.codio.tv.ui.KeySync.sync(getSharedPreferences("codio", MODE_PRIVATE),
+                                            com.codio.tv.ui.KeySync.authKey(store.profileJson), null);
                                     store.ensureDefaults(new Runnable() {
                                         @Override
                                         public void run() {

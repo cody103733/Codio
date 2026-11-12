@@ -1,14 +1,14 @@
 {
   "androidtv": {
-    "version": "1.4.8",
-    "versionCode": 32,
+    "version": "1.4.9",
+    "versionCode": 33,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Updates now come from Codio's own repo. Cast photos use your own TMDB key (Settings)."
+    "notes": "Your TMDB key now comes from your Stremio account, so you only enter it once on any device."
   },
   "phone": {
-    "version": "1.0.7",
-    "versionCode": 8,
+    "version": "1.0.8",
+    "versionCode": 9,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Updates now come from Codio's own repo. Cast photos use your own TMDB key (Settings)."
+    "notes": "Your TMDB key now comes from your Stremio account, so you only enter it once on any device."
   }
 }

@@ -297,7 +297,7 @@ final class SettingsScreen extends Screen {
         String[] seekLabels = {"5 seconds", "10 seconds", "15 seconds", "20 seconds", "30 seconds"};
         items.add(new ProfileChoice("Skip forward / back", "How far Left and Right jump in the player.", "seekTimeDuration", 10000, seeks, seekLabels));
         items.add(new Account());
-        items.add(new Item("Cast photos (TMDB key)", "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). Press OK to type it in. Without a key, the cast shows names only.") {
+        items.add(new Item("Cast photos (TMDB key)", "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). Press OK to type it in. It's saved with your Stremio account, so your other devices get it. Without a key, the cast shows names only.") {
             @Override
             String value() {
                 return CastInfo.key() != null ? "Key saved" : "Add key";
@@ -319,6 +319,7 @@ final class SettingsScreen extends Screen {
                             return;
                         }
                         tv.host.prefs().edit().putString("tmdb_key", k).apply();
+                        KeySync.push(tv.host.prefs(), k, KeySync.authKey(tv.store.profileJson));
                         tv.toast(k.isEmpty() ? "TMDB key removed" : "TMDB key saved");
                     }
                 }));
