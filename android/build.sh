@@ -99,12 +99,13 @@ for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
 print('faster-start patches:', hits, 'of', len(pairs))
 if hits != len(pairs): sys.exit(1)
 PY4
-# Dolby Vision first (within the same quality and cache status) when the TV plays real Dolby Vision: the shim's
+# Dolby Vision first (within the same quality; ahead of "instant", behind only sources marked as not yet downloaded)
+# when the TV plays real Dolby Vision. The file you played last is always instant on debrid, which kept winning. The shim's
 # __codioDvRank says 0 for a Dolby Vision source this TV can show (not a Blu-ray remux), else 1.
 python3 - "$B/assets/web" <<'PY5'
 import sys, glob
 old = 'return l(e)-l(t)||I(e)-I(t)||e.index-t.index'
-new = 'return l(e)-l(t)||I(e)-I(t)||(window.__codioDvRank?window.__codioDvRank(e.text)-window.__codioDvRank(t.text):0)||e.index-t.index'
+new = 'return l(e)-l(t)||(I(e)>1?1:0)-(I(t)>1?1:0)||(window.__codioDvRank?window.__codioDvRank(e.text)-window.__codioDvRank(t.text):0)||I(e)-I(t)||e.index-t.index'
 hits = 0
 for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
     s = open(f, encoding='utf-8').read()
