@@ -296,12 +296,15 @@ final class LocalServer {
         }
     }
 
-    private static final int CHUNK = 512 * 1024, AHEAD_CHUNKS = 192; // 96 MB ahead of the player
+    // Read-ahead for all streams together stays under 64 MB: the player opens a new connection on every seek, and
+    // several 96 MB buffers at once ran the app out of memory (1.4.17).
+    private static final int CHUNK = 512 * 1024, AHEAD_CHUNKS = 128;
+    private static final java.util.concurrent.atomic.AtomicInteger aheadTotal = new java.util.concurrent.atomic.AtomicInteger();
     private static final byte[] END = new byte[0];
 
     /**
-     * Keeps downloading while the player isn't reading (its own buffer is full), up to 96 MB ahead, so a slow moment
-     * on the connection is covered by what's already here instead of the picture pausing to load.
+     * Keeps downloading while the player isn't reading (its own buffer is full), far ahead, so a slow moment
+     * on the connection is covered by what's already here instead of the picture pausing to load. 64 MB across all streams.
      */
     private static void readAhead(final InputStream body, OutputStream out) throws IOException {
         final java.util.concurrent.ArrayBlockingQueue<byte[]> q = new java.util.concurrent.ArrayBlockingQueue<>(AHEAD_CHUNKS);
@@ -311,15 +314,43 @@ final class LocalServer {
             @Override
             public void run() {
                 try {
+                    fill();
+                } finally {
+                    boolean stopped;
+                    synchronized (stop) {
+                        stopped = stop[0];
+                    }
+                    if (stopped) drain(q);
+                }
+            }
+
+            private void fill() {
+                try {
                     while (true) {
-                        byte[] chunk = new byte[CHUNK];
+                        while (aheadTotal.get() >= AHEAD_CHUNKS && q.size() >= 8) { // each stream may always keep 4 MB
+                            synchronized (stop) {
+                                if (stop[0]) return;
+                            }
+                            Thread.sleep(100);
+                        }
+                        byte[] chunk;
+                        try {
+                            chunk = new byte[CHUNK];
+                        } catch (OutOfMemoryError oom) {
+                            Thread.sleep(200);
+                            continue;
+                        }
                         int len = 0, n = 0;
                         while (len < CHUNK && (n = body.read(chunk, len, CHUNK - len)) > 0) len += n;
                         if (len > 0) {
                             byte[] c = len == CHUNK ? chunk : java.util.Arrays.copyOf(chunk, len);
+                            aheadTotal.incrementAndGet();
                             while (!q.offer(c, 500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
                                 synchronized (stop) {
-                                    if (stop[0]) return;
+                                    if (stop[0]) {
+                                        aheadTotal.decrementAndGet();
+                                        return;
+                                    }
                                 }
                             }
                         }
@@ -350,6 +381,7 @@ final class LocalServer {
                     throw new IOException("interrupted");
                 }
                 if (c == END) break;
+                aheadTotal.decrementAndGet();
                 out.write(c);
             }
             if (failed[0] != null) throw failed[0];
@@ -357,13 +389,18 @@ final class LocalServer {
             synchronized (stop) {
                 stop[0] = true;
             }
-            q.clear();
+            drain(q);
             try {
                 body.close();
             } catch (IOException ignored) {
             }
             reader.interrupt();
         }
+    }
+
+    private static void drain(java.util.concurrent.BlockingQueue<byte[]> q) {
+        byte[] left;
+        while ((left = q.poll()) != null) if (left != END) aheadTotal.decrementAndGet();
     }
 
     private static final long REDIRECT_TTL_MS = 10 * 60 * 1000;
