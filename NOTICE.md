@@ -13,6 +13,7 @@ Changes by Cody, November 2026. The per-file history is in this repository's com
 - `web/codio-build/`: the script that turns `web/` into the engine that ships in the iPhone app (`ios/web`), including two small patches applied to the built `main.js`.
 - `ios/`: Codio's own iPhone app (SwiftUI), which runs the engine hidden in a WKWebView. Same license as the rest (GPL-2.0).
 - `android/`: Codio's own Android TV and phone app, which runs the same engine hidden in a WebView. Same license (GPL-2.0). `android/vlc-src/` holds libVLC's Java sources with Codio's changes (see its README).
+- `windows/`: the Windows interface, a separate copy of the Stremio Web source with Codio's own screens, the same auto-play and artwork changes, and no streaming server; plus `windows/desktop/`, Codio's local interface server and installer script. Same license (GPL-2.0).
 
 ## Third-party parts in the builds
 

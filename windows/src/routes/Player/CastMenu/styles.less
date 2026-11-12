@@ -1,0 +1,67 @@
+.cast-menu-container {
+    width: 26rem;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+
+    .title {
+        flex: none;
+        font-weight: 700;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 0 1rem;
+    }
+
+    .actor {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.4rem 0;
+    }
+
+    .photo {
+        flex: none;
+        width: 3.25rem;
+        height: 4.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        object-fit: cover;
+        font-weight: 700;
+        border-radius: var(--border-radius);
+        background-color: var(--overlay-color);
+    }
+
+    .details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .name {
+        font-weight: 600;
+    }
+
+    .role {
+        font-size: 0.9rem;
+        opacity: 0.6;
+    }
+
+    .message {
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .credit {
+        flex: none;
+        padding: 0.75rem 1rem;
+        font-size: 0.75rem;
+        text-align: center;
+        opacity: 0.6;
+    }
+}

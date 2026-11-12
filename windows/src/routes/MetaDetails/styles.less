@@ -1,0 +1,196 @@
+// Copyright (C) 2017-2024 Smart code 203358507
+
+@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
+@import (reference) '~stremio/common/screen-sizes.less';
+
+.metadetails-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+
+    .background-image-layer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: -1;
+        background-color: var(--modal-background-color);
+
+        .background-image {
+            pointer-events: none; 
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: right;
+            opacity: 0.3;
+        }
+    }
+
+    .nav-bar {
+        z-index: 1;
+        flex: none;
+        align-self: stretch;
+    }
+
+    .metadetails-content {
+        flex: 1;
+        align-self: stretch;
+        position: relative;
+        z-index: 0;
+        display: flex;
+        flex-direction: row;
+        margin-top: calc(var(--top-overlay-size) * -1);
+        padding-top: var(--top-overlay-size);
+        padding-bottom: var(--safe-area-inset-bottom, 0rem);
+
+        .meta-message-container {
+            align-self: stretch;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            width: 100%;
+            height: 100%;
+
+            .image {
+                flex: none;
+                width: 12rem;
+                height: 12rem;
+                max-width: 100%;
+                margin-bottom: 1rem;
+                object-fit: contain;
+                object-position: center;
+                opacity: 0.9;
+            }
+
+            .message-label {
+                flex: none;
+                align-self: stretch;
+                font-size: 2rem;
+                text-align: center;
+                color: var(--primary-foreground-color);
+            }
+        }
+
+        .meta-preview {
+            flex: 0 1 auto;
+            align-self: stretch;
+            padding: 0 4rem 2rem 4rem;
+
+            padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
+        }
+
+        .spacing {
+            flex: 1;
+        }
+
+        .videos-list, .streams-list {
+            flex: 0 0 30rem;
+            align-self: stretch;
+            border-radius: var(--border-radius) 0 0 var(--border-radius);
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(15px);
+        }
+    }
+}
+
+// Codio look (auto-play with hidden sources): full-bleed artwork with a dark
+// fade on the left, the title block on the left, Play right under it.
+.metadetails-container:global(.cinematic) {
+    .background-image-layer {
+        background-color: var(--primary-background-color);
+
+        .background-image {
+            opacity: 1;
+            object-position: center top;
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background:
+                linear-gradient(90deg, rgba(14, 14, 16, 0.97) 0%, rgba(14, 14, 16, 0.86) 32%, rgba(14, 14, 16, 0.35) 62%, rgba(14, 14, 16, 0.15) 100%),
+                linear-gradient(0deg, rgba(14, 14, 16, 1) 0%, rgba(14, 14, 16, 0) 45%);
+        }
+    }
+
+    .metadetails-content {
+        .meta-preview {
+            flex: 0 1 48rem;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        .videos-list, .streams-list {
+            flex-basis: 32rem;
+            margin: 1rem 0 1rem 0;
+            border-radius: 0.75rem 0 0 0.75rem;
+            background-color: rgba(14, 14, 16, 0.78);
+            box-shadow: -1.5rem 0 3rem rgba(0, 0, 0, 0.35);
+        }
+    }
+}
+
+.metadetails-container:global(.play-inline) {
+    .metadetails-content {
+        .meta-preview {
+            .streams-list {
+                flex: none;
+                align-self: flex-start;
+                margin: 0;
+                background: none;
+                box-shadow: none;
+                backdrop-filter: none;
+                overflow: visible;
+            }
+        }
+    }
+}
+
+@media @phone-landscape {
+    .metadetails-container {
+        .metadetails-content {
+            .meta-preview {
+                padding: 0 1.5rem 1rem;
+            }
+        }
+    }
+}
+
+@media only screen and (max-width: @minimum) {
+    .metadetails-container {
+        .background-image-layer {
+            .background-image {
+                object-position: center;
+            }
+        }
+
+        .metadetails-content {
+            display: block;
+            overflow-y: auto;
+            padding-top: calc(var(--top-overlay-size) + var(--safe-area-inset-top));
+
+            .spacing {
+                display: none;
+            }
+
+            .meta-preview {
+                padding: 0 1.5rem 2rem;
+            }
+
+            .videos-list, .streams-list {
+                border-radius: var(--border-radius) var(--border-radius) 0 0;
+            }
+        }
+    }
+}

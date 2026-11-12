@@ -1,0 +1,25 @@
+.skip-button {
+    position: absolute;
+    right: 4rem;
+    bottom: 3.5rem;
+    z-index: 3;
+    padding: 0.9rem 1.8rem;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    border-radius: 0.4rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: bottom 0.2s ease, background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+        background-color: #fff;
+        color: #000;
+    }
+
+    &.raised {
+        bottom: 9rem;
+    }
+}
