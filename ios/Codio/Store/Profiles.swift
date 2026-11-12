@@ -59,7 +59,7 @@ final class Profiles: ObservableObject {
         KeySync.pushProfiles(list)
         if !askedAtLaunch {
             askedAtLaunch = true
-            if list.count > 1, UserDefaults.standard.object(forKey: "ask_profile") as? Bool ?? true { showPicker = true }
+            if list.count > 1, UserDefaults.standard.object(forKey: "ask_profile") as? Bool ?? false { showPicker = true }
         }
     }
 
