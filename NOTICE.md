@@ -25,6 +25,8 @@ Changes by Cody, November 2026. The per-file history is in this repository's com
 | VLCKit 4.0.0a26, unmodified, from CocoaPods | `Frameworks/VLCKit.framework` in the ipa | LGPL-2.1-or-later. Source: https://code.videolan.org/videolan/VLCKit |
 | libVLC 3.7.7 (`org.videolan.android:libvlc-all`), Java part modified in `android/vlc-src`, native libraries unmodified | Android APKs | LGPL-2.1-or-later. Source: https://code.videolan.org/videolan/vlc-android |
 | libmpv 1.0.0 (`dev.jdtech.mpv:libmpv`), unmodified | Android APKs | GPL-2.0-or-later / LGPL. Source: https://github.com/jarnedemeulemeester/libmpv-android |
+| Mozilla CA certificate bundle (`android/assets/cacert.pem`) | Android APKs | MPL-2.0 |
+| DejaVu Sans font (`android/assets/subfont.ttf`, subtitles) | Android APKs | Bitstream Vera / DejaVu font license (free to use and redistribute) |
 | Plus Jakarta Sans font | `ios/web/fonts` | SIL Open Font License 1.1 |
 | Twemoji flag glyphs | `ios/web/fonts/TwemojiFlags.woff2` | CC-BY 4.0, © Twitter, Inc. and other contributors |
 

@@ -10,7 +10,9 @@ It is public only so its owner can install updates on their own devices, and so 
 
 GPL-2.0, the same as Stremio Web. See [LICENSE.md](LICENSE.md). The original copyright notices are kept, and [NOTICE.md](NOTICE.md) lists what was changed and the third-party parts included.
 
-Codio ships no content and no add-ons. It plays only http(s) sources from add-ons the user installs, never torrents, and has no DRM or decryption code.
+Codio ships no content and no add-ons, apart from the official default add-ons that Stremio's engine includes (such as the Cinemeta catalog). It plays only http(s) sources from add-ons the user installs, never torrents. It has no code to remove or get around DRM or other copy protection. The Stremio player code it inherits only knows the standard browser hooks for licensed DRM, as upstream does.
+
+Cast photos and recommendations use the TMDB API with the user's own key. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## What's here
 

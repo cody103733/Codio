@@ -62,6 +62,8 @@ struct CastRow: View {
                         }
                         .padding(.horizontal, 16)
                     }
+                    Text("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+                        .font(.caption2).foregroundColor(Theme.dim).padding(.horizontal, 16)
                 }
             }
         }

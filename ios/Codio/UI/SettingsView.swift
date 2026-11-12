@@ -93,7 +93,7 @@ struct SettingsView: View {
             } header: {
                 Text("Cast, actors & Top Picks")
             } footer: {
-                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away.")
+                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
             }
             Section {
                 Button("Check for updates") {

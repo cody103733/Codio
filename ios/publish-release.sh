@@ -30,8 +30,8 @@ apps = src.get("apps") or [{}]
 app = apps[0]
 app.update({
   "name": "Codio", "bundleIdentifier": "com.codio.ios", "developerName": "Cody",
-  "subtitle": "Movies and shows, one tap to play.",
-  "localizedDescription": "Codio picks the best source and plays it, with Skip Intro, downloads and your Stremio library.",
+  "subtitle": "Personal, unofficial build. Not for general use.",
+  "localizedDescription": "A personal, unofficial fork of the Stremio web app (GPL-2.0), provided as is. Not affiliated with or endorsed by Stremio. Source: https://github.com/" + R,
   "iconURL": f"https://raw.githubusercontent.com/{R}/main/icon.png",
   "tintColor": "#E50914", "appPermissions": {"entitlements": [], "privacy": {}},
 })
