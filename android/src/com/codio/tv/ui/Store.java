@@ -269,6 +269,14 @@ public final class Store {
         private static final java.util.regex.Pattern HLG = java.util.regex.Pattern.compile("(?i)\\bhlg\\b");
         private static final java.util.regex.Pattern HDR = java.util.regex.Pattern.compile("(?i)\\bhdr\\b");
 
+        /** The tag for when the Dolby Vision layer isn't used (VLC): what's left underneath, at least HDR10. */
+        public String baseVideoTag() {
+            String t = ((name != null ? name : "") + " " + (description != null ? description : "")).replace('_', ' ');
+            if (HDR10P.matcher(t).find()) return "HDR10+";
+            if (HLG.matcher(t).find()) return "HLG";
+            return "HDR10";
+        }
+
         static String videoTag(String text) {
             // Addons write the stream's file name in, e.g. "Movie.2160p.DV.HDR10.mkv" or "🎞 DV | HDR".
             String t = text.replace('_', ' ');

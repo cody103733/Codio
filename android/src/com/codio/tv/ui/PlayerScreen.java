@@ -287,6 +287,7 @@ final class PlayerScreen extends Screen {
 
     private String tagFor;
     private String tag;
+    private String baseTag;
 
     /** "Dolby Vision" / "HDR10" ... for the source that's playing, from its name in the sources list. */
     private String videoTag() {
@@ -297,9 +298,11 @@ final class PlayerScreen extends Screen {
         if (s == null) return null; // not loaded yet: look again next frame
         tagFor = url;
         tag = null;
+        baseTag = null;
         for (Store.Source src : s.list) {
             if (url.equals(src.url)) {
                 tag = src.videoTag();
+                baseTag = src.baseVideoTag();
                 break;
             }
         }
@@ -309,8 +312,8 @@ final class PlayerScreen extends Screen {
     private void drawControls(Canvas c, long now) {
         c.drawText(tv.fit(meta.name != null ? meta.name : "", tv.tTitle, 1500), TvView.MARGIN, 110, tv.tTitle);
         String vt = videoTag();
-        // Say what the TV really gets: VLC drops the Dolby Vision layer and sends the HDR10 picture.
-        if ("Dolby Vision".equals(vt) && !PlayerState.playingDv) vt = "HDR10";
+        // Say what the TV really gets: VLC drops the Dolby Vision layer and sends what's underneath (HDR10 or HDR10+).
+        if ("Dolby Vision".equals(vt) && !PlayerState.playingDv) vt = baseTag != null ? baseTag : "HDR10";
         if (vt != null) {
             float w = tv.tSmall.measureText(vt) + 28;
             tv.videoTag(c, vt, TvView.W - TvView.MARGIN - w, 100, false);
