@@ -71,7 +71,8 @@ final class DvShell {
     private boolean prepared, started, wantPause, surfaceReady;
     private double startAt;
     private int aid = -1, sid = -1;
-    private long lastTime = -1, lastMove;
+    private long lastTime = -1, lastMove, seekingTo = -1, seekAt;
+    private boolean seekRetried;
     private boolean cacheShown = true;
     private final List<String> pendingSubs = new ArrayList<>();
 
@@ -279,6 +280,8 @@ final class DvShell {
                 prepared = started = wantPause = false;
                 aid = sid = -1;
                 lastTime = -1;
+                seekingTo = -1;
+                seekRetried = false;
                 pendingSubs.clear();
                 loadId++;
                 videoReady(false);
@@ -317,7 +320,7 @@ final class DvShell {
                     pickAudio();
                     for (String s : pendingSubs) addSub(s);
                     pendingSubs.clear();
-                    if (startAt > 0) m.seekTo((long) (startAt * 1000), MediaPlayer.SEEK_CLOSEST_SYNC);
+                    if (startAt > 0) seek((long) (startAt * 1000));
                     if (!wantPause) m.start();
                     onStarted();
                 }
@@ -338,6 +341,23 @@ final class DvShell {
                         videoReady(true);
                     }
                     return false;
+                }
+            });
+            p.setOnSeekCompleteListener(new MediaPlayer.OnSeekCompleteListener() {
+                @Override public void onSeekComplete(MediaPlayer m) {
+                    if (m != mp) return;
+                    long now = safePos();
+                    Log.e(TAG, "seek done at " + now / 1000 + " s (asked " + seekingTo / 1000 + " s, " + (SystemClock.uptimeMillis() - seekAt) + " ms)");
+                    // Asked for a spot but still somewhere else: ask once more.
+                    if (seekingTo >= 0 && Math.abs(now - seekingTo) > 15000 && !seekRetried) {
+                        seekRetried = true;
+                        long target = seekingTo;
+                        seek(target);
+                        return;
+                    }
+                    seekingTo = -1;
+                    seekRetried = false;
+                    lastMove = SystemClock.uptimeMillis();
                 }
             });
             p.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -382,6 +402,16 @@ final class DvShell {
         }
     }
 
+    /** Worker. The plain seekTo(int): this TV's player ignored some seeks with a seek mode (the picture carried on). */
+    private void seek(long ms) {
+        MediaPlayer p = mp;
+        if (p == null) return;
+        seekingTo = ms;
+        seekAt = SystemClock.uptimeMillis();
+        Log.e(TAG, "seek to " + ms / 1000 + " s (from " + safePos() / 1000 + " s)");
+        p.seekTo((int) Math.min(Integer.MAX_VALUE, ms));
+    }
+
     /** A file that never gets ready goes to VLC rather than leaving the viewer on the loading screen. */
     private final Runnable prepareTimeout = new Runnable() {
         @Override public void run() {
@@ -412,6 +442,11 @@ final class DvShell {
             try {
                 long t = p.getCurrentPosition();
                 long now = SystemClock.uptimeMillis();
+                // While a seek is under way the player still reports the old spot; keep showing the new one.
+                if (seekingTo >= 0 && now - seekAt < 20000) {
+                    t = seekingTo;
+                    lastMove = now - (now - seekAt > 1200 ? 2000 : 0);
+                }
                 if (t != lastTime) {
                     lastTime = t;
                     lastMove = now;
@@ -450,7 +485,7 @@ final class DvShell {
                         }
                         case "time-pos": {
                             double s = num(value, -1);
-                            if (s >= 0 && p != null && prepared) p.seekTo((long) (s * 1000), MediaPlayer.SEEK_CLOSEST_SYNC);
+                            if (s >= 0 && p != null && prepared) seek((long) (s * 1000));
                             lastMove = SystemClock.uptimeMillis();
                             if (s >= 0) forward("time-pos", s);
                             forward("seeking", false);
@@ -519,7 +554,7 @@ final class DvShell {
                                 double s = num(c[1], 0);
                                 boolean abs = c.length > 2 && c[2].startsWith("absolute");
                                 long target = abs ? (long) (s * 1000) : mp.getCurrentPosition() + (long) (s * 1000);
-                                mp.seekTo(Math.max(0, target), MediaPlayer.SEEK_CLOSEST_SYNC);
+                                seek(Math.max(0, target));
                             }
                             break;
                         case "sub-add":
