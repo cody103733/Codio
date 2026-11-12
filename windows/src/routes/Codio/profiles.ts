@@ -49,6 +49,39 @@ const fetchProfiles = async (authKey: string): Promise<CodioProfile[] | null> =>
     return item ? parse(item.name) : null;
 };
 
+const KEY_ITEM_ID = 'codio:tmdb';
+const KEY_STORAGE = 'codio.tmdbKey';
+const looksLikeKey = (key: unknown): key is string => typeof key === 'string' && /^[0-9a-f]{32}$/i.test(key.trim());
+let keyRequest: Promise<void> | null = null;
+
+/**
+ * Makes sure the TMDB key for cast photos is here: the TV and iPhone apps save the user's own key
+ * with the account (hidden entry "codio:tmdb"), so Codio for Windows takes it from there.
+ */
+export const syncTmdbKey = (authKey: string | null | undefined): Promise<void> => {
+    try {
+        if (looksLikeKey(localStorage.getItem(KEY_STORAGE))) return Promise.resolve();
+    } catch (_e) {
+        return Promise.resolve();
+    }
+    if (!authKey) return Promise.resolve();
+    if (!keyRequest) {
+        keyRequest = fetch(`${API}datastoreGet`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ authKey, collection: 'libraryItem', ids: [KEY_ITEM_ID], all: false }),
+        })
+            .then((response) => (response.ok ? response.json() : null))
+            .then((json) => {
+                const item = Array.isArray(json?.result) ? json.result.find((i: any) => i && i._id === KEY_ITEM_ID) : null;
+                if (looksLikeKey(item?.name)) localStorage.setItem(KEY_STORAGE, item.name.trim());
+            })
+            .catch(() => { /* offline: cast shows names only */ })
+            .finally(() => { keyRequest = null; });
+    }
+    return keyRequest;
+};
+
 /** The profiles, the one being watched, and a way to switch. */
 export const useProfiles = () => {
     const profile = useProfile() as any;
@@ -61,6 +94,7 @@ export const useProfiles = () => {
 
     useEffect(() => {
         if (!authKey) return;
+        void syncTmdbKey(authKey);
         let cancelled = false;
         fetchProfiles(authKey).then((fresh) => {
             if (cancelled || !fresh || fresh.length === 0) return;

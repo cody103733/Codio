@@ -4,9 +4,12 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const styles = require('./styles');
+const { useProfile } = require('stremio/common');
+const { syncTmdbKey } = require('stremio/routes/Codio/profiles');
 
 const API = 'https://api.themoviedb.org/3/';
-// The TMDB key comes from the build (CODIO_TMDB_KEY) or from the user's own key in local storage.
+// The TMDB key comes from the build (CODIO_TMDB_KEY), or from the account: the TV and iPhone apps
+// save the user's own key with it (codio:tmdb), and Codio keeps a copy in local storage.
 const getKey = () => process.env.CODIO_TMDB_KEY || (typeof localStorage !== 'undefined' && localStorage.getItem('codio.tmdbKey')) || '';
 const PHOTOS = 'https://image.tmdb.org/t/p/w185';
 const MAX_ACTORS = 40;
@@ -80,6 +83,8 @@ const CastMenu = React.memo(React.forwardRef(({ className, metaItem, videoId }, 
     const isMovie = metaItem?.type === 'movie';
     const [actors, setActors] = React.useState(() => cache.get(imdbId) ?? null);
     const fallback = React.useMemo(() => namesFromAddon(metaItem), [metaItem]);
+    const profile = useProfile();
+    const authKey = profile && profile.auth ? profile.auth.key : null;
     const onMouseDown = React.useCallback((event) => {
         event.nativeEvent.castMenuClosePrevented = true;
     }, []);
@@ -94,7 +99,8 @@ const CastMenu = React.memo(React.forwardRef(({ className, metaItem, videoId }, 
         }
         let current = true;
         setActors(null);
-        fetchActors(imdbId, isMovie)
+        syncTmdbKey(authKey)
+            .then(() => fetchActors(imdbId, isMovie))
             .then((found) => {
                 if (found.length > 0) {
                     cache.set(imdbId, found);
@@ -112,7 +118,7 @@ const CastMenu = React.memo(React.forwardRef(({ className, metaItem, videoId }, 
         return () => {
             current = false;
         };
-    }, [imdbId, isMovie, fallback]);
+    }, [imdbId, isMovie, fallback, authKey]);
     return (
         <div ref={ref} className={classnames(className, styles['cast-menu-container'])} onMouseDown={onMouseDown}>
             <div className={styles['title']}>Cast</div>
