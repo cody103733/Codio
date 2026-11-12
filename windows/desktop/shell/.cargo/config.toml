@@ -1,0 +1,3 @@
+[target.x86_64-pc-windows-gnullvm]
+# Link libunwind statically, so Codio.exe needs no MinGW DLLs next to it.
+rustflags = ["-C", "target-feature=+crt-static"]

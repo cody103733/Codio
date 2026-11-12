@@ -13,7 +13,7 @@ Changes by Cody, November 2026. The per-file history is in this repository's com
 - `web/codio-build/`: the script that turns `web/` into the engine that ships in the iPhone app (`ios/web`), including two small patches applied to the built `main.js`.
 - `ios/`: Codio's own iPhone app (SwiftUI), which runs the engine hidden in a WKWebView. Same license as the rest (GPL-2.0).
 - `android/`: Codio's own Android TV and phone app, which runs the same engine hidden in a WebView. Same license (GPL-2.0). `android/vlc-src/` holds libVLC's Java sources with Codio's changes (see its README).
-- `windows/`: the Windows interface, a separate copy of the Stremio Web source with Codio's own screens, the same auto-play and artwork changes, and no streaming server; plus `windows/desktop/`, Codio's local interface server and installer script. Same license (GPL-2.0).
+- `windows/`: the Windows interface, a separate copy of the Stremio Web source with Codio's own screens, the same auto-play and artwork changes, and no streaming server; plus `windows/desktop/`: Codio's own desktop window (`desktop/shell`, written for Codio, not based on Stremio's shell), the local interface server and the installer script. Same license (GPL-2.0).
 
 ## Third-party parts in the builds
 
@@ -30,6 +30,11 @@ Changes by Cody, November 2026. The per-file history is in this repository's com
 | DejaVu Sans font (`android/assets/subfont.ttf`, subtitles) | Android APKs | Bitstream Vera / DejaVu font license (free to use and redistribute) |
 | Plus Jakarta Sans font | `ios/web/fonts` | SIL Open Font License 1.1 |
 | Twemoji flag glyphs | `ios/web/fonts/TwemojiFlags.woff2` | CC-BY 4.0, © Twitter, Inc. and other contributors |
+| libmpv (mpv v0.41.0-524-g5921fe50b, `libmpv-2.dll`), unmodified | Windows build | GPL-2.0-or-later. Source: https://github.com/mpv-player/mpv |
+| FFmpeg 4.4.1 (Jellyfin build: `ffmpeg.exe`, `ffprobe.exe` and their DLLs), unmodified | Windows build (downloads) | GPL-3.0-or-later (built with --enable-gpl --enable-version3). Source: https://github.com/jellyfin/jellyfin-ffmpeg |
+| Node.js 22.23.5 `node.exe`, unmodified, shipped as `codio-runtime.exe` | Windows build | MIT and the licenses of its bundled parts. Source: https://github.com/nodejs/node |
+| Microsoft WebView2 loader (`WebView2Loader.dll`) | Windows build | Microsoft WebView2 SDK license (redistributable), via the MIT `webview2-com` crate |
+| Rust crates (`webview2-com`, `windows`, `serde_json`) | inside `Codio.exe`, listed in `windows/desktop/shell/Cargo.lock` | MIT / Apache-2.0 |
 
 VLCKit is linked as a separate dynamic framework, so it can be swapped for another build of VLCKit 4.0.0a26 by replacing `Frameworks/VLCKit.framework` in the ipa and re-signing it.
 
