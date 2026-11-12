@@ -9,6 +9,7 @@ import { useCore } from 'stremio/core';
 import { useAutoPlaySettings, type AutoPlaySettings } from 'stremio/common/AutoPlay';
 import { NavBar, styles } from './components';
 import SignIn from './SignIn';
+import { useProfiles, profileColor } from './profiles';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -24,9 +25,10 @@ type Choice = {
 
 type Link = { kind: 'link', label: string, help: string, route: string };
 type Account = { kind: 'account', label: string, help: string };
+type Profiles = { kind: 'profiles', label: string, help: string };
 type Heading = { kind: 'heading', label: string };
 
-type Item = Choice | Link | Account | Heading;
+type Item = Choice | Link | Account | Profiles | Heading;
 
 const BITRATES = [0, 25, 40, 60, 70, 80, 100, 150];
 
@@ -67,6 +69,7 @@ const ITEMS: Item[] = [
 
     { kind: 'heading', label: 'Account & addons' },
     { kind: 'account', label: 'Account', help: 'Signing in keeps your addons, library and progress in sync between Codio on this PC and on your TV.' },
+    { kind: 'profiles', label: 'Who\'s watching', help: 'Profiles you made on the iPhone. Each has its own library, Continue Watching and addons. Pick one on the right to switch, or use Left and Right, then Enter.' },
     { kind: 'link', label: 'Addons', help: 'Install or remove addons (catalogs and sources).', route: '/addons' },
 ];
 
@@ -87,10 +90,19 @@ const Settings = () => {
         }
     }, []);
     const email: string | null = profile?.auth?.user?.email ?? null;
+    const profiles = useProfiles();
+    const [pick, setPick] = useState(-1);
+    const currentIndex = profiles.current ? profiles.list.indexOf(profiles.current) : -1;
+    const picked = pick >= 0 && pick < profiles.list.length ? pick : Math.max(0, currentIndex);
 
     const current = (item: Choice): unknown => item.store === 'autoplay' ? (settings as any)[item.key] : profile?.settings?.[item.key];
 
     const change = (item: Item, step: number) => {
+        if (item.kind === 'profiles') {
+            const n = profiles.list.length;
+            if (n > 0) setPick((picked + step + n) % n);
+            return;
+        }
         if (item.kind !== 'choice') return;
         const index = indexOf(item, current(item));
         const next = item.values[index < 0 ? 0 : (index + step + item.values.length) % item.values.length];
@@ -106,12 +118,21 @@ const Settings = () => {
         else if (item.kind === 'account') {
             if (email) core.transport.dispatch({ action: 'Ctx', args: { action: 'Logout' } });
             else setSigningIn(true);
+        } else if (item.kind === 'profiles') {
+            const p = profiles.list[picked];
+            if (p) profiles.switchTo(p);
         } else change(item, 1);
     };
 
     const valueOf = (item: Item) => {
         if (item.kind === 'link') return '›';
         if (item.kind === 'account') return email ? 'Sign out' : 'Sign in';
+        if (item.kind === 'profiles') {
+            if (profiles.list.length === 0) return email ? 'Make profiles on the iPhone' : 'Sign in first';
+            if (profiles.switching) return 'Switching…';
+            const p = profiles.list[picked];
+            return picked === currentIndex ? `${p.name} (watching)` : `${p.name} · Enter to switch`;
+        }
         if (item.kind !== 'choice') return '';
         const value = current(item);
         const index = indexOf(item, value);
@@ -137,16 +158,16 @@ const Settings = () => {
                                     onFocus={() => setFocus(index)}
                                     onClick={() => activate(item)}
                                     onKeyDown={(event) => {
-                                        if (event.key === 'ArrowLeft' && item.kind === 'choice') { event.preventDefault(); event.stopPropagation(); change(item, -1); }
-                                        if (event.key === 'ArrowRight' && item.kind === 'choice') { event.preventDefault(); event.stopPropagation(); change(item, 1); }
+                                        if (event.key === 'ArrowLeft' && (item.kind === 'choice' || item.kind === 'profiles')) { event.preventDefault(); event.stopPropagation(); change(item, -1); }
+                                        if (event.key === 'ArrowRight' && (item.kind === 'choice' || item.kind === 'profiles')) { event.preventDefault(); event.stopPropagation(); change(item, 1); }
                                         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(item); }
                                     }}
                                 >
                                     <span className={styles['setting-label']}>{item.kind === 'account' && email ? `Signed in as ${email}` : item.kind === 'account' ? 'Not signed in' : item.label}</span>
                                     <span className={styles['setting-value']}>
-                                        {item.kind === 'choice' ? <span className={styles['arrow']} onClick={(e) => { e.stopPropagation(); change(item, -1); }}>‹</span> : null}
+                                        {item.kind === 'choice' || (item.kind === 'profiles' && profiles.list.length > 1) ? <span className={styles['arrow']} onClick={(e) => { e.stopPropagation(); change(item, -1); }}>‹</span> : null}
                                         <span>{valueOf(item)}</span>
-                                        {item.kind === 'choice' ? <span className={styles['arrow']} onClick={(e) => { e.stopPropagation(); change(item, 1); }}>›</span> : null}
+                                        {item.kind === 'choice' || (item.kind === 'profiles' && profiles.list.length > 1) ? <span className={styles['arrow']} onClick={(e) => { e.stopPropagation(); change(item, 1); }}>›</span> : null}
                                     </span>
                                 </div>
                             ))
@@ -163,6 +184,29 @@ const Settings = () => {
                             <>
                                 <div className={styles['help-title']}>{helpItem.label}</div>
                                 {'help' in helpItem ? <div className={styles['body']}>{helpItem.help}</div> : null}
+                                {
+                                    helpItem.kind === 'profiles' && profiles.list.length > 0 ?
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'calc(var(--u) * 24)', marginTop: 'calc(var(--u) * 32)' }}>
+                                            {profiles.list.map((p, index) => (
+                                                <button
+                                                    key={p.email}
+                                                    title={p.name}
+                                                    onClick={() => { setPick(index); profiles.switchTo(p); }}
+                                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(var(--u) * 10)', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', font: 'inherit', padding: 0 }}
+                                                >
+                                                    <span style={{
+                                                        width: 'calc(var(--u) * 96)', height: 'calc(var(--u) * 96)', borderRadius: 'calc(var(--u) * 14)',
+                                                        background: profileColor(p), display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: 'calc(var(--u) * 44)', fontWeight: 700, color: '#fff',
+                                                        outline: index === currentIndex ? '3px solid #fff' : 'none', outlineOffset: 3,
+                                                    }}>{p.name.trim().charAt(0).toUpperCase() || '?'}</span>
+                                                    <span style={{ fontSize: 'calc(var(--u) * 22)', opacity: index === currentIndex ? 1 : 0.75 }}>{p.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        : null
+                                }
+                                {helpItem.kind === 'profiles' && profiles.error ? <div className={styles['sign-in-error']}>{profiles.error}</div> : null}
                             </>
                     }
                 </div>
