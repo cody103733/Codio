@@ -20,6 +20,7 @@ Cast photos and recommendations use the TMDB API with the user's own key. This p
 - `ios/`: the iPhone app (native SwiftUI screens, VLCKit player). See [ios/README.md](ios/README.md).
 - `android/`: the Android TV and phone app. See [android/README.md](android/README.md).
 - `builds/` and `updates.json`: the Android builds and the list the apps check for updates.
+- Downloader code for the latest Android TV build ([Codio-AndroidTV-armv7.apk](builds/Codio-AndroidTV-armv7.apk)): **4621825** (aftv.news/4621825)
 - `apps.json` and `icon.png`: the update list the iPhone app checks.
 
 iPhone builds are on the Releases page. The source of any build is this repository at the commit or tag that published it.
