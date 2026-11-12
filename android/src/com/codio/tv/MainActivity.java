@@ -205,10 +205,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                     }
                     com.codio.tv.ui.Store st = store;
                     com.codio.tv.ui.Store.Sources list = st != null ? st.sources : null;
-                    if (list == null || url == null) {
-                        Log.e("CodioDV", "VLC: no source list to look the stream up in");
-                        return false;
-                    }
+                    if (url == null) return false;
+                    if (list == null) list = new com.codio.tv.ui.Store.Sources();
                     for (com.codio.tv.ui.Store.Source src : list.list) {
                         if (url.equals(src.url)) {
                             String tag = src.videoTag();
@@ -216,8 +214,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                             return "Dolby Vision".equals(tag);
                         }
                     }
-                    Log.e("CodioDV", "VLC: stream not found among " + list.list.size() + " sources");
-                    return false;
+                    // Not in the list (Play pressed before the sources arrived here): the address usually carries the file name.
+                    String name;
+                    try {
+                        name = java.net.URLDecoder.decode(url, "UTF-8");
+                    } catch (Exception e) {
+                        name = url;
+                    }
+                    name = name.replace('_', ' ');
+                    if (!name.matches("(?is).*?(\\bdv\\b|\\bdovi\\b|dolby[ ._-]?vision).*")) {
+                        Log.e("CodioDV", "VLC: stream not found among " + list.list.size() + " sources");
+                        return false;
+                    }
+                    Log.e("CodioDV", "not in the source list, but the file name says Dolby Vision");
+                    return true;
                 }
             });
             dv.setListener(h);

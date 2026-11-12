@@ -25,6 +25,7 @@ final class StreamFeed {
     // with nobody reading, BEHIND stays for a quick reopen.
     private static final long AHEAD = 32L << 20, BEHIND = 48L << 20, MAX_GAP = 64L << 20, JOIN_GAP = 6L << 20;
     private static final int MAX_FEEDS = 2;
+    private static final long IDLE_AHEAD = 2L << 20;
     private static final long IDLE_MS = 20000;
 
     private static final List<StreamFeed> feeds = new ArrayList<>();
@@ -85,6 +86,14 @@ final class StreamFeed {
                 }
             }
             if (best == null) {
+                // Downloads nobody has read from for a few seconds go first (e.g. the file's index at its end).
+                for (java.util.Iterator<StreamFeed> it = feeds.iterator(); it.hasNext(); ) {
+                    StreamFeed f = it.next();
+                    if (f.readers == 0 && SystemClock.uptimeMillis() - f.lastUsed > 3000) {
+                        it.remove();
+                        f.kill();
+                    }
+                }
                 // Drop a feed beyond the limit: an idle one if there is one, else the least recently used.
                 while (feeds.size() >= MAX_FEEDS) {
                     StreamFeed old = null;
@@ -276,7 +285,9 @@ final class StreamFeed {
         while (true) {
             synchronized (this) {
                 // Wait for room: AHEAD past the furthest reader. Stop when nobody has used this for a while.
-                while (!dead && end - furthest >= AHEAD) {
+                // Nobody reading (between the player's reopens, or a one-off look at the file's index): only a
+                // little ahead, so idle downloads don't take bandwidth from the one the picture needs.
+                while (!dead && end - furthest >= (readers == 0 && SystemClock.uptimeMillis() - lastUsed > 3000 ? IDLE_AHEAD : AHEAD)) {
                     if (readers == 0 && SystemClock.uptimeMillis() - lastUsed > IDLE_MS) return;
                     try {
                         wait(500);
