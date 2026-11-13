@@ -110,7 +110,7 @@ jobs:
             -NodeExe (Join-Path $env:RUNNER_TEMP 'node.exe') `
             -Makensis 'C:\Program Files (x86)\NSIS\makensis.exe' `
             -Version $env:VERSION
-          Get-Item "windows/dist/CodioSetup-$env:VERSION.exe" | Format-List Name, Length
+          Get-Item "$env:GITHUB_WORKSPACE\windows\dist\CodioSetup-$env:VERSION.exe" | Format-List Name, Length
 
       - name: Upload the installer
         uses: actions/upload-artifact@v4
