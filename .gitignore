@@ -8,3 +8,5 @@ ios/*.ipa
 ios/build.log
 ios/Codio/Info.plist
 .DS_Store
+android/.build/
+android/out/
