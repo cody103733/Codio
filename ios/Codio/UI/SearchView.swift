@@ -6,19 +6,21 @@ struct SearchView: View {
     @State private var results: [Meta] = []
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
-    @State private var browseType = "movie"
+    /// Movies / Series / Both filter for search (and the titles shown before typing). Starts on Both.
+    @State private var kind = "both"
     @State private var browse: [Meta] = []
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                Picker("", selection: $kind) {
+                    Text("Both").tag("both")
+                    Text("Movies").tag("movie")
+                    Text("Series").tag("series")
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Picker("", selection: $browseType) {
-                        Text("Movies").tag("movie")
-                        Text("Series").tag("series")
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
                     PosterGrid(items: browse)
                 } else if searching && results.isEmpty {
                     HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
@@ -35,15 +37,28 @@ struct SearchView: View {
         .profileToolbar()
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movies and shows")
         .onChange(of: query) { _ in scheduleSearch() }
-        .task(id: browseType + "\(store.generation)") { await loadBrowse() }
+        .onChange(of: kind) { _ in scheduleSearch(now: true) }
+        .task(id: kind + "\(store.generation)") { await loadBrowse() }
     }
+
+    private func wanted(_ type: String) -> Bool { kind == "both" || type == kind }
 
     private func loadBrowse() async {
-        guard let cat = store.discoverCatalogs(browseType).first else { return }
-        browse = await store.load(cat)
+        let types = kind == "both" ? ["movie", "series"] : [kind]
+        var lists: [[Meta]] = []
+        for t in types {
+            guard let cat = store.discoverCatalogs(t).first else { continue }
+            lists.append(await store.load(cat))
+        }
+        // Both: alternate movies and series so neither fills the top.
+        var mixed: [Meta] = []
+        for i in 0..<(lists.map(\.count).max() ?? 0) {
+            for l in lists where i < l.count { mixed.append(l[i]) }
+        }
+        browse = mixed
     }
 
-    private func scheduleSearch() {
+    private func scheduleSearch(now: Bool = false) {
         searchTask?.cancel()
         let q = query.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else {
@@ -51,15 +66,16 @@ struct SearchView: View {
             return
         }
         searchTask = Task {
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            if !now { try? await Task.sleep(nanoseconds: 400_000_000) }
             if Task.isCancelled { return }
             searching = true
+            results = []
             var all: [Meta] = []
             var seen = Set<String>()
-            for cat in store.searchCatalogs().prefix(6) {
+            for cat in store.searchCatalogs().filter({ wanted($0.type) }).prefix(6) {
                 let found = await store.load(cat, query: q)
                 if Task.isCancelled { return }
-                for m in found where !seen.contains(m.id) {
+                for m in found where wanted(m.type) && !seen.contains(m.id) {
                     seen.insert(m.id)
                     all.append(m)
                 }

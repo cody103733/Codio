@@ -11,9 +11,23 @@ import { useAddons, useOpen } from './useCodio';
 
 const CHARS = 'abcdefghijklmnopqrstuvwxyz1234567890'.split('');
 
+// Movies / Series / Both filter. Remembered for this run of the app; starts on Both.
+type Kind = 'both' | 'movie' | 'series';
+const KINDS: { kind: Kind, label: string }[] = [
+    { kind: 'both', label: 'Both' },
+    { kind: 'movie', label: 'Movies' },
+    { kind: 'series', label: 'Series' },
+];
+let lastKind: Kind = 'both';
+
 const Search = () => {
     const addons = useAddons();
-    const catalogs = useMemo(() => searchCatalogs(addons), [addons]);
+    const [kind, setKindState] = useState<Kind>(lastKind);
+    const setKind = (k: Kind) => {
+        lastKind = k;
+        setKindState(k);
+    };
+    const catalogs = useMemo(() => searchCatalogs(addons).filter((c) => kind === 'both' || c.type === kind), [addons, kind]);
     const { open, play } = useOpen();
     const [searchParams, setSearchParams] = useSearchParams();
     const [query, setQuery] = useState(() => searchParams.get('search') ?? '');
@@ -47,6 +61,7 @@ const Search = () => {
                     const seen = new Set<string>();
                     const merged: Meta[] = [];
                     lists.forEach((l) => (l ?? []).forEach((m) => {
+                        if (kind !== 'both' && m.type !== kind) return;
                         if (seen.has(m.type + m.id)) return;
                         seen.add(m.type + m.id);
                         merged.push(m);
@@ -57,7 +72,7 @@ const Search = () => {
             });
         }, 450);
         return () => clearTimeout(timer);
-    }, [query, catalogs]);
+    }, [query, catalogs, kind]);
 
     const press = (key: string) => {
         setQuery((q) => {
@@ -81,6 +96,17 @@ const Search = () => {
                         maxLength={60}
                         onChange={(e) => setQuery(e.target.value)}
                     />
+                </div>
+                <div className={styles['search-types']}>
+                    {KINDS.map(({ kind: k, label }) => (
+                        <button
+                            key={k}
+                            className={classnames(styles['chip'], { [styles['selected']]: kind === k })}
+                            onClick={() => setKind(k)}
+                            onMouseDown={(e) => e.preventDefault()}>
+                            {label}
+                        </button>
+                    ))}
                 </div>
                 <div className={styles['keys']}>
                     {CHARS.map((c) => <button key={c} className={styles['key']} onClick={() => press(c)} onMouseDown={(e) => e.preventDefault()}>{c.toUpperCase()}</button>)}

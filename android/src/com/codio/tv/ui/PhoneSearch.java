@@ -30,6 +30,16 @@ final class PhoneSearch extends PhoneUi.Page {
     private int request = 0;
     private final Handler h = new Handler(Looper.getMainLooper());
     private static String lastQuery = "";
+    /** Movies / Series / Both filter under the search box. Remembered while the app runs; starts on Both. */
+    private static final String[] KIND_LABEL = {"Both", "Movies", "Series"};
+    private static final String[] KIND_TYPE = {null, "movie", "series"};
+    private static int kind = 0;
+    private LinearLayout kinds;
+
+    private static boolean wanted(String type) {
+        String t = KIND_TYPE[kind];
+        return t == null || t.equals(type);
+    }
 
     PhoneSearch(PhoneUi ui) {
         super(ui);
@@ -57,6 +67,26 @@ final class PhoneSearch extends PhoneUi.Page {
         al.setMargins(dp(12), 0, 0, 0);
         top.addView(ui.profileButton(), al);
         col.addView(top, new LinearLayout.LayoutParams(-1, -2));
+        kinds = new LinearLayout(ctx());
+        kinds.setPadding(dp(12), 0, dp(12), dp(8));
+        for (int i = 0; i < KIND_LABEL.length; i++) {
+            final int k = i;
+            TextView chip = PhoneKit.chip(ctx(), KIND_LABEL[i], i == kind);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (k == kind) return;
+                    kind = k;
+                    for (int j = 0; j < kinds.getChildCount(); j++) PhoneKit.styleChip((TextView) kinds.getChildAt(j), j == kind);
+                    h.removeCallbacks(run);
+                    run.run();
+                }
+            });
+            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2);
+            cl.setMargins(0, 0, dp(8), 0);
+            kinds.addView(chip, cl);
+        }
+        col.addView(kinds, new LinearLayout.LayoutParams(-1, -2));
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
@@ -136,9 +166,10 @@ final class PhoneSearch extends PhoneUi.Page {
             hint.setText("Search your addons for movies and shows.");
             return;
         }
-        final List<Store.Catalog> cats = ui.store.searchCatalogs();
+        final List<Store.Catalog> cats = new ArrayList<>();
+        for (Store.Catalog cat : ui.store.searchCatalogs()) if (wanted(cat.type)) cats.add(cat);
         if (cats.isEmpty()) {
-            hint.setText(ui.online() ? "None of your addons can search." : "You're offline.");
+            hint.setText(ui.online() ? (kind == 0 ? "None of your addons can search." : "None of your addons can search " + KIND_LABEL[kind].toLowerCase() + ".") : "You're offline.");
             return;
         }
         hint.setText("Searching…");
@@ -157,7 +188,7 @@ final class PhoneSearch extends PhoneUi.Page {
                     Set<String> seen = new HashSet<>();
                     for (List<Store.Meta> p : parts) {
                         if (p == null) continue;
-                        for (Store.Meta m : p) if (seen.add(m.type + m.id)) grid.items.add(m);
+                        for (Store.Meta m : p) if (wanted(m.type) && seen.add(m.type + m.id)) grid.items.add(m);
                     }
                     grid.changed();
                     hint.setText(grid.items.isEmpty() ? (pending[0] > 0 ? "Searching…" : "Nothing found.") : "");

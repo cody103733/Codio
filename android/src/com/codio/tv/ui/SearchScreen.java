@@ -19,6 +19,10 @@ final class SearchScreen extends Screen {
     private static final float KX = TvView.MARGIN, KY = 290, KW = 76, KH = 70, KSX = 84, KSY = 78;
     private static final float RX = 700, RY = 200;
     private static final String[] SPECIAL = {"Space", "Delete", "Clear"};
+    /** Movies / Series / Both filter, the row under Space/Delete/Clear. Remembered while the app runs. */
+    private static final String[] KIND_LABEL = {"Both", "Movies", "Series"};
+    private static final String[] KIND_TYPE = {null, "movie", "series"};
+    private static int kind = 0;
 
     private final NavBar nav;
     private int zone = KEYS;
@@ -35,7 +39,12 @@ final class SearchScreen extends Screen {
     }
 
     private int keyCount() {
-        return CHARS.length() + SPECIAL.length;
+        return CHARS.length() + SPECIAL.length + KIND_LABEL.length;
+    }
+
+    private static boolean wanted(String type) {
+        String t = KIND_TYPE[kind];
+        return t == null || t.equals(type);
     }
 
     private final Runnable fire = new Runnable() {
@@ -61,7 +70,8 @@ final class SearchScreen extends Screen {
             tv.kick();
             return;
         }
-        final List<Store.Catalog> cats = tv.store.searchCatalogs();
+        final List<Store.Catalog> cats = new ArrayList<>();
+        for (Store.Catalog cat : tv.store.searchCatalogs()) if (wanted(cat.type)) cats.add(cat);
         pending = cats.size();
         final List<List<Store.Meta>> parts = new ArrayList<>();
         for (int i = 0; i < cats.size(); i++) parts.add(null);
@@ -79,7 +89,7 @@ final class SearchScreen extends Screen {
                     Set<String> seen = new HashSet<>();
                     for (List<Store.Meta> p : parts) {
                         if (p == null) continue;
-                        for (Store.Meta m : p) if (seen.add(m.type + m.id)) grid.items.add(m);
+                        for (Store.Meta m : p) if (wanted(m.type) && seen.add(m.type + m.id)) grid.items.add(m);
                     }
                     if (keep != null && zone == RESULTS) {
                         int at = grid.items.indexOf(keep);
@@ -113,9 +123,18 @@ final class SearchScreen extends Screen {
         // Keyboard.
         for (int i = 0; i < keyCount(); i++) {
             boolean focused = zone == KEYS && i == keyFocus;
+            boolean selected = false;
             float x, y, w;
             String label;
-            if (i < CHARS.length()) {
+            int typeBase = CHARS.length() + SPECIAL.length;
+            if (i >= typeBase) {
+                int s = i - typeBase;
+                x = KX + s * 2 * KSX;
+                y = KY + (CHARS.length() / KCOLS + 1) * KSY;
+                w = KSX * 2 - 8;
+                label = KIND_LABEL[s];
+                selected = s == kind;
+            } else if (i < CHARS.length()) {
                 x = KX + (i % KCOLS) * KSX;
                 y = KY + (i / KCOLS) * KSY;
                 w = KW;
@@ -128,7 +147,7 @@ final class SearchScreen extends Screen {
                 label = SPECIAL[s];
             }
             r.set(x, y, x + w, y + KH);
-            tv.fill.setColor(focused ? Color.WHITE : 0xFF1F1F1F);
+            tv.fill.setColor(focused ? Color.WHITE : selected ? TvView.RED : 0xFF1F1F1F);
             c.drawRoundRect(r, 8, 8, tv.fill);
             tv.tLabel.setColor(focused ? Color.BLACK : 0xFFE0E0E0);
             if (i >= CHARS.length()) tv.tLabel.setTextSize(24);
@@ -161,6 +180,17 @@ final class SearchScreen extends Screen {
     }
 
     private void press() {
+        int typeBase = CHARS.length() + SPECIAL.length;
+        if (keyFocus >= typeBase) {
+            int k = keyFocus - typeBase;
+            if (k != kind) {
+                kind = k;
+                tv.removeCallbacks(fire);
+                dueAt = 0;
+                search();
+            }
+            return;
+        }
         if (keyFocus < CHARS.length()) {
             query.append(CHARS.charAt(keyFocus));
         } else {
@@ -202,25 +232,32 @@ final class SearchScreen extends Screen {
                 }
                 return nav.key(k);
             case KEYS: {
+                // Rows: letters/digits, then Space/Delete/Clear, then Both/Movies/Series (wide keys, 2 columns each).
                 int chars = CHARS.length(), rows = chars / KCOLS;
-                boolean special = keyFocus >= chars;
-                int col = special ? (keyFocus - chars) * 2 : keyFocus % KCOLS;
-                int row = special ? rows : keyFocus / KCOLS;
+                int types = chars + SPECIAL.length;
+                boolean special = keyFocus >= chars && keyFocus < types;
+                boolean type = keyFocus >= types;
+                boolean wide = special || type;
+                int base = type ? types : chars;
+                int col = wide ? (keyFocus - base) * 2 : keyFocus % KCOLS;
+                int row = type ? rows + 1 : special ? rows : keyFocus / KCOLS;
                 if (k == TvView.OK) {
                     press();
                 } else if (k == TvView.UP) {
                     if (row == 0) {
                         zone = NAV;
                         nav.focus = nav.current;
-                    } else if (special) keyFocus = (rows - 1) * KCOLS + col;
+                    } else if (type) keyFocus = chars + (keyFocus - types);
+                    else if (special) keyFocus = (rows - 1) * KCOLS + col;
                     else keyFocus -= KCOLS;
                 } else if (k == TvView.DOWN) {
                     if (row == rows - 1) keyFocus = chars + Math.min(SPECIAL.length - 1, col / 2);
-                    else if (!special) keyFocus += KCOLS;
+                    else if (special) keyFocus = types + Math.min(KIND_LABEL.length - 1, keyFocus - chars);
+                    else if (!type) keyFocus += KCOLS;
                 } else if (k == TvView.LEFT) {
-                    if (special ? keyFocus > chars : col > 0) keyFocus--;
+                    if (wide ? keyFocus > base : col > 0) keyFocus--;
                 } else if (k == TvView.RIGHT) {
-                    boolean lastCol = special ? keyFocus == chars + SPECIAL.length - 1 : col == KCOLS - 1;
+                    boolean lastCol = wide ? keyFocus == base + 2 : col == KCOLS - 1;
                     if (lastCol) {
                         if (!grid.items.isEmpty()) {
                             zone = RESULTS;

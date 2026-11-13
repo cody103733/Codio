@@ -1,6 +1,6 @@
 [package]
 name = "codio"
-version = "1.6.3"
+version = "1.6.4"
 edition = "2021"
 license = "GPL-2.0-or-later"
 description = "Codio for Windows: the desktop window (WebView2 interface and mpv player)"
