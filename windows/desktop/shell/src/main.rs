@@ -498,6 +498,11 @@ fn on_method(method: &str, arg: &Value) {
             }
         }
         "discord-connect" => post_to_page(&signal("discord-status", json!(false))),
+        "install-update" => {
+            if let Some(version) = arg.as_str() {
+                install_update(version);
+            }
+        }
         "quit" => {
             let window = with_app(|app| app.window);
             if let Some(window) = window {
@@ -508,6 +513,34 @@ fn on_method(method: &str, arg: &Value) {
         }
         // Not needed by Codio: app-ready, media keys, Discord activity, updater, pickers.
         _ => {}
+    }
+}
+
+/// Runs the installer that codio-web.js downloaded (%LOCALAPPDATA%\Codio\update\CodioSetup-<version>.exe)
+/// in update mode and closes Codio. The installer waits for Codio to close, installs quietly and
+/// opens the new version. It is started from here, not from codio-web.js, because codio-web.js runs
+/// in a job that ends with Codio and would take the installer with it.
+fn install_update(version: &str) {
+    let valid = !version.is_empty() && version.len() <= 20 && version.chars().all(|c| c.is_ascii_digit() || c == '.');
+    let dir = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_default()).join("Codio").join("update");
+    let file = dir.join(format!("CodioSetup-{version}.exe"));
+    if !valid || !file.is_file() {
+        post_to_page(&signal("codio-update-failed", json!("installer not found")));
+        return;
+    }
+    let file = wide(&file.to_string_lossy());
+    let dir = wide(&dir.to_string_lossy());
+    let started = unsafe {
+        ShellExecuteW(None, w!("open"), PCWSTR(file.as_ptr()), w!("/S /UPDATE"), PCWSTR(dir.as_ptr()), SW_SHOWNORMAL)
+    };
+    if started.0 as isize <= 32 {
+        post_to_page(&signal("codio-update-failed", json!("the installer didn't start")));
+        return;
+    }
+    if let Some(window) = with_app(|app| app.window) {
+        unsafe {
+            let _ = PostMessageW(Some(window), WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
     }
 }
 

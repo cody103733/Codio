@@ -49,8 +49,44 @@ VIAddVersionKey "LegalCopyright" "Codio, GPL-2.0"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
+Var UpdateMode
+
+Function .onInit
+  ; "/UPDATE": started by Codio's own updater (with /S). Codio is closing by itself; wait for it,
+  ; then install without questions and open the new version.
+  StrCpy $UpdateMode "0"
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/UPDATE" $1
+  ${IfNot} ${Errors}
+    StrCpy $UpdateMode "1"
+  ${EndIf}
+FunctionEnd
+
+Function WaitForCodio
+  StrCpy $2 0
+  wait:
+  nsExec::ExecToStack 'cmd /c tasklist /NH | findstr /I /L "Codio.exe"'
+  Pop $0
+  ${If} $0 == 0
+    IntOp $2 $2 + 1
+    ${If} $2 > 30
+      ; Still open after 15 seconds: close it.
+      nsExec::ExecToStack 'taskkill /F /IM Codio.exe /T'
+      Pop $0
+      Sleep 1500
+      Return
+    ${EndIf}
+    Sleep 500
+    Goto wait
+  ${EndIf}
+FunctionEnd
+
 Function CloseRunningApp
   ; Codio must be closed so files can be replaced (older versions ran in stremio-shell-ng.exe).
+  ${If} $UpdateMode == "1"
+    Call WaitForCodio
+  ${EndIf}
   retry:
   nsExec::ExecToStack 'cmd /c tasklist /NH | findstr /I /L "Codio.exe stremio-shell-ng.exe"'
   Pop $0
@@ -78,8 +114,10 @@ Section "Codio" SecMain
   ; (no streaming server: debrid / HTTP sources play straight in mpv)
   File "${SRC}\codio-web.js"
   File "${SRC}\codio-downloads.js"
-  File "${SRC}\ffmpeg.exe"
-  File "${SRC}\ffprobe.exe"
+  File "${SRC}\codio-update.js"
+  ; ffmpeg was only used by the streaming server (gone since 1.6.1).
+  Delete "$INSTDIR\ffmpeg.exe"
+  Delete "$INSTDIR\ffprobe.exe"
   File "${SRC}\*.dll"
   File "${SRC}\codio.ico"
   File "/oname=Codio-icon-2.ico" "${SRC}\codio.ico"
@@ -124,6 +162,11 @@ Section "Codio" SecMain
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoRepair" 1
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" $0
+
+  ; An update started from Codio: open the new version (the finish page isn't shown in silent mode).
+  ${If} $UpdateMode == "1"
+    Exec '"$INSTDIR\Codio.exe"'
+  ${EndIf}
 SectionEnd
 
 Function LaunchCodio

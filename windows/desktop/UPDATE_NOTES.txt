@@ -1,0 +1,1 @@
+Codio can now update itself from Settings > Updates.

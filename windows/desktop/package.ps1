@@ -3,7 +3,7 @@
 #
 #   -ShellExe    Codio.exe built from windows\shell (see windows\shell\README.md)
 #   -LoaderDll   WebView2Loader.dll (x64), for example from the webview2-com-sys crate
-#   -RuntimeDir  a folder with libmpv-2.dll (mpv), and ffmpeg.exe / ffprobe.exe with their DLLs
+#   -RuntimeDir  a folder with libmpv-2.dll (mpv)
 #   -NodeExe     an official Node.js node.exe (win-x64); shipped as codio-runtime.exe
 #   -Makensis    NSIS's makensis.exe
 #   -SkipWebBuild  reuse an existing build\ folder
@@ -31,7 +31,7 @@ $out = Join-Path $repo 'dist\Codio-win64'
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Force $out | Out-Null
 Copy-Item -Recurse (Join-Path $repo 'build') (Join-Path $out 'web')
-Copy-Item (Join-Path $here 'codio-web.js'), (Join-Path $here 'codio-downloads.js'), (Join-Path $here 'codio.ico'), (Join-Path $here 'README.txt') $out
+Copy-Item (Join-Path $here 'codio-web.js'), (Join-Path $here 'codio-downloads.js'), (Join-Path $here 'codio-update.js'), (Join-Path $here 'codio.ico'), (Join-Path $here 'README.txt') $out
 Copy-Item $ShellExe (Join-Path $out 'Codio.exe')
 Copy-Item $LoaderDll (Join-Path $out 'WebView2Loader.dll')
 Copy-Item $NodeExe (Join-Path $out 'codio-runtime.exe')

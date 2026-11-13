@@ -1,0 +1,147 @@
+name: Build Codio for Windows
+
+# Builds the Windows installer (CodioSetup-<version>.exe) on every change to windows/.
+# When the version in windows/desktop/shell/Cargo.toml has no release yet, it also publishes
+# release windows-v<version> and points the "windows" entry of updates.json at it, which is
+# what Codio's Settings > Updates reads. So: bump that version (and UPDATE_NOTES.txt) to ship.
+
+on:
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-build
+  cancel-in-progress: false
+
+jobs:
+  installer:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        run: |
+          $v = (Select-String -Path windows/desktop/shell/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          "VERSION=$v" >> $env:GITHUB_ENV
+          gh release view "windows-v$v" -R $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { "PUBLISH=0" >> $env:GITHUB_ENV } else { "PUBLISH=1" >> $env:GITHUB_ENV }
+          $global:LASTEXITCODE = 0
+          Write-Output "Codio for Windows $v"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: windows/package.json
+
+      - name: Install the interface's packages
+        working-directory: windows
+        run: pnpm install --frozen-lockfile
+
+      - name: Tools (llvm-mingw, NSIS)
+        run: |
+          rustup target add x86_64-pc-windows-gnullvm
+          $tools = Join-Path $env:RUNNER_TEMP 'tools'
+          New-Item -ItemType Directory -Force $tools | Out-Null
+          gh release download -R mstorsjo/llvm-mingw --pattern 'llvm-mingw-*-ucrt-x86_64.zip' -D $tools
+          if ($LASTEXITCODE) { throw 'llvm-mingw download failed' }
+          Expand-Archive (Get-ChildItem $tools -Filter 'llvm-mingw-*.zip')[0].FullName $tools
+          $llvm = (Get-ChildItem $tools -Directory -Filter 'llvm-mingw-*')[0].FullName
+          "LLVM_MINGW=$llvm" >> $env:GITHUB_ENV
+          "CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER=$llvm\bin\x86_64-w64-mingw32-clang.exe" >> $env:GITHUB_ENV
+          "WINDRES=$llvm\bin\x86_64-w64-mingw32-windres.exe" >> $env:GITHUB_ENV
+          if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) { choco install nsis -y --no-progress }
+
+      - name: Build Codio.exe
+        working-directory: windows/desktop/shell
+        run: |
+          cargo build --release --target x86_64-pc-windows-gnullvm
+          if ($LASTEXITCODE) { throw 'cargo build failed' }
+
+      - name: Player and runtime files (libmpv, WebView2Loader, Node.js)
+        run: |
+          $rt = Join-Path $env:RUNNER_TEMP 'runtime'
+          New-Item -ItemType Directory -Force $rt | Out-Null
+          $dl = Join-Path $env:RUNNER_TEMP 'dl'
+          New-Item -ItemType Directory -Force $dl | Out-Null
+
+          # libmpv-2.dll (mpv's own Windows builds)
+          gh release download -R shinchiro/mpv-winbuild-cmake --pattern 'mpv-dev-x86_64-2*.7z' -D $dl
+          if ($LASTEXITCODE) { throw 'libmpv download failed' }
+          7z e -y (Get-ChildItem $dl -Filter 'mpv-dev-*.7z')[0].FullName "-o$rt" libmpv-2.dll | Out-Null
+          if (-not (Test-Path "$rt\libmpv-2.dll")) { throw 'libmpv-2.dll not found in the mpv package' }
+
+          # WebView2Loader.dll (Microsoft's WebView2 SDK)
+          Invoke-WebRequest 'https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2' -OutFile "$dl\webview2.zip"
+          Expand-Archive "$dl\webview2.zip" "$dl\webview2"
+          Copy-Item "$dl\webview2\build\native\x64\WebView2Loader.dll" (Join-Path $env:RUNNER_TEMP 'WebView2Loader.dll')
+
+          # Node.js, shipped as codio-runtime.exe
+          Invoke-WebRequest 'https://nodejs.org/dist/latest-v22.x/win-x64/node.exe' -OutFile (Join-Path $env:RUNNER_TEMP 'node.exe')
+
+          # Runtime DLLs Codio.exe links against from llvm-mingw (libunwind and friends)
+          $exe = 'windows/desktop/shell/target/x86_64-pc-windows-gnullvm/release/codio.exe'
+          $dlls = & "$env:LLVM_MINGW\bin\llvm-objdump.exe" -p $exe | Select-String 'DLL Name: (.+)' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() }
+          Write-Output "Codio.exe imports: $($dlls -join ', ')"
+          foreach ($d in $dlls) {
+            $f = Join-Path "$env:LLVM_MINGW\x86_64-w64-mingw32\bin" $d
+            if (Test-Path $f) { Copy-Item $f $rt; Write-Output "bundled $d" }
+          }
+
+      - name: Build the interface and the installer
+        run: |
+          windows/desktop/package.ps1 `
+            -ShellExe "$env:GITHUB_WORKSPACE\windows\desktop\shell\target\x86_64-pc-windows-gnullvm\release\codio.exe" `
+            -LoaderDll (Join-Path $env:RUNNER_TEMP 'WebView2Loader.dll') `
+            -RuntimeDir (Join-Path $env:RUNNER_TEMP 'runtime') `
+            -NodeExe (Join-Path $env:RUNNER_TEMP 'node.exe') `
+            -Makensis 'C:\Program Files (x86)\NSIS\makensis.exe' `
+            -Version $env:VERSION
+          Get-Item "windows/dist/CodioSetup-$env:VERSION.exe" | Format-List Name, Length
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodioSetup-${{ env.VERSION }}
+          path: windows/dist/CodioSetup-*.exe
+
+      - name: Publish the release and update updates.json
+        if: env.PUBLISH == '1' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=$GITHUB_REPOSITORY
+          TAG="windows-v$VERSION"
+          FILE="windows/dist/CodioSetup-$VERSION.exe"
+          gh release create "$TAG" -R "$R" --target "$GITHUB_SHA" --title "Codio for Windows $VERSION" \
+            --notes "Unofficial personal build, provided as is, not for general use. Source is this repository at this tag (GPL-2.0)." "$FILE"
+          URL="https://github.com/$R/releases/download/$TAG/CodioSetup-$VERSION.exe"
+          SIZE=$(wc -c < "$FILE" | tr -d ' ')
+          HASH=$(sha256sum "$FILE" | cut -d' ' -f1)
+          NOTES=$(tr -d '\r' < windows/desktop/UPDATE_NOTES.txt | head -c 500)
+          SHA=$(gh api "repos/$R/contents/updates.json" --jq .sha)
+          gh api "repos/$R/contents/updates.json" -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/updates.json"
+          python - "$RUNNER_TEMP/updates.json" "$VERSION" "$URL" "$SIZE" "$HASH" "$NOTES" <<'PY'
+          import json, sys
+          path, ver, url, size, sha, notes = sys.argv[1:7]
+          data = json.load(open(path, encoding="utf-8"))
+          data["windows"] = {"version": ver, "url": url, "size": int(size), "sha256": sha, "notes": notes.strip()}
+          json.dump(data, open(path, "w", encoding="utf-8", newline="\n"), indent=2)
+          open(path, "a", encoding="utf-8", newline="\n").write("\n")
+          PY
+          gh api -X PUT "repos/$R/contents/updates.json" -f message="Update list: Codio for Windows $VERSION [skip ci]" \
+            -f content="$(base64 -w0 < "$RUNNER_TEMP/updates.json")" -f sha="$SHA" >/dev/null
+          echo "published $URL"

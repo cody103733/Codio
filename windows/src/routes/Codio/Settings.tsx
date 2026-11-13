@@ -10,6 +10,7 @@ import { useAutoPlaySettings, type AutoPlaySettings } from 'stremio/common/AutoP
 import { NavBar, styles } from './components';
 import SignIn from './SignIn';
 import { useProfiles, profileColor } from './profiles';
+import { useUpdate, updateLabel, updateHelp } from './update';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -27,8 +28,9 @@ type Link = { kind: 'link', label: string, help: string, route: string };
 type Account = { kind: 'account', label: string, help: string };
 type Profiles = { kind: 'profiles', label: string, help: string };
 type Heading = { kind: 'heading', label: string };
+type Update = { kind: 'update', label: string, help: string };
 
-type Item = Choice | Link | Account | Profiles | Heading;
+type Item = Choice | Link | Account | Profiles | Heading | Update;
 
 const BITRATES = [0, 25, 40, 60, 70, 80, 100, 150];
 
@@ -71,6 +73,9 @@ const ITEMS: Item[] = [
     { kind: 'account', label: 'Account', help: 'Signing in keeps your addons, library and progress in sync between Codio on this PC and on your TV.' },
     { kind: 'profiles', label: 'Who\'s watching', help: 'Profiles you made on the iPhone. Each has its own library, Continue Watching and addons. Pick one on the right to switch, or use Left and Right, then Enter.' },
     { kind: 'link', label: 'Addons', help: 'Install or remove addons (catalogs and sources).', route: '/addons' },
+
+    { kind: 'heading', label: 'About' },
+    { kind: 'update', label: 'Updates', help: '' },
 ];
 
 const indexOf = (item: Choice, value: unknown) => item.values.findIndex((v) => v === value);
@@ -89,6 +94,7 @@ const Settings = () => {
             return '';
         }
     }, []);
+    const update_ = useUpdate(version);
     const email: string | null = profile?.auth?.user?.email ?? null;
     const profiles = useProfiles();
     const [pick, setPick] = useState(-1);
@@ -121,12 +127,16 @@ const Settings = () => {
         } else if (item.kind === 'profiles') {
             const p = profiles.list[picked];
             if (p) profiles.switchTo(p);
+        } else if (item.kind === 'update') {
+            if (update_.state.phase === 'current') update_.check();
+            else update_.install();
         } else change(item, 1);
     };
 
     const valueOf = (item: Item) => {
         if (item.kind === 'link') return '›';
         if (item.kind === 'account') return email ? 'Sign out' : 'Sign in';
+        if (item.kind === 'update') return updateLabel(update_.state);
         if (item.kind === 'profiles') {
             if (profiles.list.length === 0) return email ? 'Make profiles on the iPhone' : 'Sign in first';
             if (profiles.switching) return 'Switching…';
@@ -183,7 +193,8 @@ const Settings = () => {
                             :
                             <>
                                 <div className={styles['help-title']}>{helpItem.label}</div>
-                                {'help' in helpItem ? <div className={styles['body']}>{helpItem.help}</div> : null}
+                                {helpItem.kind === 'update' ? <div className={styles['body']} style={{ whiteSpace: 'pre-line' }}>{`You have Codio ${version}.\n\n${updateHelp(update_.state)}`}</div>
+                                    : 'help' in helpItem ? <div className={styles['body']}>{helpItem.help}</div> : null}
                                 {
                                     helpItem.kind === 'profiles' && profiles.list.length > 0 ?
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'calc(var(--u) * 24)', marginTop: 'calc(var(--u) * 32)' }}>
