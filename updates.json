@@ -10,5 +10,12 @@
     "versionCode": 13,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
     "notes": "Search has a Movies / Series / Both filter under the search box."
+  },
+  "windows": {
+    "version": "1.6.5",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.5/CodioSetup-1.6.5.exe",
+    "size": 66673393,
+    "sha256": "29c984dd56253633630d8e3b38df3c089fa1ae290ae61fedf8cc41178902a0c5",
+    "notes": "Codio can now update itself from Settings > Updates."
   }
 }
