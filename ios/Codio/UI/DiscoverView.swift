@@ -51,6 +51,7 @@ struct DiscoverView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle(typeLabel(target.type))
+        .profileToolbar()
         .task(id: "\(catalogIndex)|\(genre ?? "")|\(store.generation)") { await reload() }
     }
 

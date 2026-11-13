@@ -88,10 +88,7 @@ struct HomeView: View {
             HStack {
                 BrandWordmark(height: 26)
                 Spacer()
-                if let p = profiles.current {
-                    Button { profiles.showPicker = true } label: { ProfileAvatar(profile: p, size: 30) }
-                        .buttonStyle(.plain)
-                }
+                ProfileButton(size: 32)
             }
             HStack(spacing: 8) {
                 NavigationLink(value: DiscoverTarget(type: "series")) { Pill(text: "Shows") }

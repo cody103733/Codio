@@ -74,6 +74,84 @@
         height: 100%;
     }
 
+    .profile-menu {
+        position: relative;
+        margin-left: auto;
+        margin-right: calc(@u * 96);
+        flex: none;
+    }
+
+    .avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        border-radius: 50%;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+    }
+
+    .profile-button {
+        display: block;
+        border-radius: 50%;
+        box-shadow: 0 0 0 calc(@u * 2) fade(#fff, 25%);
+        transition: box-shadow 120ms ease, transform 120ms ease;
+
+        &:hover, &:focus-visible, &.open {
+            box-shadow: 0 0 0 calc(@u * 3) #fff;
+        }
+    }
+
+    .profile-dropdown {
+        position: absolute;
+        right: 0;
+        top: calc(100% + @u * 18);
+        min-width: calc(@u * 300);
+        padding: calc(@u * 12) 0;
+        background: fade(#141414, 96%);
+        border: 1px solid fade(#fff, 12%);
+        border-radius: calc(@u * 10);
+        box-shadow: 0 calc(@u * 12) calc(@u * 40) fade(#000, 60%);
+    }
+
+    .profile-row {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 18);
+        width: 100%;
+        padding: calc(@u * 10) calc(@u * 24);
+        font-size: calc(@u * 25);
+        font-weight: 600;
+        color: @body;
+        text-align: left;
+        white-space: nowrap;
+
+        &.current {
+            color: #fff;
+            cursor: default;
+        }
+
+        &.plain {
+            margin-top: calc(@u * 8);
+            padding-top: calc(@u * 16);
+            border-top: 1px solid fade(#fff, 12%);
+        }
+    }
+
+    button.profile-row:hover {
+        color: #fff;
+        background: fade(#fff, 8%);
+    }
+
+    .profile-note {
+        padding: calc(@u * 10) calc(@u * 24);
+        max-width: calc(@u * 340);
+        font-size: calc(@u * 21);
+        color: @small;
+        white-space: normal;
+    }
+
     .nav-item {
         position: relative;
         height: calc(@u * 56);

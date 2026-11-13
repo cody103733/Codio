@@ -49,9 +49,14 @@ final class PhoneSearch extends PhoneUi.Page {
         box.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         box.setPadding(dp(14), dp(10), dp(14), dp(10));
         box.setBackground(PhoneKit.round(0xFF262626, dp(8)));
-        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-1, -2);
-        bl.setMargins(dp(12), dp(12), dp(12), dp(8));
-        col.addView(box, bl);
+        LinearLayout top = new LinearLayout(ctx());
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(12), dp(12), dp(12), dp(8));
+        top.addView(box, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
+        al.setMargins(dp(12), 0, 0, 0);
+        top.addView(ui.profileButton(), al);
+        col.addView(top, new LinearLayout.LayoutParams(-1, -2));
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));

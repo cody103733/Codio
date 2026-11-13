@@ -32,6 +32,7 @@ struct SearchView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Search")
+        .profileToolbar()
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movies and shows")
         .onChange(of: query) { _ in scheduleSearch() }
         .task(id: browseType + "\(store.generation)") { await loadBrowse() }
@@ -100,5 +101,6 @@ struct LibraryView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Library")
+        .profileToolbar()
     }
 }

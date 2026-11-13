@@ -102,6 +102,9 @@ final class PhoneHome extends PhoneUi.Page {
         bar.addView(gap, new LinearLayout.LayoutParams(0, 1, 1));
         bar.addView(topLink("Movies", NavBar.MOVIES));
         bar.addView(topLink("Series", NavBar.SERIES));
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
+        al.setMargins(dp(8), 0, dp(6), 0);
+        bar.addView(ui.profileButton(), al);
         hero.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         int w = ctx().getResources().getDisplayMetrics().widthPixels;
         list.addView(hero, new LinearLayout.LayoutParams(-1, Math.round(Math.min(w, dp(600)) * 1.2f)));

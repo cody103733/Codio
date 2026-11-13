@@ -233,6 +233,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     @Override
     public void dataChanged(boolean addonsChanged) {
         for (Page p : stack) p.refresh();
+        refreshAvatars();
     }
 
     @Override
@@ -425,6 +426,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     @Override
     public void coreEvent(String name, String message) {
         for (Page p : new ArrayList<>(stack)) p.coreEvent(name);
+        refreshAvatars();
         if (name.startsWith("Error:")) {
             String ev = name.substring(6);
             if (ev.equals("UserPulledFromAPI") || ev.equals("LibrarySyncWithAPIPlanned") || ev.equals("UserAddonsLocked")) return;
@@ -433,6 +435,127 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         else if (name.equals("AddonUninstalled")) toast("Addon removed");
         else if (name.equals("UserAuthenticated")) toast("Signed in");
         else if (name.equals("UserLoggedOut")) toast("Signed out");
+    }
+
+    // ------------------------------------------------------------------ who's watching (round avatar, top right)
+
+    /** A round avatar for the profile being watched; tap it to pick who's watching. Sits in the top right of each tab. */
+    View profileButton() {
+        final Avatar a = new Avatar(getContext(), null, 34);
+        a.setContentDescription("Who's watching");
+        a.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                pickProfile();
+            }
+        });
+        avatars.add(new java.lang.ref.WeakReference<>(a));
+        return a;
+    }
+
+    private final ArrayList<java.lang.ref.WeakReference<Avatar>> avatars = new ArrayList<>();
+
+    /** The account or profile list changed: every top-right avatar redraws. */
+    private void refreshAvatars() {
+        for (int i = avatars.size() - 1; i >= 0; i--) {
+            Avatar a = avatars.get(i).get();
+            if (a == null) avatars.remove(i);
+            else a.invalidate();
+        }
+    }
+
+    /** A page title with the round avatar on the right. */
+    static View titleRow(PhoneUi ui, TextView title) {
+        LinearLayout row = new LinearLayout(ui.getContext());
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        al.setMargins(0, PhoneKit.dp(ui.getContext(), 6), PhoneKit.dp(ui.getContext(), 14), 0);
+        row.addView(ui.profileButton(), al);
+        return row;
+    }
+
+    /** "Who's watching?": the profiles as round avatars with names; tap one to switch. */
+    void pickProfile() {
+        final org.json.JSONArray l = Profiles.list(host.prefs());
+        final String email = Profiles.email(store);
+        if (email == null) {
+            toast("Sign in first, in Settings.");
+            return;
+        }
+        Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(0, PhoneKit.dp(c, 8), 0, PhoneKit.dp(c, 8));
+        final AlertDialog[] shown = new AlertDialog[1];
+        int n = Math.max(1, l.length());
+        for (int i = 0; i < n; i++) {
+            final JSONObject p = l.length() > 0 ? l.optJSONObject(i) : Profiles.current(store, host.prefs());
+            boolean cur = p != null && email.equalsIgnoreCase(p.optString("email"));
+            LinearLayout row = new LinearLayout(c);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(PhoneKit.dp(c, 20), PhoneKit.dp(c, 10), PhoneKit.dp(c, 20), PhoneKit.dp(c, 10));
+            row.addView(new Avatar(c, p, 44));
+            TextView name = PhoneKit.text(c, Profiles.name(p) + (cur ? "  ·  watching" : ""), 17, cur ? Color.WHITE : 0xFFCCCCCC, cur);
+            name.setPadding(PhoneKit.dp(c, 16), 0, 0, 0);
+            row.addView(name);
+            row.setBackground(PhoneKit.pressable(null, 0));
+            row.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (shown[0] != null) shown[0].dismiss();
+                    Profiles.switchTo(store, p, new Profiles.Ui() {
+                        @Override
+                        public void ctx(String n, Object args) {
+                            PhoneUi.this.ctx(n, args);
+                        }
+
+                        @Override
+                        public void toast(String text) {
+                            PhoneUi.this.toast(text);
+                        }
+                    });
+                }
+            });
+            box.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        if (l.length() == 0) {
+            TextView hint = PhoneKit.text(c, "Make more profiles on the iPhone. They show up here on their own.", 13, PhoneKit.TEXT2, false);
+            hint.setPadding(PhoneKit.dp(c, 20), PhoneKit.dp(c, 8), PhoneKit.dp(c, 20), 0);
+            box.addView(hint);
+        }
+        shown[0] = dialog().setTitle("Who's watching?").setView(box).setNegativeButton("Close", null).show();
+    }
+
+    /** A filled circle in the profile's colour with its first letter; null profile = the one being watched. */
+    final class Avatar extends View {
+        private final JSONObject fixed;
+        private final int sizeDp;
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), letter = new Paint(Paint.ANTI_ALIAS_FLAG), ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        Avatar(Context c, JSONObject profile, int sizeDp) {
+            super(c);
+            this.fixed = profile;
+            this.sizeDp = sizeDp;
+            letter.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            ring.setStyle(Paint.Style.STROKE);
+            ring.setColor(0x40FFFFFF);
+            ring.setStrokeWidth(PhoneKit.dp(c, 1));
+        }
+
+        @Override
+        protected void onMeasure(int w, int h) {
+            int s = PhoneKit.dp(getContext(), sizeDp);
+            setMeasuredDimension(s, s);
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            JSONObject p = fixed != null ? fixed : Profiles.current(store, host.prefs());
+            float r = Math.min(getWidth(), getHeight()) / 2f;
+            Profiles.drawAvatar(c, fill, letter, getWidth() / 2f, getHeight() / 2f, r - 1, p);
+            if (fixed == null) c.drawCircle(getWidth() / 2f, getHeight() / 2f, r - 1, ring);
+        }
     }
 
     // ------------------------------------------------------------------ helpers for the pages

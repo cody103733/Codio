@@ -35,7 +35,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         col.setOrientation(LinearLayout.VERTICAL);
         TextView title = PhoneKit.text(ctx(), "Library", 24, Color.WHITE, true);
         title.setPadding(dp(16), dp(14), dp(16), dp(6));
-        col.addView(title);
+        col.addView(PhoneUi.titleRow(ui, title));
         HorizontalScrollView hs = new HorizontalScrollView(ctx());
         hs.setHorizontalScrollBarEnabled(false);
         LinearLayout strip = new LinearLayout(ctx());

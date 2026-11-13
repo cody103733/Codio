@@ -191,12 +191,36 @@ enum Keychain {
 struct ProfileAvatar: View {
     let profile: Profiles.Profile
     var size: CGFloat = 96
+    var round = false
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.08)
+        RoundedRectangle(cornerRadius: round ? size / 2 : size * 0.08)
             .fill(Profiles.colors[profile.color % Profiles.colors.count])
             .frame(width: size, height: size)
             .overlay(Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: size * 0.48, weight: .heavy)).foregroundColor(.white))
+    }
+}
+
+/// The round avatar in the top right of every screen: tap it to pick who's watching.
+struct ProfileButton: View {
+    @ObservedObject private var profiles = Profiles.shared
+    var size: CGFloat = 30
+    var body: some View {
+        if let p = profiles.current {
+            Button { profiles.showPicker = true } label: {
+                ProfileAvatar(profile: p, size: size, round: true)
+                    .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Who's watching: \(p.name)")
+        }
+    }
+}
+
+extension View {
+    /// Puts the round profile avatar in the navigation bar's top-right corner.
+    func profileToolbar() -> some View {
+        toolbar { ToolbarItem(placement: .navigationBarTrailing) { ProfileButton(size: 28) } }
     }
 }
 

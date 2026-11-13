@@ -183,7 +183,7 @@ final class PhoneSettings extends PhoneUi.Page {
         list.removeAllViews();
         TextView title = PhoneKit.text(ctx(), "Settings", 24, Color.WHITE, true);
         title.setPadding(dp(16), dp(14), dp(16), dp(4));
-        list.addView(title);
+        list.addView(PhoneUi.titleRow(ui, title));
         for (Object o : items) {
             if (o instanceof Choice) list.addView(choiceRow((Choice) o));
             else if ("account".equals(o)) list.addView(accountRow());

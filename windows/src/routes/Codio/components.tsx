@@ -5,6 +5,8 @@ import classnames from 'classnames';
 import { useNavigate } from 'react-router';
 import BrandLogo from 'stremio/components/BrandLogo';
 import type { Meta } from './api';
+import { useProfiles, profileColor } from './profiles';
+import type { CodioProfile } from './profiles';
 import styles from './Codio.less';
 
 export { styles };
@@ -37,6 +39,77 @@ export const NavBar = ({ current, solid = false }: { current: number, solid?: bo
                         {item.label}
                     </button>
                 ))
+            }
+            <ProfileMenu />
+        </div>
+    );
+};
+
+// ---- Who's watching: a round avatar in the top right; click it for the other profiles.
+const Avatar = ({ profile, size }: { profile: CodioProfile | null, size: number }) => (
+    <span
+        className={styles['avatar']}
+        style={{ width: `calc(var(--u) * ${size})`, height: `calc(var(--u) * ${size})`, fontSize: `calc(var(--u) * ${size * 0.46})`, background: profile ? profileColor(profile) : '#333' }}
+    >
+        {profile ? (profile.name.trim().charAt(0).toUpperCase() || '?') : '?'}
+    </span>
+);
+
+const ProfileMenu = () => {
+    const navigate = useNavigate();
+    const profiles = useProfiles();
+    const [open, setOpen] = useState(false);
+    const box = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const close = (event: MouseEvent) => {
+            if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+        };
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); }
+        };
+        window.addEventListener('mousedown', close, true);
+        window.addEventListener('keydown', onKey, true);
+        return () => {
+            window.removeEventListener('mousedown', close, true);
+            window.removeEventListener('keydown', onKey, true);
+        };
+    }, [open]);
+    const others = profiles.list.filter((p) => p !== profiles.current);
+    return (
+        <div className={styles['profile-menu']} ref={box}>
+            <button
+                className={classnames(styles['profile-button'], { [styles['open']]: open })}
+                onClick={() => setOpen(!open)}
+                title={profiles.current ? `Who's watching: ${profiles.current.name}` : 'Who\'s watching'}
+                aria-label={'Who\'s watching'}
+            >
+                <Avatar profile={profiles.current} size={52} />
+            </button>
+            {
+                open ?
+                    <div className={styles['profile-dropdown']}>
+                        {
+                            profiles.current ?
+                                <div className={classnames(styles['profile-row'], styles['current'])}>
+                                    <Avatar profile={profiles.current} size={44} />
+                                    <span>{profiles.current.name}</span>
+                                </div>
+                                : null
+                        }
+                        {
+                            others.map((p) => (
+                                <button key={p.email} className={styles['profile-row']} onClick={() => profiles.switchTo(p)}>
+                                    <Avatar profile={p} size={44} />
+                                    <span>{profiles.switching && profiles.switching.toLowerCase() === p.email.toLowerCase() ? 'Switching…' : p.name}</span>
+                                </button>
+                            ))
+                        }
+                        {profiles.list.length === 0 ? <div className={styles['profile-note']}>Make profiles on the iPhone. They show up here on their own.</div> : null}
+                        {profiles.error ? <div className={styles['profile-note']}>{profiles.error}</div> : null}
+                        <button className={classnames(styles['profile-row'], styles['plain'])} onClick={() => { setOpen(false); navigate('/preferences'); }}>Settings</button>
+                    </div>
+                    : null
             }
         </div>
     );

@@ -132,6 +132,7 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Settings")
+        .profileToolbar()
         .onAppear { if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) } }
         .alert("Sign in", isPresented: $showSignIn) {
             TextField("Email", text: $email).textInputAutocapitalization(.never).keyboardType(.emailAddress)
