@@ -12,10 +12,10 @@
     "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
   },
   "windows": {
-    "version": "1.6.7",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.7/CodioSetup-1.6.7.exe",
-    "size": 66669679,
-    "sha256": "74555c3dfa9cb8f941681fc3fd41b52a9b76808e3f74d951eda9934357660f67",
-    "notes": "Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists."
+    "version": "1.6.8",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.8/CodioSetup-1.6.8.exe",
+    "size": 66666364,
+    "sha256": "f3355ef8567bfd7fc9f6a62661758682ac9700d224d685623b14ef4ce2cbcae3",
+    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
   }
 }
