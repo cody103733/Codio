@@ -12,10 +12,10 @@
     "notes": "Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists."
   },
   "windows": {
-    "version": "1.6.6",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.6/CodioSetup-1.6.6.exe",
-    "size": 66660705,
-    "sha256": "62a1d0a84401fec5d763efbf262a3411b4ccd57d3da273d7afc6624d5d1e4a80",
-    "notes": "Codio plays the audio track in your language (Settings > Audio language) even when the file lists another language first."
+    "version": "1.6.7",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.7/CodioSetup-1.6.7.exe",
+    "size": 66669679,
+    "sha256": "74555c3dfa9cb8f941681fc3fd41b52a9b76808e3f74d951eda9934357660f67",
+    "notes": "Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists."
   }
 }
