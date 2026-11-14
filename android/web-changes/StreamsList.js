@@ -87,9 +87,13 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         const { type: routeType, id, videoId } = routeParams;
         return typeof id === 'string' ? [routeType, id, videoId ?? video?.id ?? ''].join('/') : null;
     }, [routeParams.type, routeParams.id, routeParams.videoId, video]);
+    // Opening another episode, the page shows the new route a moment before the core has swapped the sources, so the
+    // last episode's list (often the one Continue Watching loaded early) is still here: never auto-play from it.
+    const staleStreams = typeof routeParams.videoId === 'string' && routeParams.videoId !== routeParams.id &&
+        (video === null || video === undefined || video.id !== routeParams.videoId);
     const allStreams = React.useMemo(() => {
-        return Object.values(streamsByAddon).map(({ streams }) => streams).flat(1);
-    }, [streamsByAddon]);
+        return staleStreams ? [] : Object.values(streamsByAddon).map(({ streams }) => streams).flat(1);
+    }, [streamsByAddon, staleStreams]);
     const [autoPlaySettings] = useAutoPlaySettings();
     // "Choose a source" adds ?sources=1, so the page can lay the full list out
     // in its own column (the Play button otherwise sits under the title).
@@ -114,7 +118,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
     const autoPlay = useAutoPlay({
         key: autoPlayKey,
         streams: allStreams,
-        loading: countLoadingAddons > 0,
+        loading: countLoadingAddons > 0 || staleStreams,
         externalPlayer: profile.settings.playerType !== null,
         runtime: typeof video?.runtime === 'string' ? video.runtime : runtime,
         // After "Choose a source" nothing starts by itself.
@@ -126,7 +130,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         const ranked = Array.isArray(autoPlay.candidates) ? autoPlay.candidates : (autoPlay.phase && Array.isArray(autoPlay.phase.candidates) ? autoPlay.phase.candidates : []);
         window.__codioStreams = {
             key: autoPlayKey,
-            loading: countLoadingAddons > 0,
+            loading: countLoadingAddons > 0 || staleStreams,
             streams: allStreams.map((stream) => ({
                 addon: stream.addonName,
                 name: typeof stream.name === 'string' ? stream.name : null,
@@ -136,7 +140,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
             })),
             ranked: ranked.map((c) => ({ link: c.link, quality: c.quality, cached: c.cached, mbps: typeof c.mbps === 'number' ? c.mbps : null })),
         };
-    }, [autoPlayKey, countLoadingAddons, allStreams, autoPlay.phase, autoPlay.candidates]);
+    }, [autoPlayKey, countLoadingAddons, staleStreams, allStreams, autoPlay.phase, autoPlay.candidates]);
     const effectiveSelectedAddon = Object.prototype.hasOwnProperty.call(streamsByAddon, selectedAddon) ? selectedAddon : ALL_ADDONS_KEY;
     const filteredStreams = React.useMemo(() => {
         return effectiveSelectedAddon === ALL_ADDONS_KEY ?

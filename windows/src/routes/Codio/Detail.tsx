@@ -165,15 +165,6 @@ const Detail = () => {
     const [episodeFocus, setEpisodeFocus] = useState<Video | null>(null);
     const [lifted, setLifted] = useState(false);
 
-    // Series: load the sources of the episode Play would start, or of the one you rest on for a moment.
-    useEffect(() => {
-        if (!isSeries || urlVideoId) return;
-        const want = lifted && episodeFocus ? episodeFocus.id : resumeVideo?.id ?? null;
-        if (!want || want === target) return;
-        const timer = setTimeout(() => setTarget(want), lifted ? 900 : 0);
-        return () => clearTimeout(timer);
-    }, [isSeries, urlVideoId, lifted, episodeFocus, resumeVideo, target]);
-
     // ---- Sources, in auto-play's order first
     const runtime = useMemo(() => {
         const v = Array.isArray(ready?.videos) ? ready.videos.find((x: any) => x.id === target) : null;
@@ -338,6 +329,16 @@ const Detail = () => {
 
     // ---- Downloads (debrid / direct links only)
     const [dlPick, setDlPick] = useState<DlPick>(null);
+    // Series: load the sources of the episode Play would start, or of the one you rest on for a moment. Never while an
+    // episode you picked is starting (or its sources/downloads are open): that pulled the sources back to the Continue
+    // Watching episode, so the one you chose never started.
+    useEffect(() => {
+        if (!isSeries || urlVideoId || play || showSources || dlPick) return;
+        const want = lifted && episodeFocus ? episodeFocus.id : resumeVideo?.id ?? null;
+        if (!want || want === target) return;
+        const timer = setTimeout(() => setTarget(want), lifted ? 900 : 0);
+        return () => clearTimeout(timer);
+    }, [isSeries, urlVideoId, lifted, episodeFocus, resumeVideo, target, play, showSources, dlPick]);
     const addToLibrary = () => {
         if (ready && !inList) core.transport.dispatch({ action: 'Ctx', args: { action: 'AddToLibrary', args: ready } });
     };

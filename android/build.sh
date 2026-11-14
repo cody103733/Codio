@@ -134,6 +134,31 @@ for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
 print('audio language ranking:', 'applied' if hits else 'NOT FOUND (check web build)')
 if not hits: sys.exit(1)
 PY6
+# Opening another episode, the page shows the new route a moment before the core swaps the sources, so the last
+# episode's list (often the one Continue Watching loaded early) was still there and auto-play started that episode.
+# Same change as web-changes/StreamsList.js.
+python3 - "$B/assets/web" <<'PY7'
+import sys, glob
+pairs = [
+  ('J=u(),ee=l.useMemo(function(){var e,t=J.type',
+   'J=u(),__cs="string"==typeof J.videoId&&J.videoId!==J.id&&(null==n||n.id!==J.videoId),ee=l.useMemo(function(){var e,t=J.type'),
+  ('te=l.useMemo(function(){return Object.values(Z).map(function(e){return e.streams}).flat(1)},[Z])',
+   'te=l.useMemo(function(){return __cs?[]:Object.values(Z).map(function(e){return e.streams}).flat(1)},[Z,__cs])'),
+  ('Ie=k({key:ee,streams:te,loading:q>0,', 'Ie=k({key:ee,streams:te,loading:q>0||__cs,'),
+  ('window.__codioStreams={key:ee,loading:q>0,', 'window.__codioStreams={key:ee,loading:q>0||__cs,'),
+]
+hits = 0
+for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
+    s = open(f, encoding='utf-8').read()
+    for old, new in pairs:
+        if s.count(old) == 1:
+            s = s.replace(old, new, 1); hits += 1
+        elif new in s:
+            hits += 1
+    open(f, 'w', encoding='utf-8').write(s)
+print('chosen-episode fix:', hits, 'of', len(pairs))
+if hits != len(pairs): sys.exit(1)
+PY7
 # The avatar images ship at 1400px but are shown at a few dozen pixels; shrink them to keep the APK small.
 python3 - "$B/assets/web/images" <<'PY' || true
 import sys, os

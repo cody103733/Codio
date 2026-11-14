@@ -1,1 +1,1 @@
-Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists.
+An episode you pick now always plays, even when the show is in Continue Watching on a later episode.
