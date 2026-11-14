@@ -500,6 +500,13 @@ final class DvShell {
                         }
                         case "aid": {
                             int id = trackId(value);
+                            // Like VlcShell: only a pick in the menu may move away from the viewer's audio language.
+                            boolean auto = SystemClock.uptimeMillis() - VlcShell.userPickAt > 4000;
+                            if (id >= 0 && auto && p != null && prepared && !audioFits(p, id)) {
+                                Log.e(TAG, "ignoring automatic audio pick " + id);
+                                sendTracks();
+                                break;
+                            }
                             if (id >= 0 && p != null && prepared) {
                                 p.selectTrack(id);
                                 aid = id;
@@ -705,8 +712,7 @@ final class DvShell {
             for (int pass = 0; pass < 2 && best < 0; pass++) {
                 for (int i = 0; i < info.length; i++) {
                     if (info[i].getTrackType() != MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) continue;
-                    String lang = info[i].getLanguage() != null ? info[i].getLanguage().toLowerCase() : "";
-                    if (pass == 0 && !lang.startsWith("en")) continue;
+                    if (pass == 0 && !AudioLang.isPreferred(info[i].getLanguage(), null)) continue;
                     MediaFormat f = i < probe.tracks.size() ? probe.tracks.get(i) : null;
                     if (f != null && !playable(codecs, f)) continue;
                     int ch = f != null && f.containsKey(MediaFormat.KEY_CHANNEL_COUNT) ? f.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 2;
@@ -723,6 +729,23 @@ final class DvShell {
             }
         } catch (Throwable t) {
             Log.e(TAG, "audio pick failed", t);
+        }
+    }
+
+    /** True if audio track {id} is in the viewer's language, or no track is. */
+    private static boolean audioFits(MediaPlayer p, int id) {
+        try {
+            MediaPlayer.TrackInfo[] info = p.getTrackInfo();
+            boolean any = false;
+            for (int i = 0; i < info.length; i++) {
+                if (info[i].getTrackType() != MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) continue;
+                boolean pref = AudioLang.isPreferred(info[i].getLanguage(), null);
+                if (i == id && pref) return true;
+                any |= pref;
+            }
+            return !any;
+        } catch (Throwable t) {
+            return true;
         }
     }
 
@@ -745,7 +768,9 @@ final class DvShell {
                 o.put("id", i);
                 o.put("type", t);
                 String lang = info[i].getLanguage();
-                if (lang != null && !lang.isEmpty() && !"und".equals(lang)) o.put("lang", lang);
+                String code = AudioLang.code(lang);
+                if (code != null) o.put("lang", code);
+                else if (lang != null && !lang.isEmpty() && !"und".equals(lang)) o.put("lang", lang);
                 MediaFormat f = probe != null && i < probe.tracks.size() ? probe.tracks.get(i) : null;
                 if (f != null) {
                     String mime = f.getString(MediaFormat.KEY_MIME);

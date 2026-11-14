@@ -336,6 +336,11 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
 
     private void setProp(String name, Object value) {
         if (IGNORED_SET_PROPS.contains(name)) return;
+        if ("aid".equals(name) && android.os.SystemClock.uptimeMillis() - VlcShell.userPickAt > 4000) {
+            // mpv picks the viewer's audio language itself (alang, set at each loadfile); the web player's own
+            // picks can be the last video's track number, another language in this file.
+            return;
+        }
         if ("hwdec".equals(name)) {
             // Settings > Player > Hardware decoding: "no" turns it off, anything else uses Android's MediaCodec.
             value = "no".equals(value) ? "no" : hwdec;
@@ -373,6 +378,13 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
         if (cmd.length > 1 && ("loadfile".equals(name) || "sub-add".equals(name) || "audio-add".equals(name))) {
             // mpv's own TLS (mbedtls) fails against some debrid/CDN hosts; Android's TLS stack doesn't.
             cmd[1] = viaProxy(cmd[1]);
+        }
+        if ("loadfile".equals(name)) {
+            try {
+                mpv.setPropertyString("alang", AudioLang.mpvTags());
+            } catch (Throwable t) {
+                Log.w(TAG, "alang failed", t);
+            }
         }
         if ("loadfile".equals(name) || "stop".equals(name)) {
             int id;

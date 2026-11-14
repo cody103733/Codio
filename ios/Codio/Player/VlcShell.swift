@@ -14,6 +14,10 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     var onLoad: (() -> Void)?
     /// When the viewer last picked a subtitle themselves (automatic picks are ignored unless enabled).
     var userPickAt = Date.distantPast
+    /// The viewer's audio language (a setting code like "eng").
+    var preferredAudio: () -> String = { "eng" }
+    /// The viewer (or their saved choice for this video) picked the audio track: leave it alone.
+    var audioPicked = false
 
     private let player = VLCMediaPlayer()
     private var observed = Set<String>()
@@ -65,7 +69,11 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     func mediaPlayerStateChanged(_ newState: VLCMediaPlayerState) { onMain { self.stateChanged() } }
     func mediaPlayerTimeChanged(_ aNotification: Notification) { onMain { self.timeChanged() } }
     func mediaPlayerTrackAdded(_ trackId: String, with trackType: VLCMedia.TrackType) {
-        onMain { self.sendTracks(); self.sendSelection() }
+        onMain {
+            if trackType == .audio { self.pickAudio() }
+            self.sendTracks()
+            self.sendSelection()
+        }
     }
     func mediaPlayerTrackSelected(_ trackType: VLCMedia.TrackType, selectedId: String, unselectedId: String) {
         onMain { self.sendSelection() }
@@ -162,7 +170,17 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         case "aid":
             let id = Int(VlcShell.trackId(value))
             let tracks = player.audioTracks
-            if id >= 1, id <= tracks.count { tracks[id - 1].isSelectedExclusively = true }
+            if id >= 1, id <= tracks.count {
+                // A pick in another language while one in the viewer's language exists was made on purpose
+                // (the menu, or the track saved for this video): keep it.
+                let pref = preferredAudio()
+                let list = tracks.map { (lang: $0.language, name: $0.trackName as String?) }
+                if AudioLang.trackCode(lang: list[id - 1].lang, name: list[id - 1].name) != pref,
+                   AudioLang.best(list, preferred: pref, current: nil) != nil {
+                    audioPicked = true
+                }
+                tracks[id - 1].isSelectedExclusively = true
+            }
             sendSelection()
         case "sid":
             let id = VlcShell.trackId(value)
@@ -222,6 +240,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         timeMs = 0
         lengthMs = 0
         lastValues.removeAll()
+        audioPicked = false
         onLoad?()
         loadAt = Date()
         guard let media = VLCMedia(url: url) else { return }
@@ -315,6 +334,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         forward("pause", false)
         if first {
             audio?.volume = muted ? 0 : volume
+            pickAudio()
             sendTracks()
             sendSelection()
             let size = player.videoSize
@@ -362,6 +382,19 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         return "no"
     }
 
+    /// Plays the audio track in the viewer's language, wherever it sits in the file (VLC takes the first or
+    /// the one flagged default, which is often another language).
+    private func pickAudio() {
+        guard active, !audioPicked else { return }
+        let tracks = player.audioTracks
+        guard !tracks.isEmpty else { return }
+        let list = tracks.map { (lang: $0.language, name: $0.trackName as String?) }
+        let current = tracks.firstIndex { $0.isSelected }
+        guard let i = AudioLang.best(list, preferred: preferredAudio(), current: current), i != current else { return }
+        tracks[i].isSelectedExclusively = true
+        NSLog("Codio audio track \(i + 1) (\(tracks[i].trackName))")
+    }
+
     private func sendSelection() {
         forward("aid", VlcShell.selectedId(player.audioTracks))
         forward("sid", VlcShell.selectedId(player.textTracks))
@@ -374,7 +407,10 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             for (i, tr) in tracks.enumerated() {
                 var t: [String: Any] = ["id": i + 1, "type": type, "external": false, "selected": tr.isSelected]
                 if !tr.trackName.isEmpty { t["title"] = tr.trackName }
-                if let l = tr.language, !l.isEmpty {
+                // The player picks audio by language code, so send the code even when the file only names it.
+                if let code = AudioLang.trackCode(lang: tr.language, name: tr.trackName) {
+                    t["lang"] = code
+                } else if let l = tr.language, !l.isEmpty {
                     t["lang"] = l
                 } else if let open = tr.trackName.lastIndex(of: "["), let close = tr.trackName.lastIndex(of: "]"), open < close {
                     t["lang"] = String(tr.trackName[tr.trackName.index(after: open)..<close])

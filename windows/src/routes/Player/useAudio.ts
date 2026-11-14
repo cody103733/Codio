@@ -17,14 +17,50 @@ type Args = {
     streamStateChanged: (state: Partial<StreamState>) => void,
 };
 
+// Tags that say nothing about the language.
+const UNKNOWN = ['und', 'unk', 'unknown', 'mul', 'zxx', 'mis', 'qaa', 'none'];
+
+const byName = (word: string) => languages.all.find((language) =>
+    [language.name, language.local].some((name) => typeof name === 'string' && name.toLowerCase().split(/[,;]\s*/).includes(word))
+);
+
+// The language code for a tag like "en", "eng", "en-US" or "English" (mpv passes whatever the file says).
 const normalizeLanguage = (language?: string | null) => {
     if (!language) {
         return undefined;
     }
 
-    const value = language.trim();
-    return (languages.find(value) ?? languages.find(value.toLowerCase()))?.code;
+    const value = language.trim().toLowerCase();
+    if (value.length === 0 || UNKNOWN.includes(value)) {
+        return undefined;
+    }
+
+    const base = /^[a-z]{2,3}[-_]/.test(value) ? value.split(/[-_]/)[0] : value;
+    return (languages.find(value) ?? languages.find(base) ?? byName(value))?.code;
 };
+
+// The language a track's name mentions, e.g. "English - DTS-HD MA 5.1" or just "ENG". Inside a longer name only
+// language names count: short codes are too easy to misread there.
+const languageFromLabel = (label?: string | null) => {
+    if (!label) {
+        return undefined;
+    }
+
+    const words = label.toLowerCase().split(/[^\p{L}]+/u).filter((word) => word.length >= 3);
+    for (const word of words) {
+        const language = (words.length === 1 ? languages.find(word) : undefined) ?? byName(word);
+        if (language) {
+            return language.code;
+        }
+    }
+
+    return undefined;
+};
+
+const trackLanguage = (track: AudioTrack) => normalizeLanguage(track.lang) ?? languageFromLabel(track.label);
+
+// Commentary and audio-description tracks are only picked when nothing else is in the language.
+const isExtra = (track: AudioTrack) => /comment|descriptive|audio description|visually impaired/i.test(track.label ?? '');
 
 const findPreferredTrack = (
     tracks: AudioTrack[],
@@ -35,7 +71,7 @@ const findPreferredTrack = (
     const preferredLanguage = normalizeLanguage(savedTrack?.language);
     const saved = tracks.find((track) => track.id === savedTrack?.id);
 
-    if (saved && (!preferredLanguage || normalizeLanguage(saved.lang) === preferredLanguage)) {
+    if (saved && (!preferredLanguage || trackLanguage(saved) === preferredLanguage)) {
         return saved;
     }
 
@@ -46,10 +82,11 @@ const findPreferredTrack = (
             continue;
         }
 
-        const track = selected && normalizeLanguage(selected.lang) === language ?
-            selected
-            :
-            tracks.find((track) => normalizeLanguage(track.lang) === language);
+        // The file's order doesn't matter: the main track in the language wins over the first track.
+        const matching = tracks.filter((track) => trackLanguage(track) === language);
+        const main = matching.filter((track) => !isExtra(track));
+        const candidates = main.length > 0 ? main : matching;
+        const track = selected && candidates.includes(selected) ? selected : candidates[0];
         if (track) {
             return track;
         }
@@ -72,7 +109,7 @@ const useAudio = ({ player, video, settings, streamStateChanged }: Args) => {
             return;
         }
 
-        const language = normalizeLanguage(track.lang);
+        const language = trackLanguage(track);
         trackSelectionLocked.current = true;
         appliedTrack.current = id;
         currentVideo.setAudioTrack(id);

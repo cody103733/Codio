@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.4.30",
-    "versionCode": 54,
+    "version": "1.4.31",
+    "versionCode": 55,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Search has a Movies / Series / Both filter under the keyboard."
+    "notes": "Codio plays the audio track in your language even when the file lists another language first."
   },
   "phone": {
-    "version": "1.0.12",
-    "versionCode": 13,
+    "version": "1.0.13",
+    "versionCode": 14,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Search has a Movies / Series / Both filter under the search box."
+    "notes": "Codio plays the audio track in your language even when the file lists another language first."
   },
   "windows": {
     "version": "1.6.5",

@@ -431,6 +431,7 @@ final class PhonePlayer extends FrameLayout {
             picks.add(new Runnable() {
                 @Override
                 public void run() {
+                    ui.host.userPick();
                     ui.host.player("mpv-set-prop", new JSONArray().put("aid").put(t.id));
                     st.aid = t.id;
                 }

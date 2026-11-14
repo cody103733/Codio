@@ -386,7 +386,19 @@ public final class Store {
     /** Smart auto-play settings (the web UI's autoPlaySettings), edited by the native Settings screen. */
     public JSONObject autoPlay = new JSONObject();
 
+    /** The app's store, so the players can read the viewer's audio language. */
+    public static volatile Store current;
+
+    /** The viewer's audio language setting (a code like "eng"). */
+    public static String audioLanguage() {
+        Store st = current;
+        if (st == null) return null;
+        JSONObject s = st.profileJson.optJSONObject("settings");
+        return s != null ? s.optString("audioLanguage", null) : null;
+    }
+
     public Store(File cacheDir) {
+        current = this;
         cacheFile = new File(cacheDir, "native-profile.json");
         // Last run's addons, so the home screen can start loading before the web UI is up.
         try {

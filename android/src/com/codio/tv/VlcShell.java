@@ -481,6 +481,15 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
                 }
                 case "aid": {
                     int id = trackId(value);
+                    // The web player re-sends the last video's track number when the next one loads (a source that
+                    // failed, the next episode), which can be another language in this file. Only a pick in the
+                    // menu may move away from the viewer's audio language.
+                    boolean auto = android.os.SystemClock.uptimeMillis() - userPickAt > 4000;
+                    if (id >= 0 && auto && !audioFits(id)) {
+                        Log.i(TAG, "ignoring automatic audio pick " + id + " (not in " + AudioLang.preferred() + ")");
+                        sendSelection();
+                        break;
+                    }
                     synchronized (this) {
                         wantAid = id;
                     }
@@ -1040,18 +1049,21 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
         try {
             media = player.getMedia();
             if (media == null) return;
+            Map<Integer, String> names = trackNames();
             int best = -1, bestScore = -1;
-            boolean anyEnglish = false;
-            for (int pass = 0; pass < 2 && best < 0; pass++) {
+            boolean anyPreferred = false;
+            // Pass 0: main tracks in the viewer's audio language (wherever they sit in the file); pass 1: any main
+            // track; pass 2: anything, commentary included.
+            for (int pass = 0; pass < 3 && best < 0; pass++) {
                 for (int i = 0; i < media.getTrackCount(); i++) {
                     IMedia.Track t = media.getTrack(i);
                     if (!(t instanceof IMedia.AudioTrack)) continue;
-                    String lang = t.language != null ? t.language.toLowerCase() : "";
-                    boolean english = lang.startsWith("en") || lang.contains("english");
-                    anyEnglish |= english;
-                    if (pass == 0 && !english) continue;
-                    String d = t.description != null ? t.description.toLowerCase() : "";
-                    if (d.contains("commentary")) continue;
+                    String name = t.description != null && !t.description.isEmpty() ? t.description : names.get(t.id);
+                    boolean preferred = AudioLang.isPreferred(t.language, name);
+                    anyPreferred |= preferred;
+                    if (pass == 0 && !preferred) continue;
+                    String d = name != null ? name.toLowerCase() : "";
+                    if (pass < 2 && AudioLang.isExtra(name)) continue;
                     int ch = ((IMedia.AudioTrack) t).channels;
                     String codec = codecName(t.codec);
                     boolean lossless = "truehd".equals(codec) || "mlp".equals(codec) || (codec != null && codec.startsWith("dts"))
@@ -1070,7 +1082,7 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
                         best = t.id;
                     }
                 }
-                if (pass == 0 && anyEnglish && best >= 0) break;
+                if (pass == 0 && anyPreferred && best >= 0) break;
             }
             if (best >= 0 && player.getAudioTrack() != best) {
                 player.setAudioTrack(best);
@@ -1100,6 +1112,48 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
             }
         } catch (Throwable t) {
             Log.w(TAG, "track selection failed", t);
+        }
+    }
+
+    /** VLC's names for the audio and subtitle tracks, e.g. "English - DTS 5.1", by track id. */
+    private Map<Integer, String> trackNames() {
+        Map<Integer, String> names = new HashMap<>();
+        try {
+            MediaPlayer.TrackDescription[][] lists = {player.getAudioTracks(), player.getSpuTracks()};
+            for (MediaPlayer.TrackDescription[] list : lists) {
+                if (list == null) continue;
+                for (MediaPlayer.TrackDescription d : list) if (d.id >= 0) names.put(d.id, d.name);
+            }
+        } catch (Throwable ignored) {
+        }
+        return names;
+    }
+
+    /** True if audio track {id} is in the viewer's language, or no track is (any pick is fine then). */
+    private boolean audioFits(int id) {
+        IMedia media = null;
+        try {
+            media = player.getMedia();
+            if (media == null) return true;
+            Map<Integer, String> names = trackNames();
+            boolean any = false, known = false;
+            for (int i = 0; i < media.getTrackCount(); i++) {
+                IMedia.Track t = media.getTrack(i);
+                if (!(t instanceof IMedia.AudioTrack)) continue;
+                String name = t.description != null && !t.description.isEmpty() ? t.description : names.get(t.id);
+                boolean pref = AudioLang.isPreferred(t.language, name);
+                if (t.id == id) {
+                    known = true;
+                    if (pref) return true;
+                }
+                any |= pref;
+            }
+            // Before the tracks are known, wait: pickDefaultAudio decides once playback starts.
+            return known ? !any : false;
+        } catch (Throwable t) {
+            return true;
+        } finally {
+            if (media != null) media.release();
         }
     }
 
@@ -1160,8 +1214,11 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
                 JSONObject o = new JSONObject();
                 o.put("id", t.id);
                 o.put("type", type);
-                if (t.language != null && !t.language.isEmpty()) o.put("lang", t.language);
                 String title = t.description != null && !t.description.isEmpty() ? t.description : null;
+                // The player picks audio by language code, so send the code even when the file only names it.
+                String code = AudioLang.trackCode(t.language, title != null ? title : names.get(t.id));
+                if (code != null) o.put("lang", code);
+                else if (t.language != null && !t.language.isEmpty()) o.put("lang", t.language);
                 if (title == null) {
                     String n = names.get(t.id);
                     // VLC's own names look like "Track 1 - [English]"; only keep ones with real information.

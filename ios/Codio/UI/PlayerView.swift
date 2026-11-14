@@ -150,7 +150,7 @@ struct PlayerView: View {
             if !st.audio.isEmpty {
                 Section("Audio") {
                     ForEach(st.audio) { t in
-                        Button { engine.player("mpv-set-prop", ["aid", t.id]) } label: {
+                        Button { engine.pickAudio(t.id) } label: {
                             Label(t.label, systemImage: t.id == st.aid ? "checkmark" : "")
                         }
                     }

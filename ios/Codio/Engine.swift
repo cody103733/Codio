@@ -73,6 +73,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         if #available(iOS 16.4, *) { webView.isInspectable = true }
 
         shell = VlcShell(view: videoView)
+        shell.preferredAudio = { [weak self] in AudioLang.preferred(self?.store.settings["audioLanguage"]) }
         shell.signal = { [weak self] name, arg in self?.playerSignal(name, arg) }
         shell.onActiveChanged = { playing in UIApplication.shared.isIdleTimerDisabled = playing }
         shell.onLoad = { [weak self] in self?.playerState.reset(); self?.watchedFrac = 0 }
@@ -315,6 +316,12 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     }
 
     func userPicked() { shell.userPickAt = Date() }
+
+    /// The viewer chose an audio track in the player menu.
+    func pickAudio(_ id: Any) {
+        shell.audioPicked = true
+        shell.handle(method: "mpv-set-prop", params: ["aid", id])
+    }
 
     /// Send an action to Codio's core, e.g. ["action": "Ctx", "args": ["action": "AddToLibrary", "args": ...]].
     func ctx(_ action: String, _ args: Any? = nil) {

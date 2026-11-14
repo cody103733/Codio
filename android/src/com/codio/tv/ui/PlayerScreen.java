@@ -567,6 +567,7 @@ final class PlayerScreen extends Screen {
             st.sid = id;
         } else if (menuFocus < st.audio.size()) {
             int id = st.audio.get(menuFocus).id;
+            tv.host.userPick();
             tv.host.player("mpv-set-prop", new JSONArray().put("aid").put(id));
             st.aid = id;
         }
