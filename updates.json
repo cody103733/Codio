@@ -12,10 +12,10 @@
     "notes": "Codio plays the audio track in your language even when the file lists another language first."
   },
   "windows": {
-    "version": "1.6.5",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.5/CodioSetup-1.6.5.exe",
-    "size": 66673393,
-    "sha256": "29c984dd56253633630d8e3b38df3c089fa1ae290ae61fedf8cc41178902a0c5",
-    "notes": "Codio can now update itself from Settings > Updates."
+    "version": "1.6.6",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.6/CodioSetup-1.6.6.exe",
+    "size": 66660705,
+    "sha256": "62a1d0a84401fec5d763efbf262a3411b4ccd57d3da273d7afc6624d5d1e4a80",
+    "notes": "Codio plays the audio track in your language (Settings > Audio language) even when the file lists another language first."
   }
 }
