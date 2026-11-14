@@ -116,6 +116,24 @@ for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
 print('Dolby Vision ranking:', 'applied' if hits else 'NOT FOUND (check web build)')
 if not hits: sys.exit(1)
 PY5
+# Sources whose audio is only in another language (e.g. "KOREAN", 🇰🇷) go after every other source, whatever their
+# quality; the shim's __codioLangRank says 1 for those. Same as AutoPlay/language.ts on Windows.
+python3 - "$B/assets/web" <<'PY6'
+import sys, glob
+old = 'return O.push.apply(O,u),O.slice(0,Math.max(1,E.maxAttempts))'
+new = ('return O.push.apply(O,u),window.__codioLangRank&&(function(){var m={};s.forEach(function(x){m[x.candidate.link]=window.__codioLangRank(x.text)});'
+       'O=O.map(function(c,k){return{c:c,k:k}}).sort(function(a,b){return(m[a.c.link]||0)-(m[b.c.link]||0)||a.k-b.k}).map(function(x){return x.c})})(),'
+       'O.slice(0,Math.max(1,E.maxAttempts))')
+hits = 0
+for f in glob.glob(sys.argv[1] + '/*/scripts/main.js'):
+    s = open(f, encoding='utf-8').read()
+    if s.count(old) == 1:
+        open(f, 'w', encoding='utf-8').write(s.replace(old, new, 1)); hits += 1
+    elif new in s:
+        hits += 1
+print('audio language ranking:', 'applied' if hits else 'NOT FOUND (check web build)')
+if not hits: sys.exit(1)
+PY6
 # The avatar images ship at 1400px but are shown at a few dozen pixels; shrink them to keep the APK small.
 python3 - "$B/assets/web/images" <<'PY' || true
 import sys, os

@@ -1,1 +1,1 @@
-Codio plays the audio track in your language (Settings > Audio language) even when the file lists another language first.
+Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists.

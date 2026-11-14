@@ -5,6 +5,68 @@
     var native = window.CodioNative;
     if (!native) return;
     window.__codioAndroid = true;
+    // Auto-play ranking (patched into the web build): sources whose audio is only in another language go last, so a
+    // Korean-only release isn't picked when an English (or dubbed / dual-audio) one exists. Same rules as Windows'
+    // AutoPlay/language.ts. Releases that don't say are assumed to be fine.
+    var LANGS = {
+        eng: ['english', 'eng', '🇬🇧', '🇺🇸'],
+        spa: ['spanish', 'spa', 'esp', 'español', 'espanol', 'castellano', 'latino', '🇪🇸', '🇲🇽'],
+        fre: ['french', 'fre', 'fra', 'français', 'francais', 'truefrench', 'vff', 'vfq', 'vf2', '🇫🇷'],
+        ger: ['german', 'ger', 'deu', 'deutsch', '🇩🇪'],
+        ita: ['italian', 'ita', 'italiano', '🇮🇹'],
+        por: ['portuguese', 'por', 'português', 'portugues', '🇵🇹', '🇧🇷'],
+        nld: ['dutch', 'nld', 'dut', 'nederlands', 'flemish', '🇳🇱'],
+        pol: ['polish', 'pol', 'polski', '🇵🇱'],
+        rus: ['russian', 'rus', 'русский', '🇷🇺'],
+        tur: ['turkish', 'tur', 'türkçe', 'turkce', '🇹🇷'],
+        ara: ['arabic', 'ara', '🇸🇦', '🇦🇪', '🇪🇬'],
+        hin: ['hindi', 'hin', '🇮🇳'],
+        jpn: ['japanese', 'jpn', 'jap', '🇯🇵'],
+        kor: ['korean', 'kor', '🇰🇷'],
+        zho: ['chinese', 'zho', 'chi', 'chs', 'cht', 'mandarin', 'cantonese', '🇨🇳', '🇹🇼', '🇭🇰']
+    };
+    var ALIAS = { en: 'eng', es: 'spa', fr: 'fre', fra: 'fre', de: 'ger', deu: 'ger', it: 'ita', pt: 'por', nl: 'nld', dut: 'nld',
+        pl: 'pol', ru: 'rus', tr: 'tur', ar: 'ara', hi: 'hin', ja: 'jpn', ko: 'kor', zh: 'zho', chi: 'zho' };
+    var langPref = null, langAt = 0;
+    function preferredLang() {
+        var now = Date.now();
+        if (langPref === null || now - langAt > 3000) {
+            var code = null;
+            try { code = JSON.parse(window.localStorage.getItem('profile') || 'null').settings.audioLanguage; } catch (e) { /* not signed in yet */ }
+            code = String(code || 'eng').toLowerCase();
+            langPref = LANGS[code] ? code : (ALIAS[code] || 'eng');
+            langAt = now;
+        }
+        return langPref;
+    }
+    function mentions(t, words) {
+        for (var i = 0; i < words.length; i++) {
+            var w = words[i];
+            if (/^[a-z]+$/.test(w)) {
+                if (new RegExp('(^|[^a-z])' + w + '([^a-z]|$)').test(t)) return true;
+            } else if (t.indexOf(w) >= 0) return true;
+        }
+        return false;
+    }
+    window.__codioLangRank = function (text) {
+        var pref = preferredLang();
+        // Subtitle languages say nothing about the audio: "ENG subs", "Subs: English", "ESub".
+        var t = String(text || '').toLowerCase().replace(/_/g, ' ')
+            .replace(/[a-z]+[ .\-]*(hard[ .\-]?)?(sub|subs|subbed|subtitles?)(?![a-z])/g, ' ')
+            .replace(/(sub|subs|subtitles?)[ .:\-]*[a-z]+/g, ' ')
+            .replace(/(^|[^a-z])e?subs?([^a-z]|$)/g, ' ');
+        if (mentions(t, LANGS[pref])) return 0;
+        var other = false;
+        for (var k in LANGS) {
+            if (k === pref || !mentions(t, LANGS[k])) continue;
+            other = true;
+            // "Hindi Dubbed", "ITA dub": dubbed into that other language.
+            if (mentions(t.replace(/[ .\-]*dub(bed)?(?![a-z])/g, '\u0001'), LANGS[k].map(function (w) { return w + '\u0001'; }))) return 1;
+        }
+        if (!other) return 0;
+        // Another language named, but a dubbed, dual or multi-audio release usually has the viewer's too.
+        return /(^|[^a-z])(multi(?![ .\-]?subs?)|multi[ .\-]?audio|dual([ .\-]?audio)?|dubbed|dub)([^a-z]|$)/.test(t) ? 0 : 1;
+    };
     // First run on a TV: Smart auto-play with sources hidden (a remote can't wade through hundreds of sources).
     // On a TV that can show 4K, Smart auto-play aims for 4K (it still falls back to 1080p and below).
     try {

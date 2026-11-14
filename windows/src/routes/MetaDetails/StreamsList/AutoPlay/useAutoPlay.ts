@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useProfile } from 'stremio/common';
 import {
     useAutoPlaySettings,
     rankStreams,
@@ -39,11 +40,13 @@ type Options = {
 const useAutoPlay = ({ key, streams, loading, externalPlayer, runtime = null, mode = 'countdown' }: Options) => {
     const navigate = useNavigate();
     const [settings] = useAutoPlaySettings();
+    const profile = useProfile() as any;
+    const audioLanguage = profile?.settings?.audioLanguage ?? null;
     const active = settings.enabled && !externalPlayer && key !== null;
 
     const candidates = useMemo(() => {
-        return active ? rankStreams(streams, settings, { runtime }) : [];
-    }, [active, streams, settings, runtime]);
+        return active ? rankStreams(streams, settings, { runtime, audioLanguage }) : [];
+    }, [active, streams, settings, runtime, audioLanguage]);
 
     // Wait for slow addons, but not forever.
     const [waitedEnough, setWaitedEnough] = useState(false);

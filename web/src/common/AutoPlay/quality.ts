@@ -2,6 +2,7 @@
 // Pure functions, no React, so they can be unit tested.
 
 import { AutoPlaySettings, QUALITIES, QUALITY_HEIGHT, Quality } from './settings';
+import { languageRank } from './language';
 
 export type StreamLike = {
     name?: string | null,
@@ -23,6 +24,8 @@ export type Candidate = {
 
 export type RankOptions = {
     runtime?: string | null,
+    // The viewer's audio language (profile setting, e.g. "eng"): sources only in another language go last.
+    audioLanguage?: string | null,
 };
 
 // "178 min", "2h 58min", "2 h 58 m", "1:58:00" -> minutes
@@ -169,5 +172,12 @@ export const rankStreams = (streams: StreamLike[], settings: AutoPlaySettings, o
     // Sources over the limit come only after everything that fits (a smooth 1080p beats a stalling 4K remux).
     result.push(...overLimit);
 
-    return result.slice(0, Math.max(1, settings.maxAttempts));
+    // Sources whose audio is only in another language come after all the others, whatever their quality.
+    const lang = new Map(parsed.map((item) => [item.candidate.link, languageRank(item.text, options.audioLanguage)]));
+    const ordered = result
+        .map((candidate, position) => ({ candidate, position }))
+        .sort((a, b) => (lang.get(a.candidate.link) ?? 0) - (lang.get(b.candidate.link) ?? 0) || a.position - b.position)
+        .map(({ candidate }) => candidate);
+
+    return ordered.slice(0, Math.max(1, settings.maxAttempts));
 };

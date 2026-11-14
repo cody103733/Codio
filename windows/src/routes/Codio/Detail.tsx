@@ -184,7 +184,7 @@ const Detail = () => {
     const allStreams = useMemo(() => (metaDetails.streams ?? [])
         .filter((s: any) => s.content.type === 'Ready')
         .flatMap((s: any) => s.content.content.map((stream: any) => ({ ...stream, addonName: s.addon.manifest.name, addonUrl: s.addon.transportUrl }))), [metaDetails.streams]);
-    const ranked = useMemo<Candidate[]>(() => rankStreams(allStreams, settings, { runtime }), [allStreams, settings, runtime]);
+    const ranked = useMemo<Candidate[]>(() => rankStreams(allStreams, settings, { runtime, audioLanguage: profile?.settings?.audioLanguage }), [allStreams, settings, runtime, profile?.settings?.audioLanguage]);
     const sources = useMemo<Source[]>(() => {
         const byLink = new Map<string, any>();
         allStreams.forEach((s: any) => {
