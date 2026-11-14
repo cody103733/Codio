@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.4.32",
-    "versionCode": 56,
+    "version": "1.4.33",
+    "versionCode": 57,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists."
+    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
   },
   "phone": {
-    "version": "1.0.14",
-    "versionCode": 15,
+    "version": "1.0.15",
+    "versionCode": 16,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Auto-play skips sources that are only in another language (like Korean-only) when one with your audio language, a dub or dual audio exists."
+    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
   },
   "windows": {
     "version": "1.6.7",
