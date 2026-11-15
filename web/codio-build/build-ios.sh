@@ -11,8 +11,7 @@ OUT="$ROOT/ios/web"
 rm -rf "$OUT"; mkdir -p "$OUT"
 rsync -a --exclude '*.map' --exclude screenshots --exclude service-worker.js --exclude 'workbox-*' \
   --exclude 'images/splash' build/ "$OUT/"
-python3 codio-build/patch-http-only.py "$OUT"            # auto-play never picks torrent sources
-python3 codio-build/patch-play-after-prefetch.py "$OUT"  # Play starts even after sources were prefetched
+python3 codio-build/patch-bundle.py "$OUT"              # Codio's engine changes (no torrents, Play after prefetch, ...)
 python3 codio-build/neutral-images.py "$OUT"             # no Stremio artwork
 # The web build names its folder after the git commit; drop the PWA screenshots entry from the manifest.
 python3 - "$OUT/manifest.json" <<'PY'
