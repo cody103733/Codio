@@ -12,10 +12,10 @@
     "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
   },
   "windows": {
-    "version": "1.6.8",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.8/CodioSetup-1.6.8.exe",
-    "size": 66666364,
-    "sha256": "f3355ef8567bfd7fc9f6a62661758682ac9700d224d685623b14ef4ce2cbcae3",
-    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
+    "version": "1.6.9",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.9/CodioSetup-1.6.9.exe",
+    "size": 66054295,
+    "sha256": "de47dad324d4779f7d5d8e1f051bff641bd02e1cf21d164411c263927035a009",
+    "notes": "A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you."
   }
 }
