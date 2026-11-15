@@ -1,1 +1,1 @@
-An episode you pick now always plays, even when the show is in Continue Watching on a later episode.
+A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you.
