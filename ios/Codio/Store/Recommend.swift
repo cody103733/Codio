@@ -227,7 +227,7 @@ struct StarRating: View {
                 Button { onSet(i == stars ? 0 : i) } label: {
                     Image(systemName: i <= stars ? "star.fill" : "star")
                         .font(.system(size: size))
-                        .foregroundColor(i <= stars ? Theme.red : Color(white: 0.55))
+                        .foregroundColor(i <= stars ? Theme.red : Theme.faint)
                 }
                 .buttonStyle(.plain)
             }
@@ -266,7 +266,7 @@ struct RateCard: View {
                 .font(.subheadline).foregroundColor(Theme.dim)
         }
         .padding(18)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(white: 0.11)))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.red.opacity(0.5), lineWidth: 1))
         .padding(.horizontal, 16)
         .onAppear { Ratings.shared.markAsked(meta.id) }

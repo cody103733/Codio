@@ -5,7 +5,7 @@ options:
     iOS: "16.0"
 settings:
   base:
-    MARKETING_VERSION: "0.7.12"
+    MARKETING_VERSION: "0.7.13"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Codio:
@@ -13,8 +13,8 @@ targets:
     platform: iOS
     sources:
       - path: Codio
-        excludes: ["codio-engine.js"]
-      - path: Codio/codio-engine.js
+      # The engine shim is the Android one, shared as is.
+      - path: ../android/assets/codio-android.js
         buildPhase: resources
       - path: web
         type: folder

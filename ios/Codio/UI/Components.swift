@@ -1,12 +1,27 @@
 import SwiftUI
 
+extension Color {
+    /// 0xRRGGBB
+    init(hex: UInt32) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+    }
+}
+
+/// The Codio theme. Same names and values as Theme.java (Android) and Codio.less (Windows); see DESIGN.md.
 enum Theme {
-    static let red = Color(red: 0.898, green: 0.035, blue: 0.078) // #E50914
+    static let red = Color(hex: 0xE50914)
+    static let redSoft = Color(hex: 0xFF5A5F)
+    /// Pages are true black on the iPhone (OLED), where the other apps use #0B0B0B.
     static let bg = Color.black
-    static let card = Color(white: 0.13)
-    static let dim = Color(white: 0.65)
-    static let gradient = LinearGradient(colors: [Color(red: 1, green: 0.294, blue: 0.169), Color(red: 0.765, green: 0, blue: 0.114)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let card = Color(hex: 0x161616)
+    static let raised = Color(hex: 0x262626)
+    static let line = Color(hex: 0x333333)
+    static let body = Color(hex: 0xD6D6D6)
+    static let dim = Color(hex: 0xB3B3B3)
+    static let faint = Color(hex: 0x8C8C8C)
+    static let logoColors = [Color(hex: 0xFF4B2B), Color(hex: 0xC3001D)]
+    static let gradient = LinearGradient(colors: logoColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let profileColors = [Color(hex: 0xE60A14), Color(hex: 0x2178F2), Color(hex: 0xFABA1A), Color(hex: 0x29AD61), Color(hex: 0x8C4DD9), Color(hex: 0xF27326)]
 }
 
 /// The Codio wordmark: the red C with the play button IS the C of "codio" (never a separate icon).
@@ -19,7 +34,7 @@ struct BrandWordmark: View {
             func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
             let stroke = StrokeStyle(lineWidth: 4.6 * s, lineCap: .round, lineJoin: .round)
             let grad = GraphicsContext.Shading.linearGradient(
-                Gradient(colors: [Color(red: 1, green: 0.294, blue: 0.169), Color(red: 0.765, green: 0, blue: 0.114)]),
+                Gradient(colors: Theme.logoColors),
                 startPoint: .zero, endPoint: CGPoint(x: 30 * s, y: 40 * s))
             // The C: an arc around (17, 19.25), r 14.25, open on the right.
             var c = Path()
@@ -54,11 +69,11 @@ struct RemoteImage: View {
             AsyncImage(url: u, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
                 switch phase {
                 case .success(let img): img.resizable().aspectRatio(contentMode: contentMode)
-                default: Color(white: 0.12)
+                default: Theme.card
                 }
             }
         } else {
-            Color(white: 0.12)
+            Theme.card
         }
     }
 }
@@ -144,7 +159,7 @@ struct RedButtonStyle: ButtonStyle {
             .foregroundColor(filled ? .black : .white)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(filled ? Color.white : Color(white: 0.2))
+            .background(filled ? Color.white : Theme.raised)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
@@ -158,7 +173,7 @@ struct ToastView: View {
             .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(Capsule().fill(Color(white: 0.18)))
+            .background(Capsule().fill(Theme.raised))
             .shadow(radius: 8)
     }
 }

@@ -56,7 +56,7 @@ func urlEnc(_ s: String) -> String {
 func typeLabel(_ type: String) -> String {
     switch type {
     case "movie": return "Movies"
-    case "series": return "Series"
+    case "series": return "Shows"
     case "channel": return "Channels"
     case "tv": return "Live TV"
     default: return type.prefix(1).uppercased() + type.dropFirst()

@@ -15,12 +15,6 @@ final class Profiles: ObservableObject {
         var id: String { email.lowercased() }
     }
 
-    static let colors: [Color] = [
-        Color(red: 0.90, green: 0.04, blue: 0.08), Color(red: 0.13, green: 0.47, blue: 0.95),
-        Color(red: 0.98, green: 0.73, blue: 0.10), Color(red: 0.16, green: 0.68, blue: 0.38),
-        Color(red: 0.55, green: 0.30, blue: 0.85), Color(red: 0.95, green: 0.45, blue: 0.15),
-    ]
-
     @Published private(set) var list: [Profile] = []
     @Published var showPicker = false
     @Published private(set) var busy: String?   // "Creating Kids…", "Switching to Kids…"
@@ -113,7 +107,7 @@ final class Profiles: ObservableObject {
         let email = Profiles.aliasEmail(base, clean)
         let password = Profiles.randomPassword()
         Keychain.set(password, for: email)
-        list.append(Profile(email: email, name: clean, color: list.count % Profiles.colors.count, token: nil))
+        list.append(Profile(email: email, name: clean, color: list.count % Theme.profileColors.count, token: nil))
         save()
         engine.ctx("Authenticate", ["type": "Register", "email": email, "password": password,
                                     "gdpr_consent": ["tos": true, "privacy": true, "marketing": false, "from": "web"]] as JSON)
@@ -144,7 +138,7 @@ final class Profiles: ObservableObject {
 
     func recolor(_ p: Profile) {
         guard let i = list.firstIndex(of: p) else { return }
-        list[i].color = (list[i].color + 1) % Profiles.colors.count
+        list[i].color = (list[i].color + 1) % Theme.profileColors.count
         save()
     }
 
@@ -194,7 +188,7 @@ struct ProfileAvatar: View {
     var round = false
     var body: some View {
         RoundedRectangle(cornerRadius: round ? size / 2 : size * 0.08)
-            .fill(Profiles.colors[profile.color % Profiles.colors.count])
+            .fill(Theme.profileColors[profile.color % Theme.profileColors.count])
             .frame(width: size, height: size)
             .overlay(Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: size * 0.48, weight: .heavy)).foregroundColor(.white))
@@ -271,7 +265,7 @@ struct ProfilePicker: View {
                     if profiles.list.count < 5 {
                         Button { newName = ""; adding = true } label: {
                             VStack(spacing: 8) {
-                                RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.35), lineWidth: 2)
+                                RoundedRectangle(cornerRadius: 8).stroke(Theme.line, lineWidth: 2)
                                     .frame(width: 104, height: 104)
                                     .overlay(Image(systemName: "plus").font(.system(size: 38, weight: .light)).foregroundColor(.white))
                                 Text("Add Profile").font(.subheadline).foregroundColor(Theme.dim)

@@ -136,7 +136,7 @@ struct DownloadedShowView: View {
                         DownloadBadge(entry: e)
                     }
                 }
-                .listRowBackground(Color(white: 0.08))
+                .listRowBackground(Theme.card)
                 .swipeActions { Button("Delete", role: .destructive) { dl.remove(e) } }
             }
         }

@@ -29,33 +29,33 @@ struct SettingsView: View {
     @State private var keyStatus: KeyStatus = .empty
     @State private var keyTask: Task<Void, Never>?
 
-    private let langCodes = ["eng", "spa", "fre", "ger", "ita", "por", "nld", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"]
-    private let langNames = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"]
+    private let langCodes = ["eng", "spa", "fre", "ger", "ita", "por", "pob", "nld", "swe", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"]
+    private let langNames = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Portuguese (Brazil)", "Dutch", "Swedish", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"]
 
     private var playback: [Choice] {
         let rates = [0, 10, 15, 25, 40, 60, 70, 80, 100, 150]
         return [
-            Choice(kind: .autoPlay, label: "Smart auto-play", help: "Tap Play and Codio picks the best source, and moves on to the next one if a source fails.",
+            Choice(kind: .autoPlay, label: "Smart auto-play", help: "Play picks the best source for you, and moves on to the next one if a source fails.",
                    key: "enabled", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .autoPlay, label: "Preferred quality", help: "The quality auto-play aims for.",
                    key: "preferredQuality", dflt: "1080p",
                    options: [("4K (2160p)", "2160p"), ("1440p", "1440p"), ("1080p", "1080p"), ("720p", "720p"), ("480p", "480p")]),
             Choice(kind: .autoPlay, label: "If that quality isn't available", help: "What auto-play falls back to.",
                    key: "fallbackMode", dflt: "closest", options: [("Closest quality", "closest"), ("Lower quality only", "lower"), ("Don't play", "exact")]),
-            Choice(kind: .autoPlay, label: "Skip sources above", help: "Sources above this bitrate are tried last, so streaming doesn't stall. Lower it on mobile data.",
+            Choice(kind: .autoPlay, label: "Skip sources above", help: "Sources above this bitrate are tried last, so playback doesn't stall. Pick what your connection can carry; lower it on mobile data.",
                    key: "maxBitrateMbps", dflt: 70, options: rates.map { ($0 == 0 ? "No limit" : "\($0) Mbit/s", $0) }),
             Choice(kind: .autoPlay, label: "Prefer instant sources", help: "Among sources of the same quality, start with ones your debrid service already has ready.",
                    key: "preferCached", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .profile, label: "Next episode", help: "At the end of an episode, play the next one automatically.",
                    key: "bingeWatching", dflt: true, options: [("Plays automatically", true), ("Off", false)]),
-            Choice(kind: .app, label: "Auto-skip", help: "Skips intros and recaps for you, no tap needed (times from IntroDB, so not every show has them). With credits, the next episode starts when the credits roll.",
+            Choice(kind: .app, label: "Skip Intro button", help: "Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.",
+                   key: "skip_buttons", dflt: true, options: [("On", true), ("Off", false)]),
+            Choice(kind: .app, label: "Skip automatically", help: "Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.",
                    key: "auto_skip", dflt: 0, options: [("Off", 0), ("Intros and recaps", 1), ("Intros, recaps and credits", 2)]),
             Choice(kind: .app, label: "Who's watching?", help: "Codio opens in the profile you used last. Turn this on to be asked who's watching every time it opens.",
                    key: "ask_profile", dflt: false, options: [("Ask when Codio opens", true), ("Open the last profile", false)]),
             Choice(kind: .app, label: "Mini player", help: "When you leave Codio during a video, it keeps playing in a small window over your other apps.",
                    key: "pip_auto", dflt: true, options: [("On", true), ("Off", false)]),
-            Choice(kind: .app, label: "Skip Intro button", help: "Skip Intro / Recap and Next Episode buttons, with times from IntroDB (not every show has them).",
-                   key: "skip_buttons", dflt: true, options: [("On", true), ("Off", false)]),
         ]
     }
 

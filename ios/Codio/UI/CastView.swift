@@ -108,7 +108,7 @@ struct CastSheet: View {
                                     if !person.character.isEmpty { Text(person.character).font(.caption).foregroundColor(Theme.dim) }
                                 }
                             }
-                            .listRowBackground(Color(white: 0.1))
+                            .listRowBackground(Theme.card)
                         }
                         .scrollContentBackground(.hidden)
                     }

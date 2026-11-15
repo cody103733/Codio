@@ -109,7 +109,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         })();
         """
         var shim = ""
-        if let url = Bundle.main.url(forResource: "codio-engine", withExtension: "js"),
+        if let url = Bundle.main.url(forResource: "codio-android", withExtension: "js"),
            let js = try? String(contentsOf: url, encoding: .utf8) {
             shim = js
         }

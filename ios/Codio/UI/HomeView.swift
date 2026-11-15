@@ -191,7 +191,7 @@ private struct FeaturedCard: View {
                     } label: {
                         Label("Library", systemImage: store.inLibrary(meta.id) ? "checkmark" : "plus").font(.headline).foregroundColor(.white)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.25).opacity(0.9)))
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.raised.opacity(0.9)))
                     }
                 }
                 .buttonStyle(.plain)
@@ -227,7 +227,7 @@ private struct ContinueRow: View {
                             .buttonStyle(.plain)
                             GeometryReader { g in
                                 ZStack(alignment: .leading) {
-                                    Rectangle().fill(Color(white: 0.35))
+                                    Rectangle().fill(Theme.line)
                                     Rectangle().fill(Theme.red).frame(width: g.size.width * m.progress)
                                 }
                             }
@@ -240,7 +240,7 @@ private struct ContinueRow: View {
                             .foregroundColor(Theme.dim)
                             .padding(.horizontal, 8)
                             .frame(width: 110, height: 30)
-                            .background(Color(white: 0.11))
+                            .background(Theme.card)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                     }

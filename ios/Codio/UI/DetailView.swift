@@ -104,7 +104,7 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     BrandWordmark(height: 14)
-                    Text(isSeries ? "SERIES" : "FILM").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.red)
+                    Text(isSeries ? "SHOW" : "MOVIE").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.red)
                 }
                 Text(meta.name).font(.title2.bold()).foregroundColor(.white)
                 if !meta.metaLine.isEmpty {
@@ -287,7 +287,7 @@ struct DetailView: View {
                     }
                     .font(.subheadline.weight(.semibold)).foregroundColor(.white)
                     .padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.17)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Theme.raised))
                 }
                 .padding(.horizontal, 16)
             }

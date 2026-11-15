@@ -17,11 +17,11 @@ struct LoadingView: View {
                     BrandWordmark(height: 32)
                 }
                 ProgressView().tint(Theme.red).scaleEffect(1.3)
-                Text(engine.loadingText).font(.subheadline).foregroundColor(Color(white: 0.85)).multilineTextAlignment(.center)
+                Text(engine.loadingText).font(.subheadline).foregroundColor(Theme.body).multilineTextAlignment(.center)
                 Button("Cancel") { engine.cancelPlay() }
                     .font(.headline).foregroundColor(.white)
                     .padding(.horizontal, 26).padding(.vertical, 10)
-                    .background(Capsule().fill(Color(white: 0.2)))
+                    .background(Capsule().fill(Theme.raised))
             }
             .padding(30)
         }
@@ -321,18 +321,18 @@ struct SourcesView: View {
                             dismiss()
                             engine.play(meta, videoId, source: src)
                         } label: { row(src) }
-                        .listRowBackground(Color(white: 0.1))
+                        .listRowBackground(Theme.card)
                     }
                     if s.loading {
                         HStack { ProgressView().tint(Theme.red); Text("Still asking your addons…").foregroundColor(Theme.dim) }
-                            .listRowBackground(Color(white: 0.1))
+                            .listRowBackground(Theme.card)
                     } else if s.list.isEmpty {
                         Text("No playable sources (Codio only plays debrid and direct links).").foregroundColor(Theme.dim)
-                            .listRowBackground(Color(white: 0.1))
+                            .listRowBackground(Theme.card)
                     }
                 } else {
                     HStack { ProgressView().tint(Theme.red); Text("Finding sources…").foregroundColor(Theme.dim) }
-                        .listRowBackground(Color(white: 0.1))
+                        .listRowBackground(Theme.card)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -352,7 +352,7 @@ struct SourcesView: View {
             VStack(spacing: 4) {
                 Text(s.qualityLabel ?? "?").font(.caption.bold()).foregroundColor(.white)
                     .padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(s.rank == 0 ? Theme.red : Color(white: 0.25)))
+                    .background(RoundedRectangle(cornerRadius: 4).fill(s.rank == 0 ? Theme.red : Theme.raised))
                 if s.cached { Image(systemName: "bolt.fill").font(.caption).foregroundColor(.yellow) }
             }
             .frame(width: 48)
@@ -362,7 +362,7 @@ struct SourcesView: View {
                 if let d = s.description {
                     Text(d).font(.caption).foregroundColor(Theme.dim).lineLimit(4)
                 }
-                if let a = s.addon { Text(a).font(.caption2).foregroundColor(Color(white: 0.45)) }
+                if let a = s.addon { Text(a).font(.caption2).foregroundColor(Theme.faint) }
             }
         }
         .padding(.vertical, 4)

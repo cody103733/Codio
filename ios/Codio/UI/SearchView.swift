@@ -6,9 +6,11 @@ struct SearchView: View {
     @State private var results: [Meta] = []
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
-    /// Movies / Series / Both filter for search (and the titles shown before typing). Starts on Both.
+    /// Movies / Shows / Both filter for search (and the titles shown before typing). Starts on Both.
     @State private var kind = "both"
     @State private var browse: [Meta] = []
+    /// Recent searches (newest first), listed while nothing is typed. A search is kept once it found something.
+    @State private var recent: [String] = UserDefaults.standard.stringArray(forKey: "recent_searches") ?? []
 
     var body: some View {
         ScrollView {
@@ -16,11 +18,12 @@ struct SearchView: View {
                 Picker("", selection: $kind) {
                     Text("Both").tag("both")
                     Text("Movies").tag("movie")
-                    Text("Series").tag("series")
+                    Text("Shows").tag("series")
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    if !recent.isEmpty { recentList }
                     PosterGrid(items: browse)
                 } else if searching && results.isEmpty {
                     HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
@@ -36,9 +39,38 @@ struct SearchView: View {
         .navigationTitle("Search")
         .profileToolbar()
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movies and shows")
+        .onSubmit(of: .search) { remember() }
+        .onDisappear { remember() }
         .onChange(of: query) { _ in scheduleSearch() }
         .onChange(of: kind) { _ in scheduleSearch(now: true) }
         .task(id: kind + "\(store.generation)") { await loadBrowse() }
+    }
+
+    private var recentList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Recent searches").font(.headline).padding(.horizontal, 16).padding(.bottom, 6)
+            ForEach(recent, id: \.self) { q in
+                Button { query = q } label: { recentRow(q, .white) }
+            }
+            Button { saveRecent([]) } label: { recentRow("Clear recent searches", Theme.dim) }
+        }
+    }
+
+    private func recentRow(_ text: String, _ color: Color) -> some View {
+        Text(text).foregroundColor(color).lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+    private func saveRecent(_ list: [String]) {
+        recent = list
+        UserDefaults.standard.set(list, forKey: "recent_searches")
+    }
+
+    private func remember() {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty, !results.isEmpty else { return }
+        saveRecent(Array(([q] + recent.filter { $0.caseInsensitiveCompare(q) != .orderedSame }).prefix(8)))
     }
 
     private func wanted(_ type: String) -> Bool { kind == "both" || type == kind }
