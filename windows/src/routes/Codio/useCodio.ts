@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useProfile, useModelState } from 'stremio/common';
-import { fallbackAddons, toAddon, detailHref, type Addon, type Meta } from './api';
+import { fallbackAddons, toAddon, detailHref, libraryMeta, type Addon, type Meta } from './api';
 
 // The signed-in profile's addons; Cinemeta while there are none (first start).
 export const useAddons = (): Addon[] => {
@@ -23,25 +23,7 @@ export const useAddons = (): Addon[] => {
 
 export const useContinueWatching = (): Meta[] => {
     const preview = (useModelState as any)({ model: 'continue_watching_preview' }) as any;
-    return useMemo(() => (Array.isArray(preview?.items) ? preview.items : []).map((item: any): Meta => {
-        const raw = typeof item.progress === 'number' ? item.progress : 0;
-        return {
-            id: String(item._id ?? item.id ?? ''),
-            type: String(item.type ?? 'movie'),
-            name: String(item.name ?? ''),
-            poster: typeof item.poster === 'string' ? item.poster : null,
-            background: null,
-            logo: null,
-            description: null,
-            releaseInfo: null,
-            runtime: null,
-            imdbRating: null,
-            genres: [],
-            cast: [],
-            videos: [],
-            progress: Math.min(1, raw > 1 ? raw / 100 : raw),
-        };
-    }).filter((m: Meta) => m.id.length > 0), [preview?.items]);
+    return useMemo(() => (Array.isArray(preview?.items) ? preview.items : []).map(libraryMeta).filter((m: Meta) => m.id.length > 0), [preview?.items]);
 };
 
 // Opening and playing titles.

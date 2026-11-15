@@ -15,7 +15,7 @@ export { styles };
 export const NAV_ITEMS: { label: string, path: string }[] = [
     { label: 'Home', path: '/' },
     { label: 'Movies', path: '/movies' },
-    { label: 'Series', path: '/series' },
+    { label: 'Shows', path: '/series' },
     { label: 'Search', path: '/search' },
     { label: 'Library', path: '/library' },
     { label: 'Addons', path: '/addons' },

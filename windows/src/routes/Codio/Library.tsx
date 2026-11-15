@@ -6,7 +6,7 @@ import { useLocation } from 'react-router';
 import classnames from 'classnames';
 import { withCoreSuspender, useModelState } from 'stremio/common';
 import { useCore } from 'stremio/core';
-import { qualityLabel, typeLabel, type Meta } from './api';
+import { libraryMeta, qualityLabel, typeLabel, type Meta } from './api';
 import { NavBar, Chip, CodioButton, PosterGrid, Spinner, Strip, useEscape, styles } from './components';
 import { deleteDownload, formatBytes, progressOf, retryDownload, titleStatus, useDownloadMap, usePlayDownload, type Download } from './downloads';
 import { useOpen } from './useCodio';
@@ -21,26 +21,6 @@ const SORT_LABELS: Record<string, string> = {
 };
 
 const sortLabel = (sort: string) => SORT_LABELS[sort] ?? (sort.charAt(0).toUpperCase() + sort.slice(1));
-
-const toMeta = (item: any): Meta => {
-    const raw = typeof item.progress === 'number' ? item.progress : 0;
-    return {
-        id: String(item._id ?? item.id ?? ''),
-        type: String(item.type ?? 'movie'),
-        name: String(item.name ?? ''),
-        poster: typeof item.poster === 'string' ? item.poster : null,
-        background: null,
-        logo: null,
-        description: null,
-        releaseInfo: null,
-        runtime: null,
-        imdbRating: null,
-        genres: [],
-        cast: [],
-        videos: [],
-        progress: Math.min(1, raw > 1 ? raw / 100 : raw),
-    };
-};
 
 const downloadMeta = (d: Download): Meta => ({
     id: d.metaId, type: d.type, name: d.name, poster: d.poster ?? null, background: null, logo: null, description: null,
@@ -218,7 +198,7 @@ const Library = () => {
         args: { model: 'LibraryWithFilters', args: { request: { type, sort } } },
     }), [type, sort]);
     const library = (useModelState as any)({ model: 'library', action }) as any;
-    const libraryItems = useMemo(() => (Array.isArray(library?.catalog) ? library.catalog : []).map(toMeta).filter((m: Meta) => m.id.length > 0), [library?.catalog]);
+    const libraryItems = useMemo(() => (Array.isArray(library?.catalog) ? library.catalog : []).map(libraryMeta).filter((m: Meta) => m.id.length > 0), [library?.catalog]);
     // Downloaded titles always show, even if they were taken off the library.
     const items = useMemo(() => {
         const have = new Set(libraryItems.map((m: Meta) => `${m.type}/${m.id}`));
@@ -271,7 +251,7 @@ const Library = () => {
                         <div className={styles['empty']}>
                             {
                                 library?.selected === null || library === null ? <Spinner /> :
-                                    'Nothing here yet. Titles you watch, or add with "+ My List", show up here.'
+                                    'Nothing here yet. Titles you watch, or add with "+ Library", show up here.'
                             }
                         </div>
                         : null

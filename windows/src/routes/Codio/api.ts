@@ -123,10 +123,31 @@ export const catalogUrl = (c: Catalog, genre: string | null, skip: number, searc
     return `${c.addon.base}/catalog/${enc(c.type)}/${enc(c.id)}${extra.length > 0 ? '/' + extra.join('&') : ''}.json`;
 };
 
+// A library / Continue Watching entry from the core, as a Meta the posters understand.
+export const libraryMeta = (item: any): Meta => {
+    const raw = typeof item.progress === 'number' ? item.progress : 0;
+    return {
+        id: String(item._id ?? item.id ?? ''),
+        type: String(item.type ?? 'movie'),
+        name: String(item.name ?? ''),
+        poster: typeof item.poster === 'string' ? item.poster : null,
+        background: null,
+        logo: null,
+        description: null,
+        releaseInfo: null,
+        runtime: null,
+        imdbRating: null,
+        genres: [],
+        cast: [],
+        videos: [],
+        progress: Math.min(1, raw > 1 ? raw / 100 : raw),
+    };
+};
+
 export const typeLabel = (type: string) => {
     switch (type) {
         case 'movie': return 'Movies';
-        case 'series': return 'Series';
+        case 'series': return 'Shows';
         case 'channel': return 'Channels';
         case 'tv': return 'Live TV';
         default: return type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : '';

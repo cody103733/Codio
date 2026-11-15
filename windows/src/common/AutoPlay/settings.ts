@@ -38,6 +38,8 @@ export type AutoPlaySettings = {
     maxBitrateMbps: number,
     // Netflix-style Skip Intro / Skip Recap / Skip Credits buttons in the player (times from IntroDB).
     skipButtons: boolean,
+    // Skip by itself: 0 = off, 1 = intros and recaps, 2 = credits too (straight to the next episode).
+    autoSkip: number,
 };
 
 export const QUALITIES: Quality[] = ['2160p', '1440p', '1080p', '720p', '480p'];
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: AutoPlaySettings = {
     maxAttempts: 8,
     maxBitrateMbps: 70,
     skipButtons: true,
+    autoSkip: 0,
 };
 
 const STORAGE_KEY = 'autoPlaySettings';

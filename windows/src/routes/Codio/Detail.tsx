@@ -470,7 +470,7 @@ const Detail = () => {
                     <CodioButton label={playLabel} play primary autoFocus onClick={onPlayMain} />
                     {offline ? null : <CodioButton label={'Choose a source'} onClick={onChooseSource} />}
                     {canDownload ? <CodioButton label={isSeries ? seasonLabel() : downloadLabel(movieDownload)} onClick={onDownloadMain} /> : null}
-                    {ready ? <CodioButton label={inList ? '✓ My List' : '+ My List'} onClick={toggleList} /> : null}
+                    {ready ? <CodioButton label={inList ? '✓ In Library' : '+ Library'} onClick={toggleList} /> : null}
                     <span className={styles['source-status']}>{movieDownload?.state === 'done' ? `Downloaded${movieDownload.quality ? `  ·  ${qualityLabel(movieDownload.quality)}` : ''}  ·  plays without internet` : movieDownload?.state === 'failed' ? `Download failed: ${movieDownload.error ?? ''}` : offline ? 'Offline  ·  showing your downloads' : statusText}</span>
                 </div>
                 {!ready && !metaFailed ? <div className={styles['detail-spinner']}><Spinner size={22} /></div> : null}

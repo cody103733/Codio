@@ -44,7 +44,7 @@ const { default: Indicator } = require('./Indicator/Indicator');
 const { default: useMediaSession } = require('./useMediaSession');
 const { default: useAutoPlayFallback } = require('./useAutoPlayFallback');
 const { default: AutoPlayIndicator } = require('./AutoPlayIndicator');
-const { default: SkipButton, useSkipSegments, imdbIdOf, episodeOf } = require('./SkipButton');
+const { default: SkipButton, useSkipSegments, imdbIdOf, episodeOf, insideSegment } = require('./SkipButton');
 const { useAutoPlaySettings } = require('stremio/common/AutoPlay');
 
 const GAMEPAD_HANDLER_ID = 'player';
@@ -424,7 +424,7 @@ const Player = () => {
         if (skipTimes === null || video.state.time === null || keyboardSeekTime !== null) return null;
         const t = video.state.time / 1000;
         const duration = video.state.duration !== null ? video.state.duration / 1000 : 0;
-        const inside = (seg) => seg !== null && t >= seg.start && t < seg.end - 0.5;
+        const inside = (seg) => insideSegment(seg, t, 0.5);
         if (inside(skipTimes.intro)) return { label: 'Skip Intro', to: skipTimes.intro.end };
         if (inside(skipTimes.recap)) return { label: 'Skip Recap', to: skipTimes.recap.end };
         if (skipTimes.outro !== null && t >= skipTimes.outro.start && (duration <= 0 || t < duration - 1)) {
@@ -441,6 +441,29 @@ const Player = () => {
         }
         commitSeek(skipAction.to * 1000);
     }, [skipAction, onNextVideoRequested, commitSeek]);
+
+    // Settings, Playback, Skip automatically: 1 = intros and recaps, 2 = credits too (straight to the next episode).
+    // Each is skipped once per episode, so going back into an intro on purpose plays it.
+    const autoSkipped = React.useRef({ videoId: null, done: {} });
+    React.useEffect(() => {
+        const mode = autoPlaySettings.autoSkip || 0;
+        if (mode === 0 || skipTimes === null || video.state.time === null || video.state.paused || keyboardSeekTime !== null) return;
+        if (autoSkipped.current.videoId !== videoId) autoSkipped.current = { videoId, done: {} };
+        const done = autoSkipped.current.done;
+        const t = video.state.time / 1000;
+        const skipPast = (name, seg) => {
+            if (done[name] || !insideSegment(seg, t, 2)) return false;
+            done[name] = true;
+            commitSeek(seg.end * 1000);
+            toast.show({ type: 'success', title: `Skipped ${name}`, timeout: 3000 });
+            return true;
+        };
+        if (skipPast('intro', skipTimes.intro) || skipPast('recap', skipTimes.recap)) return;
+        if (mode >= 2 && !done.credits && player.nextVideo !== null && insideSegment(skipTimes.outro, t, 0.5)) {
+            done.credits = true;
+            onNextVideoRequested();
+        }
+    }, [autoPlaySettings.autoSkip, skipTimes, video.state.time, video.state.paused, keyboardSeekTime, videoId, player.nextVideo, commitSeek, onNextVideoRequested]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !consumePlaybackSpeedHoldClick()) {

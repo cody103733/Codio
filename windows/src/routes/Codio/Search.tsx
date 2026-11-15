@@ -1,5 +1,4 @@
-// Codio Search: the query and on-screen keys on the left, results on the right (as on Android TV).
-// On Windows the physical keyboard types straight into the query too.
+// Codio Search: the query box and Movies / Shows chips at the top, results (or recent searches) below.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import classnames from 'classnames';
@@ -9,16 +8,31 @@ import { searchCatalogs, loadCatalog, type Meta } from './api';
 import { NavBar, PosterGrid, Spinner, styles } from './components';
 import { useAddons, useOpen } from './useCodio';
 
-const CHARS = 'abcdefghijklmnopqrstuvwxyz1234567890'.split('');
-
-// Movies / Series / Both filter. Remembered for this run of the app; starts on Both.
+// Movies / Shows / Both filter. Remembered for this run of the app; starts on Both.
 type Kind = 'both' | 'movie' | 'series';
 const KINDS: { kind: Kind, label: string }[] = [
     { kind: 'both', label: 'Both' },
     { kind: 'movie', label: 'Movies' },
-    { kind: 'series', label: 'Series' },
+    { kind: 'series', label: 'Shows' },
 ];
 let lastKind: Kind = 'both';
+
+// Recent searches (newest first), listed while nothing is typed. A search is kept once you open one of its results.
+const RECENT_KEY = 'codioRecentSearches';
+const loadRecent = (): string[] => {
+    try {
+        const list = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? '[]');
+        return Array.isArray(list) ? list.filter((q) => typeof q === 'string').slice(0, 8) : [];
+    } catch (_e) {
+        return [];
+    }
+};
+const saveRecent = (list: string[]) => {
+    try {
+        window.localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+    } catch (_e) { /* storage full or off */ }
+    return list;
+};
 
 const Search = () => {
     const addons = useAddons();
@@ -28,7 +42,8 @@ const Search = () => {
         setKindState(k);
     };
     const catalogs = useMemo(() => searchCatalogs(addons).filter((c) => kind === 'both' || c.type === kind), [addons, kind]);
-    const { open, play } = useOpen();
+    const opener = useOpen();
+    const [recent, setRecent] = useState(loadRecent);
     const [searchParams, setSearchParams] = useSearchParams();
     const [query, setQuery] = useState(() => searchParams.get('search') ?? '');
     const [results, setResults] = useState<Meta[]>([]);
@@ -74,14 +89,12 @@ const Search = () => {
         return () => clearTimeout(timer);
     }, [query, catalogs, kind]);
 
-    const press = (key: string) => {
-        setQuery((q) => {
-            if (key === 'Space') return q.length > 0 && !q.endsWith(' ') ? q + ' ' : q;
-            if (key === 'Delete') return q.slice(0, -1);
-            if (key === 'Clear') return '';
-            return (q + key).slice(0, 60);
-        });
+    const remember = () => {
+        const q = query.trim();
+        if (q.length > 0) saveRecent([q, ...loadRecent().filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, 8));
     };
+    const open = (meta: Meta) => { remember(); opener.open(meta); };
+    const play = (meta: Meta) => { remember(); opener.play(meta); };
 
     return (
         <div className={classnames(styles['codio'], styles['flat'], styles['search'])}>
@@ -91,7 +104,7 @@ const Search = () => {
                         ref={input}
                         className={styles['search-input']}
                         value={query}
-                        placeholder={'Search movies & series'}
+                        placeholder={'Search movies and shows'}
                         spellCheck={false}
                         maxLength={60}
                         onChange={(e) => setQuery(e.target.value)}
@@ -108,17 +121,22 @@ const Search = () => {
                         </button>
                     ))}
                 </div>
-                <div className={styles['keys']}>
-                    {CHARS.map((c) => <button key={c} className={styles['key']} onClick={() => press(c)} onMouseDown={(e) => e.preventDefault()}>{c.toUpperCase()}</button>)}
-                    {['Space', 'Delete', 'Clear'].map((k) => <button key={k} className={classnames(styles['key'], styles['wide'])} onClick={() => press(k)} onMouseDown={(e) => e.preventDefault()}>{k}</button>)}
-                </div>
             </div>
             <div className={styles['search-results']}>
-                <PosterGrid items={results} cols={7} onOpen={open} onPlay={play} />
+                {query.trim().length > 0 ? <PosterGrid items={results} cols={7} onOpen={open} onPlay={play} /> : null}
                 {
-                    results.length === 0 ?
+                    results.length === 0 && query.trim().length > 0 ?
                         <div className={styles['search-empty']}>
                             {pending > 0 ? <Spinner /> : searched.length > 0 ? `No results for “${searched}”` : null}
+                        </div>
+                        : null
+                }
+                {
+                    query.trim().length === 0 && recent.length > 0 ?
+                        <div className={styles['recent']}>
+                            <div className={styles['recent-title']}>Recent searches</div>
+                            {recent.map((q) => <button key={q} className={styles['recent-row']} onClick={() => setQuery(q)}>{q}</button>)}
+                            <button className={classnames(styles['recent-row'], styles['clear'])} onClick={() => setRecent(saveRecent([]))}>Clear recent searches</button>
                         </div>
                         : null
                 }

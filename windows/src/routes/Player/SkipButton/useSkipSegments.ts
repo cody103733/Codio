@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react';
 export type Segment = { start: number, end: number }; // seconds
 export type SkipTimes = { intro: Segment | null, recap: Segment | null, outro: Segment | null };
 
+// Whether time t (seconds) is inside the segment, leaving out its last few seconds.
+export const insideSegment = (seg: Segment | null, t: number, tail: number): seg is Segment => seg !== null && t >= seg.start && t < seg.end - tail;
+
 const cache = new Map<string, SkipTimes | null>();
 
 const segment = (o: any): Segment | null => {

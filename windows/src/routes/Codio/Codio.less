@@ -2,12 +2,20 @@
 // Everything is sized in a 1920x1080 design grid: calc(@u * N) is N design pixels at the window's size.
 
 @u: var(--u);
+// The Codio theme. Same names and values as Theme.java (Android) and Theme.swift (iPhone); see DESIGN.md.
 @red: #E50914;
+@red-soft: #FF5A5F;
+@black: #000;
 @bg: #0B0B0B;
+@card: #161616;
+@raised: #262626;
+@line: #333;
+@text: #fff;
 @body: #D6D6D6;
-@meta: #BDBDBD;
-@small: #AAAAAA;
-@nav: #B3B3B3;
+@dim: #B3B3B3;
+@faint: #8C8C8C;
+@on-focus: #111;
+@on-focus-dim: #444;
 @ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
 .codio {
@@ -109,7 +117,7 @@
         top: calc(100% + @u * 18);
         min-width: calc(@u * 300);
         padding: calc(@u * 12) 0;
-        background: fade(#141414, 96%);
+        background: fade(@card, 96%);
         border: 1px solid fade(#fff, 12%);
         border-radius: calc(@u * 10);
         box-shadow: 0 calc(@u * 12) calc(@u * 40) fade(#000, 60%);
@@ -148,7 +156,7 @@
         padding: calc(@u * 10) calc(@u * 24);
         max-width: calc(@u * 340);
         font-size: calc(@u * 21);
-        color: @small;
+        color: @dim;
         white-space: normal;
     }
 
@@ -160,7 +168,7 @@
         border-radius: calc(@u * 28);
         font-size: calc(@u * 27);
         font-weight: 700;
-        color: @nav;
+        color: @dim;
         white-space: nowrap;
         transition: background-color 120ms ease, color 120ms ease;
 
@@ -245,7 +253,7 @@
 .meta-line {
     font-size: calc(@u * 26);
     font-weight: 700;
-    color: @meta;
+    color: @dim;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -408,7 +416,7 @@
     width: calc(@u * 200);
     height: calc(@u * 300);
     border-radius: calc(@u * 12);
-    background: #262626;
+    background: @raised;
     transition: transform 220ms @ease, box-shadow 220ms @ease;
 
     .poster-image {
@@ -426,7 +434,7 @@
         align-items: center;
         padding: calc(@u * 16);
         font-size: calc(@u * 23);
-        color: #CCCCCC;
+        color: @body;
         text-align: left;
     }
 
@@ -477,7 +485,7 @@
 .poster-caption {
     margin-top: calc(@u * 30);
     font-size: calc(@u * 23);
-    color: @small;
+    color: @dim;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -658,7 +666,7 @@
             width: calc(@u * 200);
             height: calc(@u * 300);
             border-radius: calc(@u * 12);
-            background: #1C1C1C;
+            background: @card;
         }
     }
 }
@@ -670,7 +678,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #333 transparent;
+    scrollbar-color: @line transparent;
 }
 
 .discover-chips {
@@ -716,24 +724,25 @@
     padding-bottom: calc(@u * 80);
 }
 
+// Search: typing goes in the box at the top; results (or recent searches) use the full width.
 .search {
     .search-left {
         position: absolute;
         left: calc(@u * 96);
-        top: calc(@u * 176);
-        width: calc(@u * 496);
+        right: calc(@u * 96);
+        top: calc(@u * 150);
         z-index: 2;
     }
 
     .search-query {
+        max-width: calc(@u * 1100);
         border-bottom: calc(@u * 3) solid @red;
         padding-bottom: calc(@u * 10);
-        margin-bottom: calc(@u * 24);
+        margin-bottom: calc(@u * 20);
     }
 
     .search-types {
         display: flex;
-        margin-bottom: calc(@u * 24);
     }
 
     .search-input {
@@ -748,48 +757,21 @@
         caret-color: @red;
 
         &::placeholder {
-            color: #777777;
-        }
-    }
-
-    .keys {
-        display: flex;
-        flex-wrap: wrap;
-        gap: calc(@u * 8);
-        width: calc(@u * 496);
-    }
-
-    .key {
-        width: calc(@u * 76);
-        height: calc(@u * 70);
-        border-radius: calc(@u * 8);
-        background: #1F1F1F;
-        color: #E0E0E0;
-        font-size: calc(@u * 28);
-        font-weight: 700;
-
-        &.wide {
-            width: calc(@u * 160);
-            font-size: calc(@u * 24);
-        }
-
-        &:hover, &:focus-visible {
-            background: #fff;
-            color: #000;
+            color: @faint;
         }
     }
 
     .search-results {
         position: absolute;
-        left: calc(@u * 604);
+        left: 0;
         right: 0;
         top: 0;
         bottom: 0;
         overflow-y: auto;
-        padding-top: calc(@u * 176);
+        padding-top: calc(@u * 340);
         scrollbar-width: thin;
-        scrollbar-color: #333 transparent;
-        mask-image: linear-gradient(to bottom, transparent calc(@u * 110), #000 calc(@u * 170));
+        scrollbar-color: @line transparent;
+        mask-image: linear-gradient(to bottom, transparent calc(@u * 310), #000 calc(@u * 360));
 
         .grid {
             padding-top: calc(@u * 24);
@@ -800,6 +782,43 @@
         padding: calc(@u * 200) calc(@u * 96);
         font-size: calc(@u * 27);
         color: @body;
+    }
+
+    // Recent searches, shown while nothing is typed.
+    .recent {
+        padding: calc(@u * 24) calc(@u * 96);
+        width: calc(@u * 952);
+
+        .recent-title {
+            font-size: calc(@u * 34);
+            font-weight: 700;
+            margin-bottom: calc(@u * 24);
+        }
+
+        .recent-row {
+            display: block;
+            width: 100%;
+            height: calc(@u * 66);
+            margin-bottom: calc(@u * 10);
+            padding: 0 calc(@u * 30);
+            border-radius: calc(@u * 10);
+            background: @card;
+            text-align: left;
+            font-size: calc(@u * 27);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+
+            &:hover, &:focus-visible {
+                background: @text;
+                color: @on-focus;
+            }
+
+            &.clear {
+                background: none;
+                color: @dim;
+            }
+        }
     }
 }
 
@@ -830,7 +849,7 @@
         margin-bottom: calc(@u * 10);
         padding: 0 calc(@u * 30);
         border-radius: calc(@u * 10);
-        background: #161616;
+        background: @card;
         cursor: pointer;
         outline: none;
         transition: background-color 100ms ease;
@@ -846,7 +865,7 @@
             gap: calc(@u * 14);
             font-size: calc(@u * 27);
             font-weight: 700;
-            color: @nav;
+            color: @dim;
         }
 
         .arrow {
@@ -859,7 +878,7 @@
             color: #000;
 
             .setting-value {
-                color: #333;
+                color: @line;
             }
 
             .arrow {
@@ -890,7 +909,7 @@
         left: calc(@u * 1226);
         bottom: calc(@u * 50);
         font-size: calc(@u * 23);
-        color: @small;
+        color: @dim;
     }
 }
 
@@ -931,7 +950,7 @@
     .starring {
         margin-top: calc(@u * 14);
         font-size: calc(@u * 23);
-        color: @small;
+        color: @dim;
         width: calc(@u * 920);
         white-space: nowrap;
         overflow: hidden;
@@ -961,7 +980,7 @@
             margin-left: calc(@u * 14);
             font-size: calc(@u * 26);
             font-weight: 700;
-            color: @meta;
+            color: @dim;
         }
     }
 
@@ -976,7 +995,7 @@
         left: calc(@u * 96);
         top: calc(@u * 780);
         font-size: calc(@u * 23);
-        color: @small;
+        color: @dim;
     }
 
     .episodes-zone {
@@ -1002,7 +1021,7 @@
             width: calc(@u * 352);
             height: calc(@u * 198);
             border-radius: calc(@u * 10);
-            background-color: #262626;
+            background-color: @raised;
             background-size: cover;
             background-position: center;
             transition: transform 220ms @ease, box-shadow 220ms @ease;
@@ -1017,7 +1036,7 @@
         .episode-title {
             margin-top: calc(@u * 18);
             font-size: calc(@u * 23);
-            color: @small;
+            color: @dim;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1083,7 +1102,7 @@
         overflow-y: auto;
         padding: calc(@u * 6) calc(@u * 96) calc(@u * 60) calc(@u * 96);
         scrollbar-width: thin;
-        scrollbar-color: #444 transparent;
+        scrollbar-color: @on-focus-dim transparent;
     }
 
     .source {
@@ -1094,7 +1113,7 @@
         margin-bottom: calc(@u * 14);
         padding: calc(@u * 22) calc(@u * 28);
         border-radius: calc(@u * 12);
-        background: fade(#161616, 70%);
+        background: fade(@card, 70%);
         text-align: left;
         transition: background-color 100ms ease;
 
@@ -1122,12 +1141,12 @@
 
         .best {
             font-size: calc(@u * 23);
-            color: #FF5A5F;
+            color: @red-soft;
         }
 
         .instant {
             font-size: calc(@u * 23);
-            color: @small;
+            color: @dim;
         }
 
         .source-text {
@@ -1147,7 +1166,7 @@
         .source-description {
             font-size: calc(@u * 23);
             line-height: 1.18;
-            color: @small;
+            color: @dim;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -1159,7 +1178,7 @@
             color: #000;
 
             .quality {
-                background: #111;
+                background: @on-focus;
             }
 
             .best {
@@ -1167,7 +1186,7 @@
             }
 
             .instant, .source-description {
-                color: #444;
+                color: @on-focus-dim;
             }
         }
     }
@@ -1203,7 +1222,7 @@
     .hint-button {
         margin-top: calc(@u * 20);
         font-size: calc(@u * 23);
-        color: @small;
+        color: @dim;
 
         &:hover {
             color: #fff;
@@ -1216,7 +1235,7 @@
 }
 
 .row .row-title {
-    color: #E6E6E6;
+    color: @body;
 }
 
 .focused-row .row-title {
@@ -1234,12 +1253,12 @@
 
 // With the mouse over the list, only the row under the pointer is highlighted.
 .sources .sources-list:hover .source:focus:not(:hover) {
-    background: fade(#161616, 70%);
+    background: fade(@card, 70%);
     color: #fff;
 
     .quality { background: fade(#fff, 20%); }
-    .best { color: #FF5A5F; }
-    .instant, .source-description { color: @small; }
+    .best { color: @red-soft; }
+    .instant, .source-description { color: @dim; }
 }
 
 // ---- Addons
@@ -1258,8 +1277,8 @@
         height: calc(@u * 64);
         padding: 0 calc(@u * 26);
         border-radius: calc(@u * 10);
-        border: calc(@u * 2) solid #2A2A2A;
-        background: #161616;
+        border: calc(@u * 2) solid @raised;
+        background: @card;
         color: #fff;
         font: inherit;
         font-size: calc(@u * 26);
@@ -1271,13 +1290,13 @@
         }
 
         &::placeholder {
-            color: #777777;
+            color: @faint;
         }
     }
 
     .addon-link-error {
         margin: 0 calc(@u * 96) calc(@u * 14) calc(@u * 96);
-        color: @meta;
+        color: @dim;
         font-size: calc(@u * 24);
     }
 
@@ -1305,7 +1324,7 @@
         min-height: calc(@u * 136);
         padding: calc(@u * 20) calc(@u * 30);
         border-radius: calc(@u * 12);
-        background: #161616;
+        background: @card;
     }
 
     .addon-logo {
@@ -1313,14 +1332,14 @@
         width: calc(@u * 96);
         height: calc(@u * 96);
         border-radius: calc(@u * 12);
-        background: #222;
+        background: @raised;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
         font-size: calc(@u * 44);
         font-weight: 700;
-        color: @nav;
+        color: @dim;
 
         img {
             width: 100%;
@@ -1342,7 +1361,7 @@
     .addon-meta {
         margin-top: calc(@u * 4);
         font-size: calc(@u * 22);
-        color: @small;
+        color: @dim;
     }
 
     .addon-description {
@@ -1364,7 +1383,7 @@
 
     .addon-locked {
         font-size: calc(@u * 22);
-        color: @small;
+        color: @dim;
         padding: 0 calc(@u * 20);
     }
 }
@@ -1373,7 +1392,7 @@
 .settings .setting-heading {
     font-size: calc(@u * 24);
     font-weight: 700;
-    color: @small;
+    color: @dim;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: calc(@u * 26) calc(@u * 30) calc(@u * 12) calc(@u * 30);
@@ -1393,8 +1412,8 @@
         height: calc(@u * 64);
         padding: 0 calc(@u * 24);
         border-radius: calc(@u * 10);
-        border: calc(@u * 2) solid #2A2A2A;
-        background: #161616;
+        border: calc(@u * 2) solid @raised;
+        background: @card;
         color: #fff;
         font: inherit;
         font-size: calc(@u * 26);
@@ -1406,7 +1425,7 @@
         }
 
         &::placeholder {
-            color: #777777;
+            color: @faint;
         }
     }
 
@@ -1417,13 +1436,13 @@
     }
 
     .sign-in-error {
-        color: #FF6B6B;
+        color: @red-soft;
         font-size: calc(@u * 24);
     }
 
     .body {
         font-size: calc(@u * 22);
-        color: @small;
+        color: @dim;
     }
 }
 
@@ -1568,35 +1587,6 @@
     }
 }
 
-// Search: typing goes in the box at the top; results use the full width.
-.search {
-    .search-left {
-        left: calc(@u * 96);
-        right: calc(@u * 96);
-        width: auto;
-        top: calc(@u * 150);
-    }
-
-    .search-query {
-        max-width: calc(@u * 1100);
-        margin-bottom: calc(@u * 20);
-    }
-
-    .search-types {
-        margin-bottom: 0;
-    }
-
-    .keys {
-        display: none;
-    }
-
-    .search-results {
-        left: 0;
-        padding-top: calc(@u * 340);
-        mask-image: linear-gradient(to bottom, transparent calc(@u * 310), #000 calc(@u * 360));
-    }
-}
-
 // ---- Downloads: badges on posters and episodes, the Library list, the quality picker
 .dl-badge {
     position: absolute;
@@ -1686,7 +1676,7 @@
 
     .dl-summary {
         font-size: calc(@u * 23);
-        color: @small;
+        color: @dim;
         margin-bottom: calc(@u * 10);
         user-select: text;
     }
@@ -1697,7 +1687,7 @@
         gap: calc(@u * 30);
         padding: calc(@u * 16) calc(@u * 24);
         border-radius: calc(@u * 12);
-        background: #161616;
+        background: @card;
     }
 
     .dl-thumb {
@@ -1706,7 +1696,7 @@
         width: calc(@u * 224);
         height: calc(@u * 126);
         border-radius: calc(@u * 10);
-        background: #262626;
+        background: @raised;
         overflow: hidden;
         transition: box-shadow 150ms ease;
 
@@ -1722,7 +1712,7 @@
             height: 100%;
             padding: calc(@u * 12);
             font-size: calc(@u * 20);
-            color: @meta;
+            color: @dim;
         }
 
         .dl-thumb-play {
@@ -1792,11 +1782,11 @@
     .dl-status {
         margin-top: calc(@u * 6);
         font-size: calc(@u * 22);
-        color: @small;
+        color: @dim;
     }
 
     .failed .dl-status {
-        color: #FF6B6B;
+        color: @red-soft;
     }
 
     .dl-actions {
@@ -1839,5 +1829,47 @@
             font-size: calc(@u * 40);
             font-weight: 800;
         }
+    }
+}
+
+// ---- Settings: profile picker in the help pane, multi-line help
+.settings .lines {
+    white-space: pre-line;
+}
+
+.settings .profile-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(@u * 24);
+    margin-top: calc(@u * 32);
+
+    .profile-pick {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: calc(@u * 10);
+        font-size: calc(@u * 22);
+        color: @dim;
+
+        &.selected {
+            color: @text;
+
+            .profile-face {
+                outline: 3px solid @text;
+                outline-offset: 3px;
+            }
+        }
+    }
+
+    .profile-face {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: calc(@u * 96);
+        height: calc(@u * 96);
+        border-radius: calc(@u * 14);
+        font-size: calc(@u * 44);
+        font-weight: 700;
+        color: @text;
     }
 }

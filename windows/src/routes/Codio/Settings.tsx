@@ -46,32 +46,35 @@ const NEXT_POPUP = [0, 10000, 20000, 30000, 35000, 45000, 60000];
 
 const ITEMS: Item[] = [
     { kind: 'heading', label: 'Playback' },
-    { kind: 'choice', store: 'autoplay', label: 'Smart auto-play', help: 'Press Play and Codio picks the best source for you, and moves on to the next one if a source fails.', key: 'enabled', values: [true, false], labels: ['On', 'Off'] },
+    { kind: 'choice', store: 'autoplay', label: 'Smart auto-play', help: 'Play picks the best source for you, and moves on to the next one if a source fails.', key: 'enabled', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'autoplay', label: 'Preferred quality', help: 'The quality auto-play aims for.', key: 'preferredQuality', values: ['2160p', '1440p', '1080p', '720p', '480p'], labels: ['4K (2160p)', '1440p', '1080p', '720p', '480p'] },
     { kind: 'choice', store: 'autoplay', label: 'If that quality isn\'t available', help: 'What auto-play falls back to.', key: 'fallbackMode', values: ['closest', 'lower', 'exact'], labels: ['Closest quality', 'Lower quality only', 'Don\'t play'] },
-    { kind: 'choice', store: 'autoplay', label: 'Skip sources above', help: 'Very large 4K files need a fast connection. Sources above this bitrate are tried last, so playback doesn\'t stall. Pick what your internet can carry.', key: 'maxBitrateMbps', values: BITRATES, labels: BITRATES.map((v) => v === 0 ? 'No limit' : `${v} Mbit/s`) },
+    { kind: 'choice', store: 'autoplay', label: 'Skip sources above', help: 'Sources above this bitrate are tried last, so playback doesn\'t stall. Pick what your connection can carry.', key: 'maxBitrateMbps', values: BITRATES, labels: BITRATES.map((v) => v === 0 ? 'No limit' : `${v} Mbit/s`) },
     { kind: 'choice', store: 'autoplay', label: 'Source list', help: 'Hidden: movies just get a Play button. Shown: you see every source and pick one.', key: 'hideSources', values: [true, false], labels: ['Hidden', 'Shown'] },
     { kind: 'choice', store: 'autoplay', label: 'Prefer instant sources', help: 'Among sources of the same quality, start with ones your debrid service already has ready.', key: 'preferCached', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'autoplay', label: 'Wait for slow addons', help: 'How long Play waits for addons that are still answering before it picks from the sources it has.', key: 'addonWaitSeconds', values: [3, 5, 8, 12, 20], labels: ['3 seconds', '5 seconds', '8 seconds', '12 seconds', '20 seconds'] },
     { kind: 'choice', store: 'autoplay', label: 'Skip a source that won\'t start', help: 'If a source hasn\'t started playing after this long, Codio moves on to the next one.', key: 'startupTimeoutSeconds', values: [15, 30, 45, 60, 0], labels: ['15 seconds', '30 seconds', '45 seconds', '60 seconds', 'Never'] },
-    { kind: 'choice', store: 'profile', label: 'Play the next episode', help: 'When an episode ends, start the next one.', key: 'bingeWatching', values: [true, false], labels: ['Automatically', 'Ask me'] },
-    { kind: 'choice', store: 'autoplay', label: 'Skip Intro button', help: 'Shows Skip Intro, Skip Recap and Skip Credits in the player when the episode\'s times are known (from the community database IntroDB).', key: 'skipButtons', values: [true, false], labels: ['On', 'Off'] },
-    { kind: 'choice', store: 'profile', label: 'Next episode prompt', help: 'How long before the end of an episode the "Next episode" prompt appears.', key: 'nextVideoNotificationDuration', values: NEXT_POPUP, labels: NEXT_POPUP.map((v) => v === 0 ? 'Off' : `${v / 1000} seconds`) },
-
-    { kind: 'heading', label: 'Subtitles & audio' },
-    { kind: 'choice', store: 'profile', label: 'Subtitles', help: 'The subtitle language Codio turns on by itself. Off: no subtitles unless you pick them in the player.', key: 'subtitlesLanguage', values: [null, ...LANGUAGES.map(([code]) => code)], labels: ['Off', ...LANGUAGES.map(([, name]) => name)] },
-    { kind: 'choice', store: 'profile', label: 'Subtitle size', help: 'How big subtitles are.', key: 'subtitlesSize', values: SUB_SIZES, labels: SUB_SIZES.map((v) => `${v}%`) },
-    { kind: 'choice', store: 'profile', label: 'Audio language', help: 'The audio track Codio picks when a video has several.', key: 'audioLanguage', values: LANGUAGES.map(([code]) => code), labels: LANGUAGES.map(([, name]) => name) },
-    { kind: 'choice', store: 'profile', label: 'Surround sound', help: 'Send 5.1 / 7.1 audio as it is, for a surround system. Off mixes it down to stereo.', key: 'surroundSound', values: [false, true], labels: ['Off', 'On'] },
-
-    { kind: 'heading', label: 'Player' },
-    { kind: 'choice', store: 'profile', label: 'Hardware decoding', help: 'Uses the graphics card to decode video. Turn off only if videos show green or black pictures.', key: 'hardwareDecoding', values: [true, false], labels: ['On', 'Off'] },
-    { kind: 'choice', store: 'profile', label: 'Pause when minimized', help: 'Pause the video when you minimize the Codio window.', key: 'pauseOnMinimize', values: [false, true], labels: ['Off', 'On'] },
+    { kind: 'choice', store: 'profile', label: 'Next episode', help: 'At the end of an episode, play the next one automatically.', key: 'bingeWatching', values: [true, false], labels: ['Plays automatically', 'Off'] },
+    { kind: 'choice', store: 'autoplay', label: 'Skip Intro button', help: 'Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.', key: 'skipButtons', values: [true, false], labels: ['On', 'Off'] },
+    { kind: 'choice', store: 'autoplay', label: 'Skip automatically', help: 'Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.', key: 'autoSkip', values: [0, 1, 2], labels: ['Off', 'Intros and recaps', 'Intros, recaps and credits'] },
+    { kind: 'choice', store: 'profile', label: 'Next Episode button', help: 'When Next Episode appears on episodes whose credits aren\'t timed.', key: 'nextVideoNotificationDuration', values: NEXT_POPUP, labels: NEXT_POPUP.map((v) => v === 0 ? 'Don\'t show' : `${v / 1000} seconds before the end`) },
     { kind: 'choice', store: 'profile', label: 'Skip forward and back', help: 'How far the arrow keys jump in the player.', key: 'seekTimeDuration', values: [5000, 10000, 15000, 20000, 30000], labels: ['5 seconds', '10 seconds', '15 seconds', '20 seconds', '30 seconds'] },
 
-    { kind: 'heading', label: 'Account & addons' },
+    { kind: 'heading', label: 'Picture & sound' },
+    { kind: 'choice', store: 'profile', label: 'Hardware decoding', help: 'Uses the graphics card to decode video. Turn off only if videos show green or black pictures.', key: 'hardwareDecoding', values: [true, false], labels: ['On', 'Off'] },
+    { kind: 'choice', store: 'profile', label: 'Surround sound', help: 'Send 5.1 / 7.1 audio as it is, for a surround system. Off mixes it down to stereo.', key: 'surroundSound', values: [false, true], labels: ['Off', 'On'] },
+    { kind: 'choice', store: 'profile', label: 'Pause when minimized', help: 'Pause the video when you minimize the Codio window.', key: 'pauseOnMinimize', values: [false, true], labels: ['Off', 'On'] },
+
+    { kind: 'heading', label: 'Languages & subtitles' },
+    { kind: 'choice', store: 'profile', label: 'Audio language', help: 'The audio track Codio picks when a video has several.', key: 'audioLanguage', values: LANGUAGES.map(([code]) => code), labels: LANGUAGES.map(([, name]) => name) },
+    { kind: 'choice', store: 'profile', label: 'Subtitles', help: 'The subtitle language Codio turns on by itself. Off: no subtitles unless you pick them in the player.', key: 'subtitlesLanguage', values: [null, ...LANGUAGES.map(([code]) => code)], labels: ['Off', ...LANGUAGES.map(([, name]) => name)] },
+    { kind: 'choice', store: 'profile', label: 'Subtitle size', help: 'How big subtitles are.', key: 'subtitlesSize', values: SUB_SIZES, labels: SUB_SIZES.map((v) => `${v}%`) },
+
+    { kind: 'heading', label: 'Account' },
     { kind: 'account', label: 'Account', help: 'Signing in keeps your addons, library and progress in sync between Codio on this PC and on your TV.' },
     { kind: 'profiles', label: 'Who\'s watching', help: 'Profiles you made on the iPhone. Each has its own library, Continue Watching and addons. Pick one on the right to switch, or use Left and Right, then Enter.' },
+
+    { kind: 'heading', label: 'Addons' },
     { kind: 'link', label: 'Addons', help: 'Install or remove addons (catalogs and sources).', route: '/addons' },
 
     { kind: 'heading', label: 'About' },
@@ -193,25 +196,20 @@ const Settings = () => {
                             :
                             <>
                                 <div className={styles['help-title']}>{helpItem.label}</div>
-                                {helpItem.kind === 'update' ? <div className={styles['body']} style={{ whiteSpace: 'pre-line' }}>{`You have Codio ${version}.\n\n${updateHelp(update_.state)}`}</div>
+                                {helpItem.kind === 'update' ? <div className={classnames(styles['body'], styles['lines'])}>{`You have Codio ${version}.\n\n${updateHelp(update_.state)}`}</div>
                                     : 'help' in helpItem ? <div className={styles['body']}>{helpItem.help}</div> : null}
                                 {
                                     helpItem.kind === 'profiles' && profiles.list.length > 0 ?
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'calc(var(--u) * 24)', marginTop: 'calc(var(--u) * 32)' }}>
+                                        <div className={styles['profile-picks']}>
                                             {profiles.list.map((p, index) => (
                                                 <button
                                                     key={p.email}
                                                     title={p.name}
+                                                    className={classnames(styles['profile-pick'], { [styles['selected']]: index === currentIndex })}
                                                     onClick={() => { setPick(index); profiles.switchTo(p); }}
-                                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(var(--u) * 10)', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', font: 'inherit', padding: 0 }}
                                                 >
-                                                    <span style={{
-                                                        width: 'calc(var(--u) * 96)', height: 'calc(var(--u) * 96)', borderRadius: 'calc(var(--u) * 14)',
-                                                        background: profileColor(p), display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        fontSize: 'calc(var(--u) * 44)', fontWeight: 700, color: '#fff',
-                                                        outline: index === currentIndex ? '3px solid #fff' : 'none', outlineOffset: 3,
-                                                    }}>{p.name.trim().charAt(0).toUpperCase() || '?'}</span>
-                                                    <span style={{ fontSize: 'calc(var(--u) * 22)', opacity: index === currentIndex ? 1 : 0.75 }}>{p.name}</span>
+                                                    <span className={styles['profile-face']} style={{ background: profileColor(p) }}>{p.name.trim().charAt(0).toUpperCase() || '?'}</span>
+                                                    <span>{p.name}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -221,7 +219,7 @@ const Settings = () => {
                             </>
                     }
                 </div>
-                <div className={styles['version']}>{`Codio ${version}`}</div>
+                <div className={styles['version']}>{`Codio ${version} for Windows`}</div>
             </div>
             <NavBar current={6} />
         </div>

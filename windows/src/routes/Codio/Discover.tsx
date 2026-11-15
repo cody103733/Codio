@@ -1,4 +1,4 @@
-// Codio Movies / Series: catalog chips, genre chips and a poster grid (as on Android TV).
+// Codio Movies / Shows: catalog chips, genre chips and a poster grid (as on Android TV).
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
