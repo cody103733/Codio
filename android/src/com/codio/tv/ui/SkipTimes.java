@@ -28,6 +28,25 @@ final class SkipTimes {
         Segment intro, recap, outro;
     }
 
+    static final int INTRO = 1, RECAP = 2, NEXT = 4;
+
+    /**
+     * Settings, Playback, Skip automatically (pref auto_skip: 0 off, 1 intros and recaps, 2 credits too, straight to the
+     * next episode). What to skip right now at time t: INTRO, RECAP, NEXT or 0. done holds what this play already skipped,
+     * so going back into an intro on purpose plays it.
+     */
+    static int auto(Times s, int mode, double t, boolean hasNext, int done) {
+        if (s == null || mode <= 0) return 0;
+        if (s.intro != null && s.intro.contains(t) && t < s.intro.end - 1.5 && (done & INTRO) == 0) return INTRO;
+        if (s.recap != null && s.recap.contains(t) && t < s.recap.end - 1.5 && (done & RECAP) == 0) return RECAP;
+        if (mode >= 2 && hasNext && s.outro != null && s.outro.contains(t) && (done & NEXT) == 0) return NEXT;
+        return 0;
+    }
+
+    static String autoToast(int kind) {
+        return kind == INTRO ? "Skipped intro" : kind == RECAP ? "Skipped recap" : "Skipping the credits";
+    }
+
     interface Done {
         void done(Times t);
     }

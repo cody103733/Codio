@@ -91,6 +91,7 @@ final class PlayerScreen extends Screen {
         }
         skipFor = videoId;
         skip = null;
+        autoSkipped = 0;
         final String forVideo = videoId;
         SkipTimes.load(imdb, se[0], se[1], new SkipTimes.Done() {
             @Override
@@ -120,6 +121,17 @@ final class PlayerScreen extends Screen {
         // No credits times: the "Up next" moment from Settings.
         if (upNextWindow()) return SKIP_NEXT;
         return SKIP_NONE;
+    }
+
+    private int autoSkipped;
+
+    private void autoSkip() {
+        if (!st.started || st.error != null || st.paused || menu >= 0 || seekTarget >= 0 || !skipEnabled()) return;
+        int kind = SkipTimes.auto(skip, tv.host.prefs().getInt("auto_skip", 0), st.position(), next != null, autoSkipped);
+        if (kind == 0) return;
+        autoSkipped |= kind;
+        tv.toast(SkipTimes.autoToast(kind));
+        doSkip(kind == SkipTimes.INTRO ? SKIP_INTRO : kind == SkipTimes.RECAP ? SKIP_RECAP : SKIP_NEXT);
     }
 
     private String skipLabel(int kind) {
@@ -275,6 +287,7 @@ final class PlayerScreen extends Screen {
             drawControls(c, now);
             c.restore();
         }
+        autoSkip();
         int sk = skipKind();
         if (sk == SKIP_NONE) skipInZone = false;
         if (sk != SKIP_NONE && menu < 0) drawSkip(c, sk, a);

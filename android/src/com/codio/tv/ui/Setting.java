@@ -154,6 +154,8 @@ final class Setting {
                 "bingeWatching", true, ON_OFF, new String[]{"Plays automatically", "Off"}, false));
         l.add(new Setting(PLAYBACK, DEVICE, "Skip Intro button", "Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.",
                 "skip_buttons", "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
+        l.add(new Setting(PLAYBACK, DEVICE, "Skip automatically", "Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.",
+                "auto_skip", 0, new Object[]{0, 1, 2}, new String[]{"Off", "Intros and recaps", "Intros, recaps and credits"}, false));
         if (!phone) {
             Object[] popup = {0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000};
             l.add(new Setting(PLAYBACK, PROFILE, "Next Episode button", "When Next Episode appears on episodes whose credits aren't timed.",

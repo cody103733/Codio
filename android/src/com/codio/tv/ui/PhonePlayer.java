@@ -271,6 +271,7 @@ final class PhonePlayer extends FrameLayout {
         if (se == null || imdb == null) return;
         skipFor = videoId;
         skip = null;
+        autoSkipped = 0;
         final String forVideo = videoId;
         SkipTimes.load(imdb, se[0], se[1], new SkipTimes.Done() {
             @Override
@@ -290,6 +291,18 @@ final class PhonePlayer extends FrameLayout {
             if (skip.outro.contains(t) && st.duration > 0 && skip.outro.end < st.duration - 5) return SKIP_CREDITS;
         }
         return SKIP_NONE;
+    }
+
+    private int autoSkipped;
+
+    private void autoSkip() {
+        if (!st.started || st.error != null || st.paused || dragging || !skipEnabled()) return;
+        int kind = SkipTimes.auto(skip, ui.host.prefs().getInt("auto_skip", 0), shownPosition(), nextVideo() != null, autoSkipped);
+        if (kind == 0) return;
+        autoSkipped |= kind;
+        ui.toast(SkipTimes.autoToast(kind));
+        if (kind == SkipTimes.NEXT) playNext();
+        else seekTo(kind == SkipTimes.INTRO ? skip.intro.end : skip.recap.end);
     }
 
     private void doSkip() {
@@ -575,6 +588,7 @@ final class PhonePlayer extends FrameLayout {
             seek.setProgress(st.duration > 0 ? (int) Math.round(1000 * pos / st.duration) : 0);
         }
         total.setText(st.duration > 0 ? clock(st.duration) : "");
+        autoSkip();
         int sk = skipKind();
         if (sk != skipShown) {
             skipShown = sk;
