@@ -7,7 +7,7 @@ import android.view.KeyEvent;
 final class LibraryScreen extends Screen {
     private static final int NAV = 0, TYPES = 1, GRID = 2;
     private static final String[] TYPE_IDS = {null, "movie", "series"};
-    private static final String[] TYPE_LABELS = {"All", "Movies", "Series"};
+    private static final String[] TYPE_LABELS = {"All", "Movies", "Shows"};
     private static final float CHIPS_Y = 160, GRID_Y = 260;
 
     private final NavBar nav;
@@ -44,7 +44,7 @@ final class LibraryScreen extends Screen {
 
     @Override
     void draw(Canvas c, float dt) {
-        c.drawColor(0xFF0B0B0B);
+        c.drawColor(Theme.BG);
         scroll.to(zone == GRID && grid.row() > 0 ? grid.row() * Grid.STEP_Y - 150 : 0);
         float sy = step(scroll, dt);
         float x = TvView.MARGIN;
@@ -57,12 +57,7 @@ final class LibraryScreen extends Screen {
             c.drawText(tv.store.profileLoaded ? "Nothing here yet. Use “+ Library” on a movie or show to save it."
                     : "Loading your library…", TvView.MARGIN, 420, tv.tBody);
         }
-        tv.fill.setColor(0xFF0B0B0B);
-        if (sy > 0) {
-            c.drawRect(0, 0, TvView.W, 120, tv.fill);
-            c.drawRect(0, 120, TvView.W, 180, tv.topShade);
-        }
-        nav.draw(c, zone == NAV);
+        nav.draw(c, zone == NAV, sy > 0);
     }
 
     @Override
@@ -94,13 +89,7 @@ final class LibraryScreen extends Screen {
                 return true;
             case GRID:
             default:
-                if (k == TvView.OK || k == TvView.PLAY) {
-                    Store.Meta m = grid.focused();
-                    if (m == null) return true;
-                    if (k == TvView.PLAY && "movie".equals(m.type)) tv.host.play(m, null);
-                    else tv.openDetail(m);
-                    return true;
-                }
+                if (grid.open(tv, k)) return true;
                 if (grid.move(k)) return true;
                 if (k == TvView.UP) {
                     zone = TYPES;

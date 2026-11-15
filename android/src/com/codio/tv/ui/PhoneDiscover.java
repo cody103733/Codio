@@ -1,6 +1,5 @@
 package com.codio.tv.ui;
 
-import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -32,21 +31,7 @@ final class PhoneDiscover extends PhoneUi.Page {
     View build() {
         LinearLayout col = new LinearLayout(ctx());
         col.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout head = new LinearLayout(ctx());
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = PhoneKit.text(ctx(), "‹", 30, Color.WHITE, true);
-        back.setPadding(dp(14), 0, dp(10), dp(4));
-        back.setClickable(true);
-        back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ui.back();
-            }
-        });
-        head.addView(back);
-        head.addView(PhoneKit.text(ctx(), "movie".equals(type) ? "Movies" : "Shows", 22, Color.WHITE, true));
-        head.setPadding(0, dp(8), 0, dp(4));
-        col.addView(head);
+        col.addView(ui.backHeader("movie".equals(type) ? "Movies" : "Shows", 22));
         catStrip = strip(col);
         genreStrip = strip(col);
         FrameLayout area = new FrameLayout(ctx());
@@ -58,7 +43,7 @@ final class PhoneDiscover extends PhoneUi.Page {
             }
         };
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
-        empty = PhoneKit.text(ctx(), "", 14, PhoneKit.TEXT2, false);
+        empty = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(dp(24), dp(48), dp(24), 0);
         area.addView(empty, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));

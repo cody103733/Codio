@@ -15,7 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** My List (the Stremio library) plus everything downloaded; downloads carry a ✓ when they're done. */
+/** The library (synced with the account) plus everything downloaded; downloads carry a ✓ when they're done. */
 final class PhoneLibrary extends PhoneUi.Page {
     private static final String[] TABS = {"All", "Movies", "Shows", "Downloads"};
     private static int tabSel = 0;
@@ -64,7 +64,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         dlList.setOrientation(LinearLayout.VERTICAL);
         dlScroll.addView(dlList);
         area.addView(dlScroll, new FrameLayout.LayoutParams(-1, -1));
-        empty = PhoneKit.text(ctx(), "", 14, PhoneKit.TEXT2, false);
+        empty = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(dp(24), dp(48), dp(24), 0);
         area.addView(empty, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
@@ -116,7 +116,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         for (Store.Meta m : ui.store.libraryItems(type)) if (seen.add(m.id)) grid.items.add(m);
         grid.changed();
         empty.setText(grid.items.isEmpty() ? (ui.store.profileLoaded || ui.downloads.any()
-                ? "Nothing here yet. Tap “+ My List” or “Download” on a movie or show."
+                ? "Nothing here yet. Tap “+ Library” or “Download” on a movie or show."
                 : "Loading your library…") : "");
     }
 
@@ -126,7 +126,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         long used = 0;
         for (PhoneDownloads.Entry e : ui.downloads.all()) used += PhoneDownloads.DONE.equals(e.state) ? e.bytes : e.done;
         TextView space = PhoneKit.text(ctx(), "Using " + (used > 0 ? PhoneKit.size(used) : "0 GB") + "  ·  " + PhoneKit.size(ui.downloads.freeBytes()) + " free"
-                + (ui.downloads.wifiOnly() ? "  ·  Wi-Fi only" : ""), 12, PhoneKit.TEXT2, false);
+                + (ui.downloads.wifiOnly() ? "  ·  Wi-Fi only" : ""), 12, Theme.TEXT_DIM, false);
         space.setPadding(dp(16), 0, dp(16), dp(8));
         dlList.addView(space);
         for (final Store.Meta m : metas) dlList.addView(row(m));
@@ -171,7 +171,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         } else {
             sub = es.isEmpty() ? "" : PhoneDetail.describe(es.get(0));
         }
-        TextView s = PhoneKit.text(ctx(), sub, 12, PhoneKit.TEXT2, false);
+        TextView s = PhoneKit.text(ctx(), sub, 12, Theme.TEXT_DIM, false);
         s.setMaxLines(3);
         t.addView(s);
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
@@ -192,7 +192,7 @@ final class PhoneLibrary extends PhoneUi.Page {
             pl.setMargins(dp(4), 0, dp(4), 0);
             r.addView(play, pl);
         }
-        TextView del = PhoneKit.text(ctx(), "✕", 18, PhoneKit.TEXT2, false);
+        TextView del = PhoneKit.text(ctx(), "✕", 18, Theme.TEXT_DIM, false);
         del.setGravity(Gravity.CENTER);
         del.setContentDescription("Delete download");
         del.setBackground(PhoneKit.pressable(null, dp(22)));

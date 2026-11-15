@@ -47,6 +47,15 @@ public final class CastInfo {
     static boolean looksLikeKey(String k) {
         return k != null && k.trim().matches("[0-9a-fA-F]{32}");
     }
+
+    static final String BAD_KEY = "That doesn't look like a TMDB API key (32 letters and numbers)";
+
+    /** Saves the key from Settings (empty removes it) on this device and with the account. */
+    static void saveKey(android.content.SharedPreferences p, Store store, String k) {
+        p.edit().putString("tmdb_key", k).apply();
+        KeySync.push(p, k, KeySync.authKey(store.profileJson));
+    }
+
     private static final String API = "https://api.themoviedb.org/3/";
     private static final String PHOTOS = "https://image.tmdb.org/t/p/w185";
     private static final int MAX = 40;

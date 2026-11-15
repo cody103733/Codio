@@ -1,6 +1,5 @@
 package com.codio.tv.ui;
 
-import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.graphics.Color;
@@ -18,7 +17,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A movie or show: Play, Download (with a quality choice), My List, and for shows the seasons and episodes. */
+/** A movie or show: Play, Download (with a quality choice), Library, and for shows the seasons and episodes. */
 final class PhoneDetail extends PhoneUi.Page {
     final Store.Meta meta;
     private boolean loaded = false;
@@ -79,7 +78,7 @@ final class PhoneDetail extends PhoneUi.Page {
         col.addView(body);
         title = PhoneKit.text(ctx(), meta.name, 24, Color.WHITE, true);
         body.addView(title);
-        metaLine = PhoneKit.text(ctx(), "", 13, PhoneKit.TEXT2, false);
+        metaLine = PhoneKit.text(ctx(), "", 13, Theme.TEXT_DIM, false);
         metaLine.setPadding(0, dp(4), 0, dp(12));
         body.addView(metaLine);
 
@@ -106,14 +105,14 @@ final class PhoneDetail extends PhoneUi.Page {
             }
         });
         body.addView(dlBtn, full());
-        status = PhoneKit.text(ctx(), "", 12, PhoneKit.TEXT2, false);
+        status = PhoneKit.text(ctx(), "", 12, Theme.TEXT_DIM, false);
         status.setGravity(Gravity.CENTER);
         status.setVisibility(View.GONE);
         body.addView(status, full());
 
         LinearLayout small = new LinearLayout(ctx());
         small.setPadding(0, dp(6), 0, dp(6));
-        listBtn = smallAction("+  My List");
+        listBtn = smallAction("+  Library");
         listBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -131,10 +130,10 @@ final class PhoneDetail extends PhoneUi.Page {
         small.addView(sourcesBtn, new LinearLayout.LayoutParams(0, -2, 1));
         body.addView(small, full());
 
-        desc = PhoneKit.text(ctx(), "", 14, 0xFFDDDDDD, false);
+        desc = PhoneKit.text(ctx(), "", 14, Theme.TEXT_BODY, false);
         desc.setLineSpacing(0, 1.15f);
         body.addView(desc);
-        cast = PhoneKit.text(ctx(), "", 12, PhoneKit.TEXT2, false);
+        cast = PhoneKit.text(ctx(), "", 12, Theme.TEXT_DIM, false);
         cast.setPadding(0, dp(8), 0, 0);
         body.addView(cast);
 
@@ -235,7 +234,7 @@ final class PhoneDetail extends PhoneUi.Page {
     void refresh() {
         if (playBtn == null) return;
         playBtn.setText("▶  " + playLabel());
-        listBtn.setText(ui.store.inLibrary(meta.id) ? "✓  My List" : "+  My List");
+        listBtn.setText(ui.store.inLibrary(meta.id) ? "✓  In Library" : "+  Library");
         updateDownloadButton();
         for (EpisodeRow r : episodeRows) r.update();
     }
@@ -296,7 +295,7 @@ final class PhoneDetail extends PhoneUi.Page {
         if (in) ui.ctx("RemoveFromLibrary", meta.id);
         else ui.ctx("AddToLibrary", Store.preview(meta));
         ui.store.markInLibrary(meta, !in);
-        ui.toast(in ? "Removed from My List" : "Added to My List");
+        ui.toast(in ? "Removed from Library" : "Added to Library");
         refresh();
     }
 
@@ -425,7 +424,7 @@ final class PhoneDetail extends PhoneUi.Page {
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(dp(24), dp(20), dp(24), dp(8));
         l.addView(PhoneKit.text(ctx(), t, 19, Color.WHITE, true));
-        TextView s = PhoneKit.text(ctx(), sub, 13, PhoneKit.TEXT2, false);
+        TextView s = PhoneKit.text(ctx(), sub, 13, Theme.TEXT_DIM, false);
         s.setPadding(0, dp(6), 0, 0);
         l.addView(s);
         return l;
@@ -633,7 +632,7 @@ final class PhoneDetail extends PhoneUi.Page {
             });
             ImageView thumb = new ImageView(ctx());
             thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            thumb.setBackground(PhoneKit.round(PhoneKit.CARD, dp(4)));
+            thumb.setBackground(PhoneKit.round(Theme.CARD, dp(4)));
             thumb.setClipToOutline(true);
             PhoneDownloads.Entry e0 = ui.downloads.entry(meta.type, meta.id, v.id);
             String t = v.thumbnail;
@@ -646,7 +645,7 @@ final class PhoneDetail extends PhoneUi.Page {
             TextView name = PhoneKit.text(ctx(), v.episode + ". " + (v.title != null && !v.title.isEmpty() ? v.title : "Episode " + v.episode), 14, Color.WHITE, true);
             name.setMaxLines(2);
             txt.addView(name);
-            sub = PhoneKit.text(ctx(), "", 12, PhoneKit.TEXT2, false);
+            sub = PhoneKit.text(ctx(), "", 12, Theme.TEXT_DIM, false);
             sub.setMaxLines(2);
             txt.addView(sub);
             row.addView(txt, new LinearLayout.LayoutParams(0, -2, 1));

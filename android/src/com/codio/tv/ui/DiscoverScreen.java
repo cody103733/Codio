@@ -99,7 +99,7 @@ final class DiscoverScreen extends Screen {
 
     @Override
     void draw(Canvas c, float dt) {
-        c.drawColor(0xFF0B0B0B);
+        c.drawColor(Theme.BG);
         int r = grid.row();
         scroll.to(zone == GRID && r > 0 ? r * Grid.STEP_Y - 150 : 0);
         float sy = step(scroll, dt);
@@ -129,13 +129,7 @@ final class DiscoverScreen extends Screen {
             else if (failed) c.drawText("Couldn't load this catalog. Check the connection and try again.", TvView.MARGIN, 520, tv.tBody);
             else if (catalogs.isEmpty()) c.drawText("None of your addons has a " + Store.typeLabel(type).toLowerCase() + " catalog.", TvView.MARGIN, 520, tv.tBody);
         }
-        // Top bar over a dark band.
-        tv.fill.setColor(0xFF0B0B0B);
-        if (sy > 0) {
-            c.drawRect(0, 0, TvView.W, 120, tv.fill);
-            c.drawRect(0, 120, TvView.W, 180, tv.topShade);
-        }
-        nav.draw(c, zone == NAV);
+        nav.draw(c, zone == NAV, sy > 0);
     }
 
     @Override
@@ -180,13 +174,7 @@ final class DiscoverScreen extends Screen {
                 return true;
             case GRID:
             default:
-                if (k == TvView.OK || k == TvView.PLAY) {
-                    Store.Meta m = grid.focused();
-                    if (m == null) return true;
-                    if (k == TvView.PLAY && "movie".equals(m.type)) tv.host.play(m, null);
-                    else tv.openDetail(m);
-                    return true;
-                }
+                if (grid.open(tv, k)) return true;
                 if (grid.move(k)) {
                     if (grid.focus >= grid.items.size() - grid.cols * 3) loadMore();
                     return true;

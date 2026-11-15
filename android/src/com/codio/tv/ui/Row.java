@@ -77,7 +77,7 @@ final class Row {
         float py = y + TITLE_H;
         if (items.isEmpty()) {
             if (loading || !requested) {
-                tv.fill.setColor(0xFF1C1C1C);
+                tv.fill.setColor(Theme.CARD);
                 for (int i = 0; i < 8; i++) {
                     float x = TvView.MARGIN + i * STEP;
                     c.drawRoundRect(x, py, x + PW, py + PH, 12, 12, tv.fill);

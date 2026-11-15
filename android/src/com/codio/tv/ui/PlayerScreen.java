@@ -257,7 +257,7 @@ final class PlayerScreen extends Screen {
         float a = step(shown, dt);
 
         if (st.error != null) {
-            c.drawColor(0xCC000000);
+            c.drawColor(Theme.SCRIM_STRONG);
             c.drawText(st.error, (TvView.W - tv.tTitle.measureText(st.error)) / 2, 520, tv.tTitle);
             String hint = "Press Back to return and choose another source";
             c.drawText(hint, (TvView.W - tv.tBody.measureText(hint)) / 2, 580, tv.tBody);
@@ -336,11 +336,11 @@ final class PlayerScreen extends Screen {
             c.drawRoundRect(r, h / 2, h / 2, tv.fill);
         }
         r.set(BAR_X, BAR_Y - h / 2, BAR_X + BAR_W * frac, BAR_Y + h / 2);
-        tv.fill.setColor(TvView.RED);
+        tv.fill.setColor(Theme.RED);
         c.drawRoundRect(r, h / 2, h / 2, tv.fill);
         float kx = BAR_X + BAR_W * frac;
         if (barFocus) {
-            tv.fill.setColor(TvView.RED);
+            tv.fill.setColor(Theme.RED);
             c.drawCircle(kx, BAR_Y, 16, tv.fill);
             tv.fill.setColor(Color.WHITE);
             c.drawCircle(kx, BAR_Y, 7, tv.fill);
@@ -376,7 +376,7 @@ final class PlayerScreen extends Screen {
         float x = TvView.W - TvView.MARGIN - w;
         float y = controlsShown > 0.01f ? BAR_Y - 150 : TvView.H - 190;
         sr.set(x, y, x + w, y + h);
-        tv.fill.setColor(focused ? Color.WHITE : 0xB3000000);
+        tv.fill.setColor(focused ? Color.WHITE : Theme.SCRIM);
         c.drawRoundRect(sr, 8, 8, tv.fill);
         if (!focused) {
             Paint p = tv.stroke;
@@ -402,27 +402,11 @@ final class PlayerScreen extends Screen {
         tv.tLabel.setColor(Color.WHITE);
         if (kind == SKIP_NEXT && next != null && !controls) {
             String sub = "S" + next.season + " E" + next.episode + (next.title == null || next.title.isEmpty() ? "" : "  ·  " + next.title);
-            tv.tSmall.setColor(0xFFDDDDDD);
+            tv.tSmall.setColor(Theme.TEXT_BODY);
             String f = tv.fit(sub, tv.tSmall, 700);
             c.drawText(f, TvView.W - TvView.MARGIN - tv.tSmall.measureText(f), y - 16, tv.tSmall);
-            tv.tSmall.setColor(0xFFAAAAAA);
+            tv.tSmall.setColor(Theme.TEXT_DIM);
         }
-    }
-
-    private void drawUpNext(Canvas c) {
-        String l1 = "Up next";
-        String l2 = "S" + next.season + " E" + next.episode + (next.title == null || next.title.isEmpty() ? "" : "  ·  " + next.title);
-        String l3 = "Press OK to play now";
-        float w = Math.max(420, Math.min(760, tv.tLabel.measureText(l2) + 60));
-        float x = TvView.W - TvView.MARGIN - w, y = TvView.H - 260;
-        r.set(x, y, x + w, y + 170);
-        tv.fill.setColor(0xE6181818);
-        c.drawRoundRect(r, 14, 14, tv.fill);
-        tv.tSmall.setColor(0xFFFF5A5F);
-        c.drawText(l1, x + 30, y + 46, tv.tSmall);
-        tv.tSmall.setColor(0xFFAAAAAA);
-        c.drawText(tv.fit(l2, tv.tLabel, w - 60), x + 30, y + 92, tv.tLabel);
-        c.drawText(l3, x + 30, y + 138, tv.tSmall);
     }
 
     private List<PlayerState.Track> menuTracks() {
@@ -530,7 +514,7 @@ final class PlayerScreen extends Screen {
                 c.drawBitmap(photo, px, py, null);
             } else {
                 r.set(px, py, px + pw, py + ph);
-                tv.fill.setColor(0xFF3A3A3A);
+                tv.fill.setColor(Theme.RAISED);
                 c.drawRoundRect(r, 8, 8, tv.fill);
                 String initial = a.name.substring(0, 1);
                 tv.tLabel.setColor(Color.WHITE);
@@ -540,13 +524,13 @@ final class PlayerScreen extends Screen {
             tv.tLabel.setColor(f ? Color.BLACK : Color.WHITE);
             c.drawText(tv.fit(a.name, tv.tLabel, tw), tx, y + (a.role != null ? 54 : 72), tv.tLabel);
             if (a.role != null) {
-                tv.tSmall.setColor(f ? 0xFF444444 : 0xFFAAAAAA);
+                tv.tSmall.setColor(f ? Theme.ON_FOCUS_DIM : Theme.TEXT_DIM);
                 c.drawText(tv.fit(a.role, tv.tSmall, tw), tx, y + 92, tv.tSmall);
             }
         }
         c.restore();
         tv.tLabel.setColor(Color.WHITE);
-        tv.tSmall.setColor(0xFFAAAAAA);
+        tv.tSmall.setColor(Theme.TEXT_DIM);
     }
     private void openMenu(int which) {
         menu = which;

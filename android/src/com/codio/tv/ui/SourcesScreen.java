@@ -73,7 +73,7 @@ final class SourcesScreen extends Screen {
     void draw(Canvas c, float dt) {
         backdrop.show(HomeScreen.backgroundOf(meta), 0);
         backdrop.draw(c, dt, true);
-        tv.fill.setColor(0xCC000000);
+        tv.fill.setColor(Theme.SCRIM_STRONG);
         c.drawRect(0, 0, TvView.W, TvView.H, tv.fill);
 
         c.drawText(tv.fit(title(), tv.tTitle, 1500), LIST_X, 130, tv.tTitle);
@@ -104,7 +104,7 @@ final class SourcesScreen extends Screen {
         tv.fill.setColor(focused ? Color.WHITE : 0xB3161616);
         c.drawRoundRect(r, 12, 12, tv.fill);
         float x = LIST_X + 28;
-        int dim = focused ? 0xFF444444 : 0xFFAAAAAA;
+        int dim = focused ? Theme.ON_FOCUS_DIM : Theme.TEXT_DIM;
 
         // Left column: quality badge, with "Best match" / "Instant" under it.
         String q = qualityLabel(s.quality);
@@ -115,7 +115,7 @@ final class SourcesScreen extends Screen {
         if (q != null) {
             float w = Math.max(96, tv.tLabel.measureText(q) + 32);
             r.set(x, cy, x + w, cy + badgeH);
-            tv.fill.setColor(focused ? 0xFF111111 : 0x33FFFFFF);
+            tv.fill.setColor(focused ? Theme.ON_FOCUS : Theme.GLASS);
             c.drawRoundRect(r, 8, 8, tv.fill);
             tv.tLabel.setColor(Color.WHITE);
             float capL = tv.tLabel.getTextSize() * 0.72f;
@@ -123,7 +123,7 @@ final class SourcesScreen extends Screen {
             cy += badgeH + 14;
         }
         if (tag != null) {
-            tv.tSmall.setColor(s.rank == 0 ? (focused ? TvView.RED : 0xFFFF5A5F) : dim);
+            tv.tSmall.setColor(s.rank == 0 ? (focused ? Theme.RED : Theme.RED_SOFT) : dim);
             c.drawText(tag, x, cy + smallCap, tv.tSmall);
         }
 
@@ -155,7 +155,7 @@ final class SourcesScreen extends Screen {
             // StaticLayout's first line has the font's ascent above the capitals.
             tv.drawWrapped(c, d, tv.tSmall, tx, top + capH + 10 - above, tw, 2);
         }
-        tv.tSmall.setColor(0xFFAAAAAA);
+        tv.tSmall.setColor(Theme.TEXT_DIM);
     }
 
     @Override

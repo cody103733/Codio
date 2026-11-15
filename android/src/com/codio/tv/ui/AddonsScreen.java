@@ -141,31 +141,21 @@ final class AddonsScreen extends Screen {
         if (name.equals("AddonInstalled") || name.equals("AddonUninstalled")) tv.kick();
     }
 
-    private static boolean isProtected(JSONObject d) {
-        JSONObject f = d.optJSONObject("flags");
-        return f != null && f.optBoolean("protected");
-    }
-
-    private static boolean needsSetup(JSONObject d) {
-        JSONObject bh = d.optJSONObject("manifest").optJSONObject("behaviorHints");
-        return bh != null && bh.optBoolean("configurationRequired");
-    }
-
     private String action(JSONObject d) {
         String url = d.optString("transportUrl");
         boolean installed = tv.store.isInstalled(url);
         if (installed) {
-            if (isProtected(d)) return "Built in";
+            if (AddonKit.isProtected(d)) return "Built in";
             if (url.equals(confirmUrl) && SystemClock.uptimeMillis() < confirmUntil) return "Press OK again to remove";
             return tab == 0 ? "Remove" : "Installed · Remove";
         }
-        if (needsSetup(d)) return "Set up on a computer first";
+        if (AddonKit.needsSetup(d)) return "Set up on a computer first";
         return "Install";
     }
 
     @Override
     void draw(Canvas c, float dt) {
-        c.drawColor(0xFF0B0B0B);
+        c.drawColor(Theme.BG);
         float x = TvView.MARGIN;
         for (int i = 0; i < tabs.size(); i++) {
             tv.drawChip(c, x, TABS_Y, tabs.get(i).label, zone == TABS && i == tabFocus, i == tab);
@@ -194,19 +184,19 @@ final class AddonsScreen extends Screen {
             }
             if (confirmUrl != null && SystemClock.uptimeMillis() < confirmUntil) tv.moving();
         }
-        tv.fill.setColor(0xFF0B0B0B);
+        tv.fill.setColor(Theme.BG);
         nav.draw(c, zone == NAV);
     }
 
     private void drawRow(Canvas c, JSONObject d, float y, boolean focused) {
         JSONObject m = d.optJSONObject("manifest");
         r.set(LIST_X, y, LIST_X + LIST_W, y + ROW_H - 14);
-        tv.fill.setColor(focused ? Color.WHITE : 0xFF161616);
+        tv.fill.setColor(focused ? Color.WHITE : Theme.CARD);
         c.drawRoundRect(r, 12, 12, tv.fill);
         // Logo.
         float lx = LIST_X + 24, ly = y + 18, ls = 100;
         r.set(lx, ly, lx + ls, ly + ls);
-        tv.fill.setColor(focused ? 0xFF1A1A1A : 0xFF242424);
+        tv.fill.setColor(focused ? Theme.CARD : Theme.RAISED);
         c.drawRoundRect(r, 12, 12, tv.fill);
         String logo = m.optString("logo", "");
         if (logo.startsWith("http")) {
@@ -219,7 +209,7 @@ final class AddonsScreen extends Screen {
             }
         } else {
             String n = m.optString("name", "?");
-            tv.tTitle.setColor(focused ? Color.WHITE : 0xFFDDDDDD);
+            tv.tTitle.setColor(focused ? Color.WHITE : Theme.TEXT_BODY);
             String ch = n.isEmpty() ? "?" : n.substring(0, 1).toUpperCase();
             c.drawText(ch, lx + (ls - tv.tTitle.measureText(ch)) / 2, ly + ls / 2 + 12, tv.tTitle);
             tv.tTitle.setColor(Color.WHITE);
@@ -228,9 +218,9 @@ final class AddonsScreen extends Screen {
         String act = action(d);
         float aw = tv.tNav.measureText(act);
         boolean danger = act.startsWith("Press OK");
-        tv.tNav.setColor(danger ? TvView.RED : focused ? 0xFF222222 : 0xFFB3B3B3);
+        tv.tNav.setColor(danger ? Theme.RED : focused ? Theme.ON_FOCUS : Theme.TEXT_DIM);
         c.drawText(act, LIST_X + LIST_W - 32 - aw, y + 50, tv.tNav);
-        tv.tNav.setColor(0xFFB3B3B3);
+        tv.tNav.setColor(Theme.TEXT_DIM);
         // Name, version, types, description.
         float tx = lx + ls + 28, tw = LIST_W - (tx - LIST_X) - aw - 80;
         String head = m.optString("name", "Addon") + (m.has("version") ? "  v" + m.optString("version") : "");
@@ -245,60 +235,30 @@ final class AddonsScreen extends Screen {
         }
         String desc = m.optString("description", "").replace("\n", " ");
         if (types.length() > 0) desc = types + (desc.isEmpty() ? "" : "  ·  " + desc);
-        tv.tSmall.setColor(focused ? 0xFF444444 : 0xFFAAAAAA);
+        tv.tSmall.setColor(focused ? Theme.ON_FOCUS_DIM : Theme.TEXT_DIM);
         tv.drawWrapped(c, desc, tv.tSmall, tx, y + 66, LIST_W - (tx - LIST_X) - 40, 2);
-        tv.tSmall.setColor(0xFFAAAAAA);
+        tv.tSmall.setColor(Theme.TEXT_DIM);
     }
 
     private void activate(JSONObject d) {
         String url = d.optString("transportUrl");
         if (tv.store.isInstalled(url)) {
-            if (isProtected(d)) return;
+            if (AddonKit.isProtected(d)) return;
             if (url.equals(confirmUrl) && SystemClock.uptimeMillis() < confirmUntil) {
                 confirmUrl = null;
-                JSONObject installed = descriptor(url);
-                tv.ctx("UninstallAddon", installed != null ? installed : d);
-                removeLocally(url);
+                AddonKit.uninstall(tv.store, tv.host, d);
+                if (tab == 0) fill();
             } else {
                 confirmUrl = url;
                 confirmUntil = SystemClock.uptimeMillis() + 4000;
             }
             return;
         }
-        if (needsSetup(d)) {
+        if (AddonKit.needsSetup(d)) {
             tv.toast("Open " + url.replace("manifest.json", "configure") + " on a computer or phone");
             return;
         }
-        install(d);
-    }
-
-    private void install(JSONObject d) {
-        tv.ctx("InstallAddon", d);
-        try {
-            // Shown as installed straight away; the real profile arrives a moment later.
-            JSONArray a = tv.store.addonDescriptors();
-            a.put(new JSONObject(d.toString()));
-            if (!tv.store.profileJson.has("addons")) tv.store.profileJson.put("addons", a);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private JSONObject descriptor(String url) {
-        JSONArray a = tv.store.addonDescriptors();
-        for (int i = 0; i < a.length(); i++) {
-            JSONObject d = a.optJSONObject(i);
-            if (d != null && url.equals(d.optString("transportUrl"))) return d;
-        }
-        return null;
-    }
-
-    private void removeLocally(String url) {
-        JSONArray a = tv.store.addonDescriptors();
-        for (int i = a.length() - 1; i >= 0; i--) {
-            JSONObject d = a.optJSONObject(i);
-            if (d != null && url.equals(d.optString("transportUrl"))) a.remove(i);
-        }
-        if (tab == 0) fill();
+        AddonKit.install(tv.store, tv.host, d);
     }
 
     /** "Add from a link": fetch the manifest, then install it. */
@@ -308,58 +268,27 @@ final class AddonsScreen extends Screen {
                     @Override
                     public void done(String text) {
                         if (text.isEmpty() || text.equals("https://")) return;
-                        String u = text.startsWith("stremio://") ? "https://" + text.substring(10) : text;
-                        if (!u.startsWith("http")) u = "https://" + u;
-                        if (!u.endsWith("manifest.json")) u = u.replaceAll("/+$", "") + "/manifest.json";
-                        fetchAndInstall(u);
+                        final String url = AddonKit.manifestUrl(text);
+                        tv.toast(AddonKit.CHECKING);
+                        AddonKit.fetch(url, new AddonKit.Done() {
+                            @Override
+                            public void done(JSONObject d) {
+                                String problem = d == null ? AddonKit.NOT_AN_ADDON : tv.store.isInstalled(url) ? AddonKit.ALREADY
+                                        : AddonKit.needsSetup(d) ? AddonKit.NEEDS_SETUP : null;
+                                if (problem != null) {
+                                    tv.toast(problem);
+                                    return;
+                                }
+                                AddonKit.install(tv.store, tv.host, d);
+                                tab = tabFocus = 0;
+                                zone = LIST;
+                                fill();
+                                focus = Math.max(0, rows.size() - 1);
+                                tv.kick();
+                            }
+                        });
                     }
                 }));
-    }
-
-    private void fetchAndInstall(final String url) {
-        tv.toast("Checking the addon…");
-        Net.IO.execute(new Runnable() {
-            @Override
-            public void run() {
-                JSONObject d = null;
-                try {
-                    JSONObject manifest = new JSONObject(Net.get(url));
-                    if (manifest.has("id") && manifest.has("name")) {
-                        d = new JSONObject();
-                        d.put("transportUrl", url);
-                        d.put("manifest", manifest);
-                        JSONObject flags = new JSONObject();
-                        flags.put("official", false);
-                        flags.put("protected", false);
-                        d.put("flags", flags);
-                    }
-                } catch (Exception ignored) {
-                }
-                final JSONObject desc = d;
-                tv.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (desc == null) {
-                            tv.toast("That link isn't an addon (no manifest found)");
-                            return;
-                        }
-                        if (tv.store.isInstalled(url)) {
-                            tv.toast("Already installed");
-                            return;
-                        }
-                        if (needsSetup(desc)) {
-                            tv.toast("This addon needs setting up on its website first");
-                            return;
-                        }
-                        install(desc);
-                        tab = tabFocus = 0;
-                        zone = LIST;
-                        fill();
-                        focus = Math.max(0, rows.size() - 1);
-                    }
-                });
-            }
-        });
     }
 
     @Override

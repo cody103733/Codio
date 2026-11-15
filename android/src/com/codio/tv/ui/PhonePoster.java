@@ -26,7 +26,7 @@ final class PhonePoster extends FrameLayout {
         super(c);
         this.widthPx = widthPx;
         final float r = PhoneKit.dp(c, 6);
-        setBackground(PhoneKit.round(PhoneKit.CARD, r));
+        setBackground(PhoneKit.round(Theme.CARD, r));
         setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
@@ -34,7 +34,7 @@ final class PhonePoster extends FrameLayout {
             }
         });
         setClipToOutline(true);
-        name = PhoneKit.text(c, "", 12, 0xFFCCCCCC, false);
+        name = PhoneKit.text(c, "", 12, Theme.TEXT_BODY, false);
         int p = PhoneKit.dp(c, 8);
         name.setPadding(p, p, p, p);
         name.setMaxLines(4);
@@ -43,11 +43,11 @@ final class PhonePoster extends FrameLayout {
         img.setScaleType(ImageView.ScaleType.CENTER_CROP);
         addView(img, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         bar = new View(c);
-        bar.setBackgroundColor(0xB3000000);
+        bar.setBackgroundColor(Theme.SCRIM);
         LayoutParams bl = new LayoutParams(LayoutParams.MATCH_PARENT, PhoneKit.dp(c, 3), android.view.Gravity.BOTTOM);
         addView(bar, bl);
         barFill = new View(c);
-        barFill.setBackgroundColor(PhoneKit.RED);
+        barFill.setBackgroundColor(Theme.RED);
         addView(barFill, new LayoutParams(0, PhoneKit.dp(c, 3), android.view.Gravity.BOTTOM));
         badge = new Badge(c);
         int bs = PhoneKit.dp(c, 24);
@@ -114,7 +114,7 @@ final class PhonePoster extends FrameLayout {
             float w = getWidth(), h = getHeight(), cx = w / 2, cy = h / 2, rad = Math.min(w, h) / 2 - 1;
             p.setStyle(Paint.Style.FILL);
             if (PhoneDownloads.DONE.equals(state)) {
-                p.setColor(PhoneKit.RED);
+                p.setColor(Theme.RED);
                 c.drawCircle(cx, cy, rad, p);
                 p.setColor(Color.WHITE);
                 p.setStyle(Paint.Style.STROKE);
@@ -127,7 +127,7 @@ final class PhonePoster extends FrameLayout {
                 tick.lineTo(w * 0.73f, h * 0.36f);
                 c.drawPath(tick, p);
             } else {
-                p.setColor(0xCC000000);
+                p.setColor(Theme.SCRIM_STRONG);
                 c.drawCircle(cx, cy, rad, p);
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(w * 0.12f);
@@ -135,7 +135,7 @@ final class PhonePoster extends FrameLayout {
                 float in = w * 0.16f;
                 r.set(in, in, w - in, h - in);
                 c.drawArc(r, 0, 360, false, p);
-                p.setColor(PhoneDownloads.FAILED.equals(state) ? 0xFFFF6B6B : Color.WHITE);
+                p.setColor(PhoneDownloads.FAILED.equals(state) ? Theme.RED_SOFT : Color.WHITE);
                 c.drawArc(r, -90, Math.max(12, 360 * fraction), false, p);
             }
         }

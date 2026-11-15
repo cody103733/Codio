@@ -26,7 +26,7 @@ import java.util.ArrayList;
  * Codio for phones: touch screens built from ordinary Android views (portrait browsing, a bottom tab bar, the player
  * in landscape), on the same engine as the TV app (Store, the hidden web page for sources and playback, VLC).
  */
-public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloads.Listener {
+public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloads.Listener, Profiles.Ui {
     static final int TAB_HOME = 0, TAB_SEARCH = 1, TAB_LIBRARY = 2, TAB_SETTINGS = 3;
 
     /** The activity: keeps Android's mini player (picture-in-picture) settings up to date. */
@@ -93,7 +93,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         this.store = store;
         this.host = host;
         PhoneKit.init(act);
-        setBackgroundColor(PhoneKit.BG);
+        setBackgroundColor(Theme.BLACK);
         downloads = new PhoneDownloads(act, store, host, this);
 
         LinearLayout col = new LinearLayout(act);
@@ -102,7 +102,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         col.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         tabs = new LinearLayout(act);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
-        tabs.setBackgroundColor(0xFF121212);
+        tabs.setBackgroundColor(Theme.BG);
         String[] labels = {"Home", "Search", "Library", "Settings"};
         for (int i = 0; i < 4; i++) {
             final int t = i;
@@ -361,7 +361,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         player.closing();
         removeView(player);
         player = null;
-        setBackgroundColor(PhoneKit.BG);
+        setBackgroundColor(Theme.BLACK);
         for (int i = 0; i < getChildCount(); i++) getChildAt(i).setVisibility(View.VISIBLE);
         activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         immersive(false);
@@ -427,14 +427,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     public void coreEvent(String name, String message) {
         for (Page p : new ArrayList<>(stack)) p.coreEvent(name);
         refreshAvatars();
-        if (name.startsWith("Error:")) {
-            String ev = name.substring(6);
-            if (ev.equals("UserPulledFromAPI") || ev.equals("LibrarySyncWithAPIPlanned") || ev.equals("UserAddonsLocked")) return;
-            toast(message != null && !message.isEmpty() ? message : "Something went wrong");
-        } else if (name.equals("AddonInstalled")) toast("Addon installed");
-        else if (name.equals("AddonUninstalled")) toast("Addon removed");
-        else if (name.equals("UserAuthenticated")) toast("Signed in");
-        else if (name.equals("UserLoggedOut")) toast("Signed out");
+        String text = Core.toastFor(name, message);
+        if (text != null) toast(text);
     }
 
     // ------------------------------------------------------------------ who's watching (round avatar, top right)
@@ -496,7 +490,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(PhoneKit.dp(c, 20), PhoneKit.dp(c, 10), PhoneKit.dp(c, 20), PhoneKit.dp(c, 10));
             row.addView(new Avatar(c, p, 44));
-            TextView name = PhoneKit.text(c, Profiles.name(p) + (cur ? "  ·  watching" : ""), 17, cur ? Color.WHITE : 0xFFCCCCCC, cur);
+            TextView name = PhoneKit.text(c, Profiles.name(p) + (cur ? "  ·  watching" : ""), 17, cur ? Color.WHITE : Theme.TEXT_BODY, cur);
             name.setPadding(PhoneKit.dp(c, 16), 0, 0, 0);
             row.addView(name);
             row.setBackground(PhoneKit.pressable(null, 0));
@@ -504,23 +498,13 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
                 @Override
                 public void onClick(View v) {
                     if (shown[0] != null) shown[0].dismiss();
-                    Profiles.switchTo(store, p, new Profiles.Ui() {
-                        @Override
-                        public void ctx(String n, Object args) {
-                            PhoneUi.this.ctx(n, args);
-                        }
-
-                        @Override
-                        public void toast(String text) {
-                            PhoneUi.this.toast(text);
-                        }
-                    });
+                    Profiles.switchTo(store, p, PhoneUi.this);
                 }
             });
             box.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         }
         if (l.length() == 0) {
-            TextView hint = PhoneKit.text(c, "Make more profiles on the iPhone. They show up here on their own.", 13, PhoneKit.TEXT2, false);
+            TextView hint = PhoneKit.text(c, "Make more profiles on the iPhone. They show up here on their own.", 13, Theme.TEXT_DIM, false);
             hint.setPadding(PhoneKit.dp(c, 20), PhoneKit.dp(c, 8), PhoneKit.dp(c, 20), 0);
             box.addView(hint);
         }
@@ -539,7 +523,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             this.sizeDp = sizeDp;
             letter.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             ring.setStyle(Paint.Style.STROKE);
-            ring.setColor(0x40FFFFFF);
+            ring.setColor(Theme.GLASS_STRONG);
             ring.setStrokeWidth(PhoneKit.dp(c, 1));
         }
 
@@ -560,7 +544,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
     // ------------------------------------------------------------------ helpers for the pages
 
-    void toast(String s) {
+    @Override
+    public void toast(String s) {
         Toast.makeText(getContext(), s, Toast.LENGTH_SHORT).show();
     }
 
@@ -569,17 +554,9 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     }
 
     /** Send an action to Codio's core, e.g. AddToLibrary. */
-    void ctx(String name, Object args) {
-        try {
-            JSONObject inner = new JSONObject();
-            inner.put("action", name);
-            if (args != null) inner.put("args", args);
-            JSONObject a = new JSONObject();
-            a.put("action", "Ctx");
-            a.put("args", inner);
-            host.dispatch(a);
-        } catch (Exception ignored) {
-        }
+    @Override
+    public void ctx(String name, Object args) {
+        host.dispatch(Core.ctx(name, args));
     }
 
     /** Play: a finished download plays from the phone, anything else streams with Smart auto-play. */
@@ -642,7 +619,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
         @Override
         protected void onDraw(Canvas c) {
-            int col = isSelected() ? Color.WHITE : 0xFF8C8C8C;
+            int col = isSelected() ? Color.WHITE : Theme.TEXT_FAINT;
             p.setColor(col);
             t.setColor(col);
             float cx = getWidth() / 2f, cy = getHeight() * 0.38f, s = PhoneKit.dp(getContext(), 10);
@@ -681,7 +658,27 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         }
     }
 
-    /** Small "tap a row" helper for the pages. */
+    /** The top of a pushed page: a back arrow and the page's title (which takes the spare width). */
+    LinearLayout backHeader(String title, float sp) {
+        Context c = getContext();
+        LinearLayout head = new LinearLayout(c);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(0, PhoneKit.dp(c, 8), PhoneKit.dp(c, 12), PhoneKit.dp(c, 4));
+        TextView back = PhoneKit.text(c, "‹", 30, Color.WHITE, true);
+        back.setPadding(PhoneKit.dp(c, 14), 0, PhoneKit.dp(c, 10), PhoneKit.dp(c, 4));
+        back.setContentDescription("Back");
+        back.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                back();
+            }
+        });
+        head.addView(back);
+        head.addView(PhoneKit.text(c, title, sp, Color.WHITE, true), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        return head;
+    }
+
+    /** A section heading inside a page. */
     static TextView sectionTitle(Context c, String s) {
         TextView t = PhoneKit.text(c, s, 17, Color.WHITE, true);
         int p = PhoneKit.dp(c, 14);

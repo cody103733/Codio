@@ -5,11 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -34,11 +29,6 @@ import java.util.concurrent.Executors;
 
 /** Shared look for the phone screens: colours, text, buttons, pictures. */
 final class PhoneKit {
-    static final int RED = 0xFFE50914;
-    static final int BG = 0xFF000000;
-    static final int CARD = 0xFF1A1A1A;
-    static final int TEXT2 = 0xFFB3B3B3;
-
     private PhoneKit() {}
 
     private static Typeface regular, bold;
@@ -76,7 +66,7 @@ final class PhoneKit {
 
     static Drawable pressable(Drawable bg, float radiusPx) {
         GradientDrawable mask = round(Color.WHITE, radiusPx);
-        return new RippleDrawable(ColorStateList.valueOf(0x40FFFFFF), bg, mask);
+        return new RippleDrawable(ColorStateList.valueOf(Theme.GLASS_STRONG), bg, mask);
     }
 
     /** Pill button: primary = white with black text (Play), otherwise translucent grey. */
@@ -86,7 +76,7 @@ final class PhoneKit {
         int ph = dp(c, 18), pv = dp(c, 11);
         t.setPadding(ph, pv, ph, pv);
         float r = dp(c, 6);
-        t.setBackground(pressable(round(primary ? Color.WHITE : 0x33FFFFFF, r), r));
+        t.setBackground(pressable(round(primary ? Color.WHITE : Theme.GLASS, r), r));
         t.setClickable(true);
         t.setFocusable(true);
         return t;
@@ -126,53 +116,21 @@ final class PhoneKit {
     // ------------------------------------------------------------------ the Codio wordmark (the red C is the C of "codio")
 
     static final class Logo extends View {
-        private final Paint red = new Paint(Paint.ANTI_ALIAS_FLAG), white = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path tri = new Path();
-        private final RectF arc = new RectF(17.0f - 14.25f, 19.25f - 14.25f, 17.0f + 14.25f, 19.25f + 14.25f);
+        private final Theme.Logo logo = new Theme.Logo();
 
         Logo(Context c) {
             super(c);
-            red.setShader(new LinearGradient(0, 0, 129, 40, 0xFFFF4B2B, 0xFFC3001D, Shader.TileMode.CLAMP));
-            red.setStyle(Paint.Style.STROKE);
-            red.setStrokeWidth(4.6f);
-            red.setStrokeCap(Paint.Cap.ROUND);
-            white.setColor(Color.WHITE);
-            white.setStyle(Paint.Style.STROKE);
-            white.setStrokeWidth(4.6f);
-            white.setStrokeCap(Paint.Cap.ROUND);
-            white.setStrokeJoin(Paint.Join.ROUND);
-            tri.moveTo(12.5f, 12.8f);
-            tri.lineTo(24f, 19.25f);
-            tri.lineTo(12.5f, 25.7f);
-            tri.close();
         }
 
         @Override
         protected void onMeasure(int w, int h) {
             int height = MeasureSpec.getMode(h) == MeasureSpec.EXACTLY ? MeasureSpec.getSize(h) : dp(getContext(), 28);
-            setMeasuredDimension(Math.round(height * 129f / 40f), height);
+            setMeasuredDimension(Math.round(height * Theme.Logo.ASPECT), height);
         }
 
         @Override
         protected void onDraw(Canvas c) {
-            float k = getHeight() / 40f;
-            c.save();
-            c.scale(k, k);
-            c.drawArc(arc, 46f, 268f, false, red);
-            white.setStyle(Paint.Style.FILL_AND_STROKE);
-            white.setStrokeWidth(2f);
-            c.drawPath(tri, white);
-            white.setStyle(Paint.Style.STROKE);
-            white.setStrokeWidth(4.6f);
-            c.drawCircle(45, 24, 9.5f, white);
-            c.drawCircle(70, 24, 9.5f, white);
-            c.drawLine(79.5f, 5, 79.5f, 33.5f, white);
-            c.drawLine(93, 16, 93, 33.5f, white);
-            c.drawCircle(114, 24, 9.5f, white);
-            red.setStyle(Paint.Style.FILL);
-            c.drawCircle(93, 7.5f, 3, red);
-            red.setStyle(Paint.Style.STROKE);
-            c.restore();
+            logo.draw(c, 0, 0, getHeight());
         }
     }
 

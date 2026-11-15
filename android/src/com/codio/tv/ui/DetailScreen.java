@@ -146,7 +146,6 @@ final class DetailScreen extends Screen {
         }
     }
 
-    private final RectF lr = new RectF();
 
     @Override
     void draw(Canvas c, float dt) {
@@ -157,17 +156,7 @@ final class DetailScreen extends Screen {
         float up = step(lift, dt);
         float x = TvView.MARGIN, y = 120 + up;
 
-        String logoUrl = HomeScreen.logoOf(meta);
-        Bitmap logo = logoUrl != null ? tv.images.logo(logoUrl, Math.round(640 * tv.scale()), Math.round(200 * tv.scale())) : null;
-        if (logo != null) {
-            float w = logo.getWidth() / tv.scale(), h = logo.getHeight() / tv.scale();
-            lr.set(x, y + 200 - h, x + w, y + 200);
-            c.drawBitmap(logo, null, lr, tv.bmp);
-        } else if (logoUrl == null || tv.images.isFailed(logoUrl)) {
-            tv.tHero.setTextSize(72);
-            tv.drawWrapped(c, meta.name, tv.tHero, x, y + 30, 1100, 2);
-            tv.tHero.setTextSize(64);
-        }
+        tv.drawTitleArt(c, meta, x, y);
         float ty = y + 262;
         String line = meta.metaLine();
         String g = meta.genreLine();
@@ -192,7 +181,7 @@ final class DetailScreen extends Screen {
         float w = tv.drawButton(c, x, by, playLabel(), true, zone == BUTTONS && button == 0, true);
         float w2 = tv.drawButton(c, x + w + 20, by, "Choose a source", false, zone == BUTTONS && button == 1, false);
         boolean saved = tv.store.inLibrary(meta.id);
-        w2 += 20 + tv.drawButton(c, x + w + 20 + w2 + 20, by, saved ? "✓ In library" : "+ Library", false, zone == BUTTONS && button == 2, false);
+        w2 += 20 + tv.drawButton(c, x + w + 20 + w2 + 20, by, saved ? "✓ In Library" : "+ Library", false, zone == BUTTONS && button == 2, false);
         // What Play will pick, once the sources are in (they load as soon as this page opens).
         String pv = prefetchVideo();
         Store.Sources src = pv != null ? tv.store.sourcesFor(meta.type, meta.id, pv) : null;
@@ -250,14 +239,14 @@ final class DetailScreen extends Screen {
         if (b != null) {
             c.drawBitmap(b, null, er, tv.bmp);
         } else {
-            tv.fill.setColor(0xFF262626);
+            tv.fill.setColor(Theme.RAISED);
             c.drawRoundRect(er, 10, 10, tv.fill);
         }
         Store.LibraryEntry e = tv.store.libraryEntry(meta.id);
         if (e != null && v.id.equals(e.videoId) && e.duration > 0) {
-            tv.fill.setColor(0xB3000000);
+            tv.fill.setColor(Theme.SCRIM);
             c.drawRect(dx + 10, dy + dh - 16, dx + dw - 10, dy + dh - 10, tv.fill);
-            tv.fill.setColor(TvView.RED);
+            tv.fill.setColor(Theme.RED);
             c.drawRect(dx + 10, dy + dh - 16, dx + 10 + (dw - 20) * (float) Math.min(1, e.offset / e.duration), dy + dh - 10, tv.fill);
         }
         if (focus > 0.01f) tv.ring(c, er, 12, focus);

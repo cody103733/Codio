@@ -17,29 +17,19 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /** Search every addon that can search; results as you type. */
 final class PhoneSearch extends PhoneUi.Page {
     private EditText box;
     private PhoneGrid grid;
     private TextView hint;
-    private int request = 0;
+    private final Search search = new Search();
+    private LinearLayout recentBox;
     private final Handler h = new Handler(Looper.getMainLooper());
     private static String lastQuery = "";
-    /** Movies / Series / Both filter under the search box. Remembered while the app runs; starts on Both. */
-    private static final String[] KIND_LABEL = {"Both", "Movies", "Series"};
-    private static final String[] KIND_TYPE = {null, "movie", "series"};
-    private static int kind = 0;
+    /** The Movies / Shows / Both chips under the search box. */
     private LinearLayout kinds;
-
-    private static boolean wanted(String type) {
-        String t = KIND_TYPE[kind];
-        return t == null || t.equals(type);
-    }
 
     PhoneSearch(PhoneUi ui) {
         super(ui);
@@ -51,14 +41,14 @@ final class PhoneSearch extends PhoneUi.Page {
         col.setOrientation(LinearLayout.VERTICAL);
         box = new EditText(ctx());
         box.setHint("Movies, shows…");
-        box.setHintTextColor(0xFF8C8C8C);
+        box.setHintTextColor(Theme.TEXT_FAINT);
         box.setTextColor(Color.WHITE);
         box.setTextSize(16);
         box.setSingleLine(true);
         box.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         box.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         box.setPadding(dp(14), dp(10), dp(14), dp(10));
-        box.setBackground(PhoneKit.round(0xFF262626, dp(8)));
+        box.setBackground(PhoneKit.round(Theme.RAISED, dp(8)));
         LinearLayout top = new LinearLayout(ctx());
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(dp(12), dp(12), dp(12), dp(8));
@@ -69,15 +59,15 @@ final class PhoneSearch extends PhoneUi.Page {
         col.addView(top, new LinearLayout.LayoutParams(-1, -2));
         kinds = new LinearLayout(ctx());
         kinds.setPadding(dp(12), 0, dp(12), dp(8));
-        for (int i = 0; i < KIND_LABEL.length; i++) {
+        for (int i = 0; i < Search.KIND_LABEL.length; i++) {
             final int k = i;
-            TextView chip = PhoneKit.chip(ctx(), KIND_LABEL[i], i == kind);
+            TextView chip = PhoneKit.chip(ctx(), Search.KIND_LABEL[i], i == Search.kind);
             chip.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (k == kind) return;
-                    kind = k;
-                    for (int j = 0; j < kinds.getChildCount(); j++) PhoneKit.styleChip((TextView) kinds.getChildAt(j), j == kind);
+                    if (k == Search.kind) return;
+                    Search.kind = k;
+                    for (int j = 0; j < kinds.getChildCount(); j++) PhoneKit.styleChip((TextView) kinds.getChildAt(j), j == Search.kind);
                     h.removeCallbacks(run);
                     run.run();
                 }
@@ -90,10 +80,13 @@ final class PhoneSearch extends PhoneUi.Page {
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
-        hint = PhoneKit.text(ctx(), "", 14, PhoneKit.TEXT2, false);
+        hint = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
         hint.setGravity(Gravity.CENTER);
         hint.setPadding(dp(24), dp(40), dp(24), 0);
         area.addView(hint, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
+        recentBox = new LinearLayout(ctx());
+        recentBox.setOrientation(LinearLayout.VERTICAL);
+        area.addView(recentBox, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         col.addView(area, new LinearLayout.LayoutParams(-1, 0, 1));
         box.addTextChangedListener(new TextWatcher() {
             @Override
@@ -121,7 +114,7 @@ final class PhoneSearch extends PhoneUi.Page {
         });
         box.setText(lastQuery);
         if (lastQuery.isEmpty()) {
-            hint.setText("Search your addons for movies and shows.");
+            showRecent();
             box.requestFocus();
             box.postDelayed(new Runnable() {
                 @Override
@@ -140,9 +133,45 @@ final class PhoneSearch extends PhoneUi.Page {
         else imm.hideSoftInputFromWindow(box.getWindowToken(), 0);
     }
 
+    /** Leaving a search that found something (usually by opening a result) keeps it under Recent searches. */
     @Override
     void onHide() {
         keyboard(false);
+        if (!grid.items.isEmpty()) Search.remember(ui.host.prefs(), lastQuery);
+    }
+
+    /** Nothing typed: the recent searches (tap one to run it again), or a hint when there are none. */
+    private void showRecent() {
+        recentBox.removeAllViews();
+        List<String> recent = Search.recent(ui.host.prefs());
+        hint.setText(recent.isEmpty() ? "Search your addons for movies and shows." : "");
+        if (recent.isEmpty()) return;
+        recentBox.addView(PhoneUi.sectionTitle(ctx(), "Recent searches"));
+        for (final String q : recent) recentBox.addView(recentRow(q, Theme.TEXT, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                box.setText(q);
+                box.setSelection(q.length());
+                h.removeCallbacks(run);
+                run.run();
+                keyboard(false);
+            }
+        }));
+        recentBox.addView(recentRow("Clear recent searches", Theme.TEXT_DIM, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Search.clearRecent(ui.host.prefs());
+                showRecent();
+            }
+        }));
+    }
+
+    private TextView recentRow(String text, int color, View.OnClickListener onClick) {
+        TextView t = PhoneKit.text(ctx(), text, 15, color, false);
+        t.setPadding(dp(16), dp(12), dp(16), dp(12));
+        t.setBackground(PhoneKit.pressable(null, 0));
+        t.setOnClickListener(onClick);
+        return t;
     }
 
     @Override
@@ -159,41 +188,24 @@ final class PhoneSearch extends PhoneUi.Page {
 
     private void search(String q) {
         lastQuery = q;
-        final int id = ++request;
+        search.cancel();
         grid.items.clear();
         grid.changed();
+        recentBox.removeAllViews();
         if (q.isEmpty()) {
-            hint.setText("Search your addons for movies and shows.");
+            showRecent();
             return;
         }
-        final List<Store.Catalog> cats = new ArrayList<>();
-        for (Store.Catalog cat : ui.store.searchCatalogs()) if (wanted(cat.type)) cats.add(cat);
-        if (cats.isEmpty()) {
-            hint.setText(ui.online() ? (kind == 0 ? "None of your addons can search." : "None of your addons can search " + KIND_LABEL[kind].toLowerCase() + ".") : "You're offline.");
-            return;
-        }
-        hint.setText("Searching…");
-        final int[] pending = {cats.size()};
-        final List<List<Store.Meta>> parts = new ArrayList<>();
-        for (int i = 0; i < cats.size(); i++) parts.add(null);
-        for (int i = 0; i < cats.size(); i++) {
-            final int slot = i;
-            ui.store.loadCatalog(cats.get(i), null, 0, q, new Store.Callback<List<Store.Meta>>() {
-                @Override
-                public void done(List<Store.Meta> result, Exception error) {
-                    if (id != request) return;
-                    pending[0]--;
-                    parts.set(slot, result != null ? result : new ArrayList<Store.Meta>());
-                    grid.items.clear();
-                    Set<String> seen = new HashSet<>();
-                    for (List<Store.Meta> p : parts) {
-                        if (p == null) continue;
-                        for (Store.Meta m : p) if (wanted(m.type) && seen.add(m.type + m.id)) grid.items.add(m);
-                    }
-                    grid.changed();
-                    hint.setText(grid.items.isEmpty() ? (pending[0] > 0 ? "Searching…" : "Nothing found.") : "");
-                }
-            });
-        }
+        boolean asked = search.run(ui.store, q, new Search.Results() {
+            @Override
+            public void results(List<Store.Meta> items) {
+                grid.items.clear();
+                grid.items.addAll(items);
+                grid.changed();
+                hint.setText(items.isEmpty() ? (search.pending > 0 ? "Searching…" : "Nothing found.") : "");
+            }
+        });
+        hint.setText(asked ? "Searching…" : !ui.online() ? "You're offline."
+                : Search.kind == 0 ? "None of your addons can search." : "None of your addons can search " + Search.KIND_LABEL[Search.kind].toLowerCase() + ".");
     }
 }

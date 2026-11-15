@@ -4,7 +4,6 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -63,7 +62,7 @@ final class PhoneHome extends PhoneUi.Page {
         heroTitle.setGravity(Gravity.CENTER);
         heroTitle.setMaxLines(2);
         info.addView(heroTitle, new LinearLayout.LayoutParams(-2, -2));
-        heroMeta = PhoneKit.text(ctx(), "", 13, 0xFFDDDDDD, false);
+        heroMeta = PhoneKit.text(ctx(), "", 13, Theme.TEXT_BODY, false);
         heroMeta.setGravity(Gravity.CENTER);
         heroMeta.setMaxLines(1);
         heroMeta.setPadding(0, dp(6), 0, dp(10));
@@ -101,7 +100,7 @@ final class PhoneHome extends PhoneUi.Page {
         View gap = new View(ctx());
         bar.addView(gap, new LinearLayout.LayoutParams(0, 1, 1));
         bar.addView(topLink("Movies", NavBar.MOVIES));
-        bar.addView(topLink("Series", NavBar.SERIES));
+        bar.addView(topLink("Shows", NavBar.SERIES));
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
         al.setMargins(dp(8), 0, dp(6), 0);
         bar.addView(ui.profileButton(), al);
@@ -113,7 +112,7 @@ final class PhoneHome extends PhoneUi.Page {
         cwBox.setOrientation(LinearLayout.VERTICAL);
         list.addView(cwBox);
 
-        empty = PhoneKit.text(ctx(), "", 14, PhoneKit.TEXT2, false);
+        empty = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(dp(24), dp(24), dp(24), dp(24));
         list.addView(empty);
@@ -339,10 +338,5 @@ final class PhoneHome extends PhoneUi.Page {
                 if (v instanceof PhonePoster) ((PhonePoster) v).updateBadge(ui.downloads);
             }
         }
-    }
-
-    @SuppressWarnings("unused")
-    private static ViewGroup.LayoutParams wrap() {
-        return new ViewGroup.LayoutParams(-2, -2);
     }
 }

@@ -1,9 +1,7 @@
 package com.codio.tv.ui;
 
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.RectF;
 import android.view.KeyEvent;
 
 /**
@@ -16,7 +14,6 @@ final class LoadingScreen extends Screen {
     private final Backdrop backdrop;
     private String status = "";
     private boolean failed = false;
-    private final RectF lr = new RectF();
 
     LoadingScreen(TvView tv, Store.Meta meta, String videoId, String quality) {
         super(tv);
@@ -42,17 +39,7 @@ final class LoadingScreen extends Screen {
         tv.fill.setColor(0x80000000);
         c.drawRect(0, 0, TvView.W, TvView.H, tv.fill);
         float x = TvView.MARGIN, y = 300;
-        String logoUrl = HomeScreen.logoOf(meta);
-        Bitmap logo = logoUrl != null ? tv.images.logo(logoUrl, Math.round(640 * tv.scale()), Math.round(200 * tv.scale())) : null;
-        if (logo != null) {
-            float w = logo.getWidth() / tv.scale(), h = logo.getHeight() / tv.scale();
-            lr.set(x, y + 200 - h, x + w, y + 200);
-            c.drawBitmap(logo, null, lr, tv.bmp);
-        } else if (logoUrl == null || tv.images.isFailed(logoUrl)) {
-            tv.tHero.setTextSize(72);
-            tv.drawWrapped(c, meta.name, tv.tHero, x, y + 30, 1100, 2);
-            tv.tHero.setTextSize(64);
-        }
+        tv.drawTitleArt(c, meta, x, y);
         String sub = episodeLabel();
         if (sub != null) c.drawText(tv.fit(sub, tv.tMeta, 1100), x, y + 250, tv.tMeta);
         float sy = y + 330;

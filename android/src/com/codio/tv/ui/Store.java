@@ -709,49 +709,35 @@ public final class Store {
 
     // ------------------------------------------------------------------ catalogs
 
+    private static final int FOR_HOME = 0, FOR_DISCOVER = 1, FOR_SEARCH = 2;
+
+    /** The addons' catalogs that suit one use, in addon order; type narrows FOR_DISCOVER. */
+    private synchronized List<Catalog> catalogs(int use, String type) {
+        List<Catalog> out = new ArrayList<>();
+        for (Addon a : addons) {
+            JSONArray cats = a.manifest.optJSONArray("catalogs");
+            if (cats == null) continue;
+            for (int i = 0; i < cats.length(); i++) {
+                JSONObject c = cats.optJSONObject(i);
+                if (c == null || (type != null && !type.equals(c.optString("type")))) continue;
+                Catalog cat = new Catalog(a, c);
+                if (use == FOR_HOME ? !cat.otherRequired && !cat.genreRequired : use == FOR_DISCOVER ? cat.browsable() : cat.search && !cat.genreRequired) out.add(cat);
+            }
+        }
+        return out;
+    }
+
     /** Catalogs for the home screen, in addon order (like the web UI's board). */
-    public synchronized List<Catalog> homeCatalogs() {
-        List<Catalog> out = new ArrayList<>();
-        for (Addon a : addons) {
-            JSONArray cats = a.manifest.optJSONArray("catalogs");
-            if (cats == null) continue;
-            for (int i = 0; i < cats.length(); i++) {
-                JSONObject c = cats.optJSONObject(i);
-                if (c == null) continue;
-                Catalog cat = new Catalog(a, c);
-                if (!cat.otherRequired && !cat.genreRequired) out.add(cat);
-            }
-        }
-        return out;
+    public List<Catalog> homeCatalogs() {
+        return catalogs(FOR_HOME, null);
     }
 
-    public synchronized List<Catalog> discoverCatalogs(String type) {
-        List<Catalog> out = new ArrayList<>();
-        for (Addon a : addons) {
-            JSONArray cats = a.manifest.optJSONArray("catalogs");
-            if (cats == null) continue;
-            for (int i = 0; i < cats.length(); i++) {
-                JSONObject c = cats.optJSONObject(i);
-                if (c == null || !type.equals(c.optString("type"))) continue;
-                Catalog cat = new Catalog(a, c);
-                if (cat.browsable()) out.add(cat);
-            }
-        }
-        return out;
+    public List<Catalog> discoverCatalogs(String type) {
+        return catalogs(FOR_DISCOVER, type);
     }
 
-    public synchronized List<Catalog> searchCatalogs() {
-        List<Catalog> out = new ArrayList<>();
-        for (Addon a : addons) {
-            JSONArray cats = a.manifest.optJSONArray("catalogs");
-            if (cats == null) continue;
-            for (int i = 0; i < cats.length(); i++) {
-                JSONObject c = cats.optJSONObject(i);
-                if (c == null) continue;
-                Catalog cat = new Catalog(a, c);
-                if (cat.search && !cat.genreRequired) out.add(cat);
-            }
-        }
+    public List<Catalog> searchCatalogs() {
+        List<Catalog> out = catalogs(FOR_SEARCH, null);
         // Movies before series, like the web UI.
         Collections.sort(out, new Comparator<Catalog>() {
             @Override
@@ -878,7 +864,7 @@ public final class Store {
 
     public static String typeLabel(String type) {
         if ("movie".equals(type)) return "Movies";
-        if ("series".equals(type)) return "Series";
+        if ("series".equals(type)) return "Shows";
         if ("channel".equals(type)) return "Channels";
         if ("tv".equals(type)) return "Live TV";
         return type.isEmpty() ? "" : Character.toUpperCase(type.charAt(0)) + type.substring(1);

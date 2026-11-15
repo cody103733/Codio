@@ -28,7 +28,7 @@ final class ProfilesScreen extends Screen {
 
     @Override
     void draw(Canvas c, float dt) {
-        c.drawColor(0xFF0B0B0B);
+        c.drawColor(Theme.BG);
         tv.drawLogo(c, TvView.MARGIN, NavBar.Y + 2);
         JSONArray l = profiles();
         String email = Profiles.email(tv.store);
@@ -57,7 +57,7 @@ final class ProfilesScreen extends Screen {
                 c.drawCircle(x, cy, r + 8, tv.fill);
             }
             Profiles.drawAvatar(c, tv.fill, tv.tLabel, x, cy, r, p);
-            TextPaintSwap name = new TextPaintSwap(f || i == cur ? Color.WHITE : 0xFF8C8C8C);
+            TextPaintSwap name = new TextPaintSwap(f || i == cur ? Color.WHITE : Theme.TEXT_FAINT);
             c.drawText(tv.fit(Profiles.name(p), tv.tLabel, R * 2 + GAP - 10), x, cy + R + 70, tv.tLabel);
             if (i == cur) {
                 tv.tSmall.setTextAlign(Paint.Align.CENTER);
@@ -102,18 +102,7 @@ final class ProfilesScreen extends Screen {
                 return true;
             case TvView.OK:
                 if (focus >= 0 && focus < l.length()) {
-                    final TvView v = tv;
-                    Profiles.switchTo(tv.store, l.optJSONObject(focus), new Profiles.Ui() {
-                        @Override
-                        public void ctx(String name, Object args) {
-                            v.ctx(name, args);
-                        }
-
-                        @Override
-                        public void toast(String text) {
-                            v.toast(text);
-                        }
-                    });
+                    Profiles.switchTo(tv.store, l.optJSONObject(focus), tv);
                 }
                 tv.pop();
                 return true;

@@ -40,12 +40,12 @@ final class TextEntryScreen extends Screen {
 
     @Override
     void draw(Canvas c, float dt) {
-        c.drawColor(0xFF0B0B0B);
+        c.drawColor(Theme.BG);
         c.drawText(title, KX, 170, tv.tTitle);
         if (hint != null) tv.drawWrapped(c, hint, tv.tSmall, KX, 196, KSX * COLS, 2);
         // The text field.
         r.set(KX, 270, KX + KSX * COLS - 10, 360);
-        tv.fill.setColor(0xFF1F1F1F);
+        tv.fill.setColor(Theme.CARD);
         c.drawRoundRect(r, 10, 10, tv.fill);
         String shown = text.toString();
         if (secret) {
@@ -57,7 +57,7 @@ final class TextEntryScreen extends Screen {
         String visible = shown;
         while (visible.length() > 0 && tv.tLabel.measureText(visible) > maxW) visible = visible.substring(1);
         c.drawText(visible, KX + 24, 326, tv.tLabel);
-        tv.fill.setColor(TvView.RED);
+        tv.fill.setColor(Theme.RED);
         float cx = KX + 26 + tv.tLabel.measureText(visible);
         c.drawRect(cx, 292, cx + 3, 338, tv.fill);
 
@@ -80,9 +80,9 @@ final class TextEntryScreen extends Screen {
                 boolean f = rw == row && i == col;
                 boolean on = rw == ROWS.length && i == 0 && caps;
                 r.set(x, y, x + w, y + KH);
-                tv.fill.setColor(f ? Color.WHITE : on ? TvView.RED : rw == ROWS.length && i == 4 ? 0xFF2E2E2E : 0xFF1F1F1F);
+                tv.fill.setColor(f ? Color.WHITE : on ? Theme.RED : rw == ROWS.length && i == 4 ? Theme.RAISED : Theme.CARD);
                 c.drawRoundRect(r, 8, 8, tv.fill);
-                tv.tLabel.setColor(f ? Color.BLACK : 0xFFE0E0E0);
+                tv.tLabel.setColor(f ? Color.BLACK : Theme.TEXT_BODY);
                 float tw = tv.tLabel.measureText(label);
                 c.drawText(label, x + (w - tw) / 2, y + KH / 2 + 10, tv.tLabel);
             }

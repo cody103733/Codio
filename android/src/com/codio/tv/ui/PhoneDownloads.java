@@ -437,22 +437,6 @@ final class PhoneDownloads {
         for (Entry e : entriesFor(metaId)) remove(e);
     }
 
-    void retry(Entry e) {
-        if (e.wantQuality == null) e.wantQuality = e.quality != null ? e.quality : "1080p";
-        if (e.dmId >= 0) {
-            try {
-                dm.remove(e.dmId);
-            } catch (Exception ignored) {
-            }
-            e.dmId = -1;
-        }
-        e.state = WAITING;
-        e.error = null;
-        save();
-        changed();
-        pumpFinder();
-    }
-
     void savePosition(String type, String id, String videoId, double pos, double dur) {
         Entry e = entry(type, id, videoId);
         if (e == null) return;

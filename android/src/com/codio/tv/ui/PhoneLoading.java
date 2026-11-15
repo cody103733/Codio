@@ -37,7 +37,7 @@ final class PhoneLoading extends FrameLayout {
         if (videoId != null && !videoId.equals(m.id)) {
             for (Store.Video v : m.videos) {
                 if (videoId.equals(v.id)) {
-                    TextView ep = PhoneKit.text(getContext(), "S" + v.season + " E" + v.episode + (v.title != null ? " · " + v.title : ""), 14, PhoneKit.TEXT2, false);
+                    TextView ep = PhoneKit.text(getContext(), "S" + v.season + " E" + v.episode + (v.title != null ? " · " + v.title : ""), 14, Theme.TEXT_DIM, false);
                     ep.setGravity(Gravity.CENTER);
                     col.addView(ep);
                     break;
@@ -48,7 +48,7 @@ final class PhoneLoading extends FrameLayout {
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(PhoneKit.dp(getContext(), 48), PhoneKit.dp(getContext(), 48));
         sl.setMargins(0, p, 0, PhoneKit.dp(getContext(), 12));
         col.addView(spin, sl);
-        status = PhoneKit.text(getContext(), "Finding the best source" + (quality != null ? " in " + PhoneKit.qualityLabel(quality) : "") + "…", 14, 0xFFDDDDDD, false);
+        status = PhoneKit.text(getContext(), "Finding the best source" + (quality != null ? " in " + PhoneKit.qualityLabel(quality) : "") + "…", 14, Theme.TEXT_BODY, false);
         status.setGravity(Gravity.CENTER);
         col.addView(status);
         TextView cancel = PhoneKit.button(getContext(), "Cancel", false);

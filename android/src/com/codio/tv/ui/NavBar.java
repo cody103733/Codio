@@ -6,7 +6,7 @@ import android.graphics.Color;
 /** The top bar: logo and sections, with the round Who's watching avatar on the right. */
 final class NavBar {
     static final int HOME = 0, MOVIES = 1, SERIES = 2, SEARCH = 3, LIBRARY = 4, ADDONS = 5, SETTINGS = 6;
-    static final String[] ITEMS = {"Home", "Movies", "Series", "Search", "Library", "Addons", "Settings"};
+    static final String[] ITEMS = {"Home", "Movies", "Shows", "Search", "Library", "Addons", "Settings"};
     /** Focus index of the profile avatar (right of the last section). */
     static final int PROFILE = ITEMS.length;
     static final float Y = 44, HEIGHT = 120, AVATAR_R = 30;
@@ -21,6 +21,16 @@ final class NavBar {
         this.focus = current;
     }
 
+    /** Draws the bar; scrolled = the page has moved under it, so it gets a solid band to stay readable. */
+    void draw(Canvas c, boolean focused, boolean scrolled) {
+        if (scrolled) {
+            tv.fill.setColor(Theme.BG);
+            c.drawRect(0, 0, TvView.W, HEIGHT, tv.fill);
+            c.drawRect(0, HEIGHT, TvView.W, HEIGHT + 60, tv.topShade);
+        }
+        draw(c, focused);
+    }
+
     void draw(Canvas c, boolean focused) {
         tv.drawLogo(c, TvView.MARGIN, Y + 2);
         float x = TvView.MARGIN + TvView.LOGO_W + 60;
@@ -30,13 +40,13 @@ final class NavBar {
             if (focused && i == focus) {
                 tv.drawChip(c, x, Y, s, true, false);
             } else {
-                tv.tNav.setColor(i == current ? Color.WHITE : 0xFFB3B3B3);
+                tv.tNav.setColor(i == current ? Color.WHITE : Theme.TEXT_DIM);
                 c.drawText(s, x + 26, Y + 37, tv.tNav);
                 if (i == current) {
-                    tv.fill.setColor(TvView.RED);
+                    tv.fill.setColor(Theme.RED);
                     c.drawRect(x + 26, Y + 50, x + w - 26, Y + 54, tv.fill);
                 }
-                tv.tNav.setColor(0xFFB3B3B3);
+                tv.tNav.setColor(Theme.TEXT_DIM);
             }
             x += w + 8;
         }

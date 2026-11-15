@@ -60,6 +60,16 @@ final class Grid {
         return true;
     }
 
+    /** OK opens the focused title, Play starts a movie straight away. True when k was one of those keys. */
+    boolean open(TvView tv, int k) {
+        if (k != TvView.OK && k != TvView.PLAY) return false;
+        Store.Meta m = focused();
+        if (m == null) return true;
+        if (k == TvView.PLAY && "movie".equals(m.type)) tv.host.play(m, null);
+        else tv.openDetail(m);
+        return true;
+    }
+
     void focusIn() {
         prev = -1;
         grow.snap(0);
@@ -94,9 +104,9 @@ final class Grid {
             String label = m.name + (m.releaseInfo != null ? "  (" + m.releaseInfo + ")" : "");
             float w = tv.tSmall.measureText(label);
             float lx = Math.max(x0, Math.min(x + PW / 2 - Math.min(w, STEP_X * 2) / 2, x0 + cols * STEP_X - STEP_X * 2));
-            tv.tSmall.setColor(0xFFFFFFFF);
+            tv.tSmall.setColor(Theme.TEXT);
             c.drawText(tv.fit(label, tv.tSmall, STEP_X * 2), lx, y + PH + 50, tv.tSmall);
-            tv.tSmall.setColor(0xFFAAAAAA);
+            tv.tSmall.setColor(Theme.TEXT_DIM);
         }
     }
 }

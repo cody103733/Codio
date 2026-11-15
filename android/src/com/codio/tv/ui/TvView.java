@@ -2,7 +2,6 @@ package com.codio.tv.ui;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -21,7 +20,6 @@ import android.view.KeyEvent;
 import android.view.View;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -30,7 +28,7 @@ import java.util.Map;
  * approach TV apps like Netflix use to stay smooth on modest hardware. Screens draw in a 1920x1080 design space; the
  * view only draws while something is moving, so an idle screen costs nothing.
  */
-public final class TvView extends View implements Images.Listener, NativeUi {
+public final class TvView extends View implements Images.Listener, NativeUi, Profiles.Ui {
     @Override
     public View view() {
         return this;
@@ -43,7 +41,6 @@ public final class TvView extends View implements Images.Listener, NativeUi {
 
     static final String TAG = "CodioUi";
     public static final float W = 1920, H = 1080;
-    public static final int RED = 0xFFE50914;
     public static final int MARGIN = 96;
 
     public interface Host {
@@ -100,19 +97,10 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         boolean webBusy();
     }
 
-    /** Ctx action helper: {"action":"Ctx","args":{"action":name,"args":args}}. */
+    /** Sends an action to Codio's core, e.g. AddToLibrary. */
+    @Override
     public void ctx(String name, Object args) {
-        try {
-            org.json.JSONObject inner = new org.json.JSONObject();
-            inner.put("action", name);
-            if (args != null) inner.put("args", args);
-            org.json.JSONObject a = new org.json.JSONObject();
-            a.put("action", "Ctx");
-            a.put("args", inner);
-            host.dispatch(a);
-        } catch (Exception e) {
-            Log.w(TAG, "action " + name + " not sent", e);
-        }
+        host.dispatch(Core.ctx(name, args));
     }
 
     public final Store store;
@@ -156,11 +144,11 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         bold = Typeface.create(tf, Typeface.BOLD);
         tHero = text(64, Color.WHITE, true);
         tTitle = text(34, Color.WHITE, true);
-        tBody = text(27, 0xFFD6D6D6, false);
-        tMeta = text(26, 0xFFBDBDBD, true);
-        tSmall = text(23, 0xFFAAAAAA, false);
+        tBody = text(27, Theme.TEXT_BODY, false);
+        tMeta = text(26, Theme.TEXT_DIM, true);
+        tSmall = text(23, Theme.TEXT_DIM, false);
         tLabel = text(28, Color.WHITE, true);
-        tNav = text(27, 0xFFB3B3B3, true);
+        tNav = text(27, Theme.TEXT_DIM, true);
         stroke.setStyle(Paint.Style.STROKE);
     }
 
@@ -387,20 +375,15 @@ public final class TvView extends View implements Images.Listener, NativeUi {
     /** An event from Codio's core: the screens may react, errors and installs show a short message. */
     public void coreEvent(String name, String message) {
         for (Screen s : new ArrayList<>(stack)) s.coreEvent(name, message);
-        if (name.startsWith("Error:")) {
-            String ev = name.substring(6);
-            if (ev.equals("UserPulledFromAPI") || ev.equals("LibrarySyncWithAPIPlanned") || ev.equals("UserAddonsLocked")) return;
-            toast(message != null && !message.isEmpty() ? message : "Something went wrong");
-        } else if (name.equals("AddonInstalled")) toast("Addon installed");
-        else if (name.equals("AddonUninstalled")) toast("Addon removed");
-        else if (name.equals("UserAuthenticated")) toast("Signed in");
-        else if (name.equals("UserLoggedOut")) toast("Signed out");
-        else if (name.equals("SettingsUpdated")) kick();
+        String text = Core.toastFor(name, message);
+        if (text != null) toast(text);
+        else kick();
     }
 
     private String toastText;
     private long toastUntil;
 
+    @Override
     public void toast(String text) {
         toastText = text;
         toastUntil = SystemClock.uptimeMillis() + 3500;
@@ -554,20 +537,35 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         if (b != null) {
             c.drawBitmap(b, null, r, bmp);
         } else {
-            fill.setColor(0xFF262626);
+            fill.setColor(Theme.RAISED);
             c.drawRoundRect(r, 12, 12, fill);
-            tSmall.setColor(0xFFCCCCCC);
+            tSmall.setColor(Theme.TEXT_BODY);
             drawWrapped(c, m.name, tSmall, dx + 16, dy + dh / 2 - 30, dw - 32, 3);
-            tSmall.setColor(0xFFAAAAAA);
+            tSmall.setColor(Theme.TEXT_DIM);
         }
         if (m.progress > 0) {
             float bx = dx + 12, by = dy + dh - 18, bw = dw - 24;
-            fill.setColor(0xB3000000);
+            fill.setColor(Theme.SCRIM);
             c.drawRect(bx, by, bx + bw, by + 6, fill);
-            fill.setColor(RED);
+            fill.setColor(Theme.RED);
             c.drawRect(bx, by, bx + bw * Math.max(0.03f, m.progress), by + 6, fill);
         }
         if (focus > 0.01f) ring(c, r, 14, focus);
+    }
+
+    /** A title's logo picture with its bottom left at x, y + 200; its name in big type until (or unless) there is one. */
+    void drawTitleArt(Canvas c, Store.Meta meta, float x, float y) {
+        String logoUrl = HomeScreen.logoOf(meta);
+        Bitmap logo = logoUrl != null ? images.logo(logoUrl, Math.round(640 * scale), Math.round(200 * scale)) : null;
+        if (logo != null) {
+            float w = logo.getWidth() / scale, h = logo.getHeight() / scale;
+            r.set(x, y + 200 - h, x + w, y + 200);
+            c.drawBitmap(logo, null, r, bmp);
+        } else if (logoUrl == null || images.isFailed(logoUrl)) {
+            tHero.setTextSize(72);
+            drawWrapped(c, meta.name, tHero, x, y + 30, 1100, 2);
+            tHero.setTextSize(64);
+        }
     }
 
     void ring(Canvas c, RectF rect, float radius, float alpha) {
@@ -585,7 +583,7 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         float h = 72, pad = 38, icon = playIcon ? 34 : 0;
         float w = pad * 2 + icon + tLabel.measureText(label);
         r.set(x, y, x + w, y + h);
-        fill.setColor(focused ? Color.WHITE : primary ? 0x40FFFFFF : 0x26FFFFFF);
+        fill.setColor(focused ? Color.WHITE : primary ? Theme.GLASS_STRONG : Theme.GLASS);
         c.drawRoundRect(r, 10, 10, fill);
         int fg = focused ? Color.BLACK : Color.WHITE;
         if (playIcon) {
@@ -609,11 +607,11 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         float h = 56, pad = 26;
         float w = pad * 2 + tNav.measureText(label);
         r.set(x, y, x + w, y + h);
-        fill.setColor(focused ? Color.WHITE : selected ? RED : 0x26FFFFFF);
+        fill.setColor(focused ? Color.WHITE : selected ? Theme.RED : Theme.GLASS);
         c.drawRoundRect(r, h / 2, h / 2, fill);
         tNav.setColor(focused ? Color.BLACK : Color.WHITE);
         c.drawText(label, x + pad, y + h / 2 + 9, tNav);
-        tNav.setColor(0xFFB3B3B3);
+        tNav.setColor(Theme.TEXT_DIM);
         return w;
     }
 
@@ -621,48 +619,12 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         return 52 + tNav.measureText(label);
     }
 
-    /** Codio wordmark: the red C wrapped around a play button is the C of "codio" (same drawing as the web BrandLogo). */
-    static final float LOGO_H = 52, LOGO_W = LOGO_H * 129f / 40f;
-    private final Paint logoRed = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint logoWhite = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path logoTri = new Path();
-    private final RectF logoArc = new RectF(17.0f - 14.25f, 19.25f - 14.25f, 17.0f + 14.25f, 19.25f + 14.25f);
+    /** The Codio wordmark (see Theme.Logo). */
+    static final float LOGO_H = 52, LOGO_W = LOGO_H * Theme.Logo.ASPECT;
+    private final Theme.Logo logo = new Theme.Logo();
 
     void drawLogo(Canvas c, float x, float y) {
-        if (logoRed.getShader() == null) {
-            logoRed.setShader(new LinearGradient(0, 0, 129, 40, 0xFFFF4B2B, 0xFFC3001D, Shader.TileMode.CLAMP));
-            logoRed.setStyle(Paint.Style.STROKE);
-            logoRed.setStrokeWidth(4.6f);
-            logoRed.setStrokeCap(Paint.Cap.ROUND);
-            logoWhite.setColor(Color.WHITE);
-            logoWhite.setStyle(Paint.Style.STROKE);
-            logoWhite.setStrokeWidth(4.6f);
-            logoWhite.setStrokeCap(Paint.Cap.ROUND);
-            logoWhite.setStrokeJoin(Paint.Join.ROUND);
-            logoTri.moveTo(12.5f, 12.8f);
-            logoTri.lineTo(24f, 19.25f);
-            logoTri.lineTo(12.5f, 25.7f);
-            logoTri.close();
-        }
-        c.save();
-        c.translate(x, y);
-        float k = LOGO_H / 40f;
-        c.scale(k, k);
-        c.drawArc(logoArc, 46f, 268f, false, logoRed);
-        logoWhite.setStyle(Paint.Style.FILL_AND_STROKE);
-        logoWhite.setStrokeWidth(2f);
-        c.drawPath(logoTri, logoWhite);
-        logoWhite.setStyle(Paint.Style.STROKE);
-        logoWhite.setStrokeWidth(4.6f);
-        c.drawCircle(45, 24, 9.5f, logoWhite);
-        c.drawCircle(70, 24, 9.5f, logoWhite);
-        c.drawLine(79.5f, 5, 79.5f, 33.5f, logoWhite);
-        c.drawLine(93, 16, 93, 33.5f, logoWhite);
-        c.drawCircle(114, 24, 9.5f, logoWhite);
-        logoRed.setStyle(Paint.Style.FILL);
-        c.drawCircle(93, 7.5f, 3, logoRed);
-        logoRed.setStyle(Paint.Style.STROKE);
-        c.restore();
+        logo.draw(c, x, y, LOGO_H);
     }
 
     private final Map<String, String> ellipsized = new LinkedHashMap<String, String>(256, 0.75f, true) {
@@ -705,10 +667,10 @@ public final class TvView extends View implements Images.Listener, NativeUi {
         tagR.set(x, y - cap - padY, x + w, y + padY);
         tagLine.setStyle(Paint.Style.STROKE);
         tagLine.setStrokeWidth(2);
-        tagLine.setColor(dark ? 0xFF111111 : 0xCCFFFFFF);
+        tagLine.setColor(dark ? Theme.ON_FOCUS : 0xCCFFFFFF);
         c.drawRoundRect(tagR, 6, 6, tagLine);
         int was = tSmall.getColor();
-        tSmall.setColor(dark ? 0xFF111111 : Color.WHITE);
+        tSmall.setColor(dark ? Theme.ON_FOCUS : Color.WHITE);
         c.drawText(tag, x + padX, y, tSmall);
         tSmall.setColor(was);
         return w;
@@ -748,7 +710,7 @@ public final class TvView extends View implements Images.Listener, NativeUi {
 
     void spinner(Canvas c, float cx, float cy, float radius, float dt) {
         spin = (spin + dt * 360) % 360;
-        stroke.setColor(RED);
+        stroke.setColor(Theme.RED);
         stroke.setStrokeWidth(6);
         stroke.setStrokeCap(Paint.Cap.ROUND);
         r.set(cx - radius, cy - radius, cx + radius, cy + radius);
@@ -772,6 +734,4 @@ public final class TvView extends View implements Images.Listener, NativeUi {
     float scale() {
         return scale;
     }
-
-    final HashMap<String, Object> memo = new HashMap<>();
 }

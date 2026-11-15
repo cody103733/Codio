@@ -14,9 +14,6 @@ import org.json.JSONObject;
  * through KeySync), the one in use, a round avatar for it, and switching with a profile's sign-in token.
  */
 final class Profiles {
-    /** The iPhone's profile colours, in the same order. */
-    static final int[] COLORS = {0xFFE60A14, 0xFF2178F2, 0xFFFABA1A, 0xFF29AD61, 0xFF8C4DD9, 0xFFF27326};
-
     /** What switching needs from the screen it's started on. */
     interface Ui {
         void ctx(String name, Object args);
@@ -63,9 +60,9 @@ final class Profiles {
     }
 
     static int color(JSONObject p) {
-        if (p == null) return 0xFF333333;
+        if (p == null) return Theme.LINE;
         int c = p.optInt("color", 0);
-        return COLORS[((c % COLORS.length) + COLORS.length) % COLORS.length];
+        return Theme.PROFILE_COLORS[((c % Theme.PROFILE_COLORS.length) + Theme.PROFILE_COLORS.length) % Theme.PROFILE_COLORS.length];
     }
 
     static String initial(JSONObject p) {
@@ -85,7 +82,7 @@ final class Profiles {
         int wasColor = text.getColor();
         Paint.Align wasAlign = text.getTextAlign();
         text.setTextSize(r * 0.95f);
-        text.setColor(0xFFFFFFFF);
+        text.setColor(Theme.TEXT);
         text.setTextAlign(Paint.Align.CENTER);
         Paint.FontMetrics fm = text.getFontMetrics();
         c.drawText(initial(p), cx, cy - (fm.ascent + fm.descent) / 2, text);

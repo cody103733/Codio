@@ -166,8 +166,8 @@ final class PhonePlayer extends FrameLayout {
             }
         });
         seek.setPadding(dp(16), dp(14), dp(16), dp(14));
-        seek.setProgressTintList(android.content.res.ColorStateList.valueOf(PhoneKit.RED));
-        seek.setThumbTintList(android.content.res.ColorStateList.valueOf(PhoneKit.RED));
+        seek.setProgressTintList(android.content.res.ColorStateList.valueOf(Theme.RED));
+        seek.setThumbTintList(android.content.res.ColorStateList.valueOf(Theme.RED));
         seek.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(0x80FFFFFF));
         bottom.addView(seek, new LinearLayout.LayoutParams(0, dp(52), 1));
         total = PhoneKit.text(getContext(), "", 13, Color.WHITE, false);
@@ -175,7 +175,7 @@ final class PhonePlayer extends FrameLayout {
         bottom.addView(total, new LinearLayout.LayoutParams(dp(64), -2));
         next = PhoneKit.text(getContext(), "Next episode ›", 14, Color.WHITE, true);
         next.setPadding(dp(12), dp(8), dp(12), dp(8));
-        next.setBackground(PhoneKit.pressable(PhoneKit.round(0x33FFFFFF, dp(6)), dp(6)));
+        next.setBackground(PhoneKit.pressable(PhoneKit.round(Theme.GLASS, dp(6)), dp(6)));
         next.setClickable(true);
         next.setOnClickListener(new OnClickListener() {
             @Override
@@ -487,18 +487,18 @@ final class PhonePlayer extends FrameLayout {
                     row.setPadding(0, dp(6), 0, dp(6));
                     android.widget.ImageView photo = new android.widget.ImageView(getContext());
                     photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-                    photo.setBackgroundColor(0xFF3A3A3A);
+                    photo.setBackgroundColor(Theme.RAISED);
                     PhoneKit.image(photo, a.photo, dp(56));
                     row.addView(photo, new LinearLayout.LayoutParams(dp(56), dp(76)));
                     LinearLayout names = new LinearLayout(getContext());
                     names.setOrientation(LinearLayout.VERTICAL);
                     names.setPadding(dp(14), 0, 0, 0);
                     names.addView(PhoneKit.text(getContext(), a.name, 15, Color.WHITE, true));
-                    if (a.role != null) names.addView(PhoneKit.text(getContext(), a.role, 13, 0xFFAAAAAA, false));
+                    if (a.role != null) names.addView(PhoneKit.text(getContext(), a.role, 13, Theme.TEXT_DIM, false));
                     row.addView(names, new LinearLayout.LayoutParams(0, -2, 1));
                     list.addView(row);
                 }
-                TextView credit = PhoneKit.text(getContext(), CastInfo.CREDIT, 11, 0xFFAAAAAA, false);
+                TextView credit = PhoneKit.text(getContext(), CastInfo.CREDIT, 11, Theme.TEXT_DIM, false);
                 credit.setPadding(0, dp(12), 0, dp(4));
                 list.addView(credit);
                 ui.dialog().setTitle("Cast").setView(scroll).setNegativeButton("Close", null).show();

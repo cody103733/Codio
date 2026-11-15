@@ -3,7 +3,6 @@ package com.codio.tv.ui;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -30,25 +29,11 @@ final class PhoneSourcesPage extends PhoneUi.Page {
     View build() {
         LinearLayout col = new LinearLayout(ctx());
         col.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout head = new LinearLayout(ctx());
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setPadding(0, dp(8), dp(12), dp(4));
-        TextView back = PhoneKit.text(ctx(), "‹", 30, Color.WHITE, true);
-        back.setPadding(dp(14), 0, dp(10), dp(4));
-        back.setClickable(true);
-        back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ui.back();
-            }
-        });
-        head.addView(back);
-        TextView t = PhoneKit.text(ctx(), "Choose a source", 20, Color.WHITE, true);
-        head.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout head = ui.backHeader("Choose a source", 20);
         spin = new ProgressBar(ctx());
         head.addView(spin, new LinearLayout.LayoutParams(dp(28), dp(28)));
         col.addView(head);
-        note = PhoneKit.text(ctx(), "Loading sources…", 13, PhoneKit.TEXT2, false);
+        note = PhoneKit.text(ctx(), "Loading sources…", 13, Theme.TEXT_DIM, false);
         note.setPadding(dp(16), 0, dp(16), dp(8));
         col.addView(note);
         ScrollView sv = new ScrollView(ctx());
@@ -103,7 +88,7 @@ final class PhoneSourcesPage extends PhoneUi.Page {
             String head = (src.rank == 0 ? "★ " : "") + (q != null ? PhoneKit.qualityLabel(q) + "  ·  " : "") + (src.addon != null ? src.addon : "");
             r.addView(PhoneKit.text(ctx(), head, 14, Color.WHITE, true));
             String body = ((src.name != null ? src.name + "\n" : "") + (src.description != null ? src.description : "")).trim();
-            TextView d = PhoneKit.text(ctx(), body, 12, PhoneKit.TEXT2, false);
+            TextView d = PhoneKit.text(ctx(), body, 12, Theme.TEXT_DIM, false);
             d.setMaxLines(5);
             r.addView(d);
             list.addView(r);
