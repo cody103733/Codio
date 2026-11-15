@@ -50,7 +50,9 @@ the full word.
 | Library, "+ Library", "✓ In Library", "Added to Library" | My List, Watchlist |
 | Sources | Streams, links |
 | Smart auto-play | Autoplay |
-| Skip Intro, Skip Recap, Skip Credits, Next Episode | |
+| Skip Intro, Skip Recap, Skip Credits | |
+| Up Next, "Up Next in 8", Play now, Watch credits | Next Episode button, Coming up |
+| New episode (the red mark on a poster) | New, Unwatched |
 | Who's watching | Switch user |
 
 Tabs, in order: Home, Movies, Shows, Search, Library, Addons, Settings (phones fold some of these into Home and Settings).
@@ -62,7 +64,8 @@ Search filter: Both, Movies, Shows. Empty search shows "Recent searches" with "C
 Sections, in order, with the same labels and help text everywhere a setting exists:
 
 1. **Playback**: Smart auto-play, Preferred quality, If that quality isn't available, Skip sources above, Prefer instant
-   sources, Source list, Next episode, Skip Intro button, Skip automatically, Next Episode button, Skip forward and back
+   sources, Source list, Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts, Skip forward
+   and back
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
    Hardware decoding, Surround sound on Windows)
 3. **Downloads** (phones)
@@ -73,6 +76,26 @@ Sections, in order, with the same labels and help text everywhere a setting exis
 
 Choices read as plain values ("On", "Off", "Plays automatically", "4 seconds (balanced)"). The canonical wording is in
 `android/src/com/codio/tv/ui/Setting.java`.
+
+## Up Next
+
+Near the end of an episode a card (bottom right) shows the next one: its picture, "Up Next in 8", "S1 E5 · Title", and the
+buttons Play now and Watch credits (on TV: OK plays, Back keeps watching). The rules, the same in every app
+(`android/src/com/codio/tv/ui/UpNext.java` is the reference):
+
+- Credits timed by IntroDB: the card comes up as the credits start and counts down 10 seconds, then the next episode plays.
+- Credits not timed: the card comes up as long before the end as the Up Next setting says (35 seconds unless changed) and
+  counts down to the end.
+- "Next episode" set to Off: the card still offers the next episode, but nothing starts by itself.
+- "Skip automatically" with credits: the next episode starts as the credits begin, so there is no card to wait for.
+- The countdown follows the video's position: it stops while paused and goes away after seeking back.
+
+## New episode alerts
+
+A show you're watching (watched in the last six months, or in the Library) gets a red "New episode" mark on its poster and
+moves to the front of Continue Watching when an episode came out after you last watched it. The mark goes when you open the
+show or watch something of it, and after 30 days. Phones also send a notification, checked a few times a day; tapping it
+opens the show. The episode dates come from the catalog addons (Cinemeta's "last videos" list).
 
 ## Rules that are not about looks
 

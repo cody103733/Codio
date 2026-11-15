@@ -18,6 +18,7 @@ final class PhonePoster extends FrameLayout {
     private final ImageView img;
     private final TextView name;
     private final Badge badge;
+    private final TextView fresh;
     private final View bar, barFill;
     private final int widthPx;
     Store.Meta meta;
@@ -54,6 +55,15 @@ final class PhonePoster extends FrameLayout {
         LayoutParams lp = new LayoutParams(bs, bs, android.view.Gravity.TOP | android.view.Gravity.END);
         lp.setMargins(0, PhoneKit.dp(c, 5), PhoneKit.dp(c, 5), 0);
         addView(badge, lp);
+        // "New episode", across the top (new episode alerts).
+        fresh = PhoneKit.text(c, "New episode", 10, Color.WHITE, true);
+        fresh.setSingleLine(true);
+        fresh.setPadding(PhoneKit.dp(c, 7), PhoneKit.dp(c, 2), PhoneKit.dp(c, 7), PhoneKit.dp(c, 3));
+        fresh.setBackground(PhoneKit.round(Theme.RED, PhoneKit.dp(c, 10)));
+        fresh.setVisibility(GONE);
+        LayoutParams fl = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP | android.view.Gravity.START);
+        fl.setMargins(PhoneKit.dp(c, 5), PhoneKit.dp(c, 5), 0, 0);
+        addView(fresh, fl);
         setClickable(true);
         setForeground(PhoneKit.pressable(null, r));
     }
@@ -62,7 +72,9 @@ final class PhonePoster extends FrameLayout {
         meta = m;
         name.setText(m.name);
         PhoneKit.image(img, m.poster, widthPx);
-        setContentDescription(m.name);
+        NewEpisodes.Alert alert = widthPx >= PhoneKit.dp(getContext(), 90) ? NewEpisodes.of(m.id) : null;
+        fresh.setVisibility(alert != null ? VISIBLE : GONE);
+        setContentDescription(alert != null ? m.name + ", new episode" : m.name);
         updateBadge(d);
         final float progress = m.progress;
         if (progress > 0) {

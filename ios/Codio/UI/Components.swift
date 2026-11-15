@@ -78,8 +78,21 @@ struct RemoteImage: View {
     }
 }
 
+/// "New episode" in a red capsule, for posters of shows with a new episode out (new episode alerts).
+struct NewEpisodeMark: View {
+    var body: some View {
+        Text("New episode")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Capsule().fill(Theme.red))
+    }
+}
+
 struct PosterCard: View {
     @ObservedObject var meta: Meta
+    @ObservedObject private var newEpisodes = NewEpisodes.shared
     var width: CGFloat = 112
     var showProgress = false
 
@@ -107,6 +120,9 @@ struct PosterCard: View {
                 }
             }
             .frame(width: width, height: width * 1.5)
+            .overlay(alignment: .topLeading) {
+                if newEpisodes.alert(meta.id) != nil { NewEpisodeMark().padding(5) }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .contentShape(Rectangle())

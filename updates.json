@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.4.34",
-    "versionCode": 58,
+    "version": "1.4.35",
+    "versionCode": 59,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you."
+    "notes": "Up Next: near the end of an episode a card shows the next one with a countdown, with Play now and a way to keep watching the credits. New episode alerts: shows you're watching are marked and come first in Continue Watching when a new episode is out."
   },
   "phone": {
-    "version": "1.0.16",
-    "versionCode": 17,
+    "version": "1.0.17",
+    "versionCode": 18,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you."
+    "notes": "Up Next: near the end of an episode a card shows the next one with a countdown, with Play now and a way to keep watching the credits. New episode alerts: shows you're watching are marked and come first in Continue Watching when a new episode is out, and your phone gets a notification."
   },
   "windows": {
     "version": "1.6.9",

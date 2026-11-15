@@ -69,6 +69,8 @@ struct DetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
+            // Its "New episode" mark has done its job.
+            NewEpisodes.shared.seen(meta.id)
             if !meta.full { await store.loadMeta(meta) }
             if !loaded {
                 loaded = true

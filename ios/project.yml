@@ -5,7 +5,7 @@ options:
     iOS: "16.0"
 settings:
   base:
-    MARKETING_VERSION: "0.7.13"
+    MARKETING_VERSION: "0.7.14"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Codio:
@@ -32,7 +32,8 @@ targets:
         UIViewControllerBasedStatusBarAppearance: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationLandscapeLeft]
-        UIBackgroundModes: [audio]
+        UIBackgroundModes: [audio, fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.codio.ios.newepisodes]
         UIFileSharingEnabled: true
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

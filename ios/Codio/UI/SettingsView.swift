@@ -48,10 +48,15 @@ struct SettingsView: View {
                    key: "preferCached", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .profile, label: "Next episode", help: "At the end of an episode, play the next one automatically.",
                    key: "bingeWatching", dflt: true, options: [("Plays automatically", true), ("Off", false)]),
-            Choice(kind: .app, label: "Skip Intro button", help: "Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.",
+            Choice(kind: .app, label: "Skip Intro button", help: "Shows Skip Intro, Skip Recap and Skip Credits in the player. Times come from IntroDB, a community database, so not every show has them.",
                    key: "skip_buttons", dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .app, label: "Skip automatically", help: "Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.",
                    key: "auto_skip", dflt: 0, options: [("Off", 0), ("Intros and recaps", 1), ("Intros, recaps and credits", 2)]),
+            Choice(kind: .profile, label: "Up Next", help: "Shows the next episode with a countdown as the credits start. On episodes whose credits aren't timed, it appears this long before the end.",
+                   key: "nextVideoNotificationDuration", dflt: 35000,
+                   options: [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000].map { ($0 == 0 ? "Don't show" : "\($0 / 1000) seconds before the end", $0 as Any) }),
+            Choice(kind: .app, label: "New episode alerts", help: "Marks shows you're watching when a new episode is out, and sends a notification.",
+                   key: NewEpisodes.pref, dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .app, label: "Who's watching?", help: "Codio opens in the profile you used last. Turn this on to be asked who's watching every time it opens.",
                    key: "ask_profile", dflt: false, options: [("Ask when Codio opens", true), ("Open the last profile", false)]),
             Choice(kind: .app, label: "Mini player", help: "When you leave Codio during a video, it keeps playing in a small window over your other apps.",
@@ -246,6 +251,7 @@ struct SettingsView: View {
         case .app:
             UserDefaults.standard.set(v is NSNull ? nil : v, forKey: c.key)
             store.objectWillChange.send()
+            if c.key == NewEpisodes.pref { NewEpisodes.shared.settingChanged(store) }
         }
     }
 

@@ -2,14 +2,17 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var engine: Engine
+    @EnvironmentObject var store: Store
     @State private var tab = 0
     @ObservedObject private var profiles = Profiles.shared
+    @ObservedObject private var newEpisodes = NewEpisodes.shared
+    @State private var homePath = NavigationPath()
 
     var body: some View {
         ZStack {
             if engine.overlay == .none {
                 TabView(selection: $tab) {
-                    NavigationStack { HomeView().withDetail() }
+                    NavigationStack(path: $homePath) { HomeView().withDetail() }
                         .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
                     NavigationStack { SearchView().withDetail() }
                         .tabItem { Label("Search", systemImage: "magnifyingglass") }.tag(1)
@@ -45,11 +48,27 @@ struct RootView: View {
         }
         .animation(.easeOut(duration: 0.2), value: engine.overlay)
         .preferredColorScheme(.dark)
+        // A tapped "New episode" notification opens the show's page on Home.
+        .onChange(of: newEpisodes.openShow) { _ in openNotifiedShow() }
+        .onChange(of: store.profileLoaded) { _ in openNotifiedShow() }
+        .onAppear { openNotifiedShow() }
         .sheet(item: $engine.sourcesRequest) { r in
             SourcesView(meta: r.meta, videoId: r.videoId)
                 .environmentObject(engine)
                 .environmentObject(engine.store)
         }
+    }
+}
+
+private extension RootView {
+    /// Opens the show a notification was tapped for, once the library (its name and poster) has been read.
+    func openNotifiedShow() {
+        guard let id = newEpisodes.openShow, store.profileLoaded, engine.overlay == .none else { return }
+        newEpisodes.openShow = nil
+        let meta = store.entry(id)?.meta ?? Meta.parse(["id": id, "type": "series", "name": newEpisodes.alert(id)?.name ?? ""])
+        tab = 0
+        homePath = NavigationPath()
+        homePath.append(meta)
     }
 }
 

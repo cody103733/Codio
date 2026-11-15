@@ -602,8 +602,46 @@ public final class Store {
         return new ArrayList<>(list.subList(0, Math.min(30, list.size())));
     }
 
+    /** Continue Watching; shows with a new episode out (see NewEpisodes) come first, the newest episode leading. */
     public List<Meta> continueWatching() {
-        return new ArrayList<>(continueWatching);
+        List<Meta> out = new ArrayList<>(continueWatching);
+        List<NewEpisodes.Alert> alerts = NewEpisodes.all();
+        for (int i = alerts.size() - 1; i >= 0; i--) {
+            String id = alerts.get(i).showId;
+            Meta m = null;
+            for (Meta x : out) if (id.equals(x.id)) m = x;
+            if (m != null) {
+                out.remove(m);
+            } else {
+                LibraryEntry e = library.get(id);
+                if (e == null || e.meta == null || (e.removed && !e.temp)) continue;
+                m = e.meta;
+            }
+            out.add(0, m);
+        }
+        return out;
+    }
+
+    /**
+     * The shows new episode alerts follow: watched since `watchedAfter` (ms), or sitting in the Library; the most
+     * recently watched first, at most `max`.
+     */
+    List<LibraryEntry> followedShows(long watchedAfter, int max) {
+        List<LibraryEntry> list = new ArrayList<>();
+        for (LibraryEntry e : library.values()) {
+            if (!"series".equals(e.type) || (e.removed && !e.temp)) continue;
+            long watched = NewEpisodes.parseIso(e.lastWatched);
+            if (watched > 0 ? watched < watchedAfter : e.temp) continue;
+            list.add(e);
+        }
+        Collections.sort(list, new Comparator<LibraryEntry>() {
+            @Override
+            public int compare(LibraryEntry a, LibraryEntry b) {
+                String x = a.lastWatched != null ? a.lastWatched : a.mtime, y = b.lastWatched != null ? b.lastWatched : b.mtime;
+                return (y == null ? "" : y).compareTo(x == null ? "" : x);
+            }
+        });
+        return new ArrayList<>(list.subList(0, Math.min(max, list.size())));
     }
 
     public LibraryEntry libraryEntry(String id) {

@@ -270,6 +270,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     @Override
     public void openDetail(Store.Meta m) {
         int depth = stack.size();
+        // Its "New episode" mark has done its job.
+        if (m != null) NewEpisodes.seen(getContext(), m.id);
         try {
             push(new PhoneDetail(this, m));
         } catch (Throwable t) {

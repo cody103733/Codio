@@ -42,7 +42,7 @@ const LANGUAGES: [string, string][] = [
 ];
 
 const SUB_SIZES = [75, 100, 125, 150, 175, 200, 250];
-const NEXT_POPUP = [0, 10000, 20000, 30000, 35000, 45000, 60000];
+const NEXT_POPUP = [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000];
 
 const ITEMS: Item[] = [
     { kind: 'heading', label: 'Playback' },
@@ -55,9 +55,10 @@ const ITEMS: Item[] = [
     { kind: 'choice', store: 'autoplay', label: 'Wait for slow addons', help: 'How long Play waits for addons that are still answering before it picks from the sources it has.', key: 'addonWaitSeconds', values: [3, 5, 8, 12, 20], labels: ['3 seconds', '5 seconds', '8 seconds', '12 seconds', '20 seconds'] },
     { kind: 'choice', store: 'autoplay', label: 'Skip a source that won\'t start', help: 'If a source hasn\'t started playing after this long, Codio moves on to the next one.', key: 'startupTimeoutSeconds', values: [15, 30, 45, 60, 0], labels: ['15 seconds', '30 seconds', '45 seconds', '60 seconds', 'Never'] },
     { kind: 'choice', store: 'profile', label: 'Next episode', help: 'At the end of an episode, play the next one automatically.', key: 'bingeWatching', values: [true, false], labels: ['Plays automatically', 'Off'] },
-    { kind: 'choice', store: 'autoplay', label: 'Skip Intro button', help: 'Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.', key: 'skipButtons', values: [true, false], labels: ['On', 'Off'] },
+    { kind: 'choice', store: 'autoplay', label: 'Skip Intro button', help: 'Shows Skip Intro, Skip Recap and Skip Credits in the player. Times come from IntroDB, a community database, so not every show has them.', key: 'skipButtons', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'autoplay', label: 'Skip automatically', help: 'Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.', key: 'autoSkip', values: [0, 1, 2], labels: ['Off', 'Intros and recaps', 'Intros, recaps and credits'] },
-    { kind: 'choice', store: 'profile', label: 'Next Episode button', help: 'When Next Episode appears on episodes whose credits aren\'t timed.', key: 'nextVideoNotificationDuration', values: NEXT_POPUP, labels: NEXT_POPUP.map((v) => v === 0 ? 'Don\'t show' : `${v / 1000} seconds before the end`) },
+    { kind: 'choice', store: 'profile', label: 'Up Next', help: 'Shows the next episode with a countdown as the credits start. On episodes whose credits aren\'t timed, it appears this long before the end.', key: 'nextVideoNotificationDuration', values: NEXT_POPUP, labels: NEXT_POPUP.map((v) => v === 0 ? 'Don\'t show' : `${v / 1000} seconds before the end`) },
+    { kind: 'choice', store: 'autoplay', label: 'New episode alerts', help: 'Marks shows you\'re watching when a new episode is out, and puts them first in Continue Watching.', key: 'newEpisodeAlerts', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'profile', label: 'Skip forward and back', help: 'How far the arrow keys jump in the player.', key: 'seekTimeDuration', values: [5000, 10000, 15000, 20000, 30000], labels: ['5 seconds', '10 seconds', '15 seconds', '20 seconds', '30 seconds'] },
 
     { kind: 'heading', label: 'Picture & sound' },

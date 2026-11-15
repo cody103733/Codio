@@ -17,6 +17,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         try? AVAudioSession.sharedInstance().setActive(true)
 
         LocalServer.shared.start()
+        // New episode alerts: the background check and the notification taps.
+        NewEpisodes.registerBackground()
 
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.backgroundColor = .black

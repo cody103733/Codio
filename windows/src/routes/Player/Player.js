@@ -45,6 +45,7 @@ const { default: useMediaSession } = require('./useMediaSession');
 const { default: useAutoPlayFallback } = require('./useAutoPlayFallback');
 const { default: AutoPlayIndicator } = require('./AutoPlayIndicator');
 const { default: SkipButton, useSkipSegments, imdbIdOf, episodeOf, insideSegment } = require('./SkipButton');
+const { default: UpNext, upNextAt } = require('./UpNext');
 const { useAutoPlaySettings } = require('stremio/common/AutoPlay');
 
 const GAMEPAD_HANDLER_ID = 'player';
@@ -127,7 +128,8 @@ const Player = () => {
         liveEpgRange === null ? null : liveEpgRange.endTime - epgNow
         :
         video.state.time === null || video.state.duration === null ? null : video.state.duration - video.state.time;
-    const nextVideoPopupOpen = upcomingVideo !== null &&
+    // The engine's own popup is kept for live TV only; episodes get Codio's Up Next card (see upNext below).
+    const nextVideoPopupOpen = isEpg && upcomingVideo !== null &&
         (nextVideoPopupDismissal === null || nextVideoPopupDismissal.stream !== video.state.stream ||
             (isEpg && nextVideoPopupDismissal.programId !== currentEpgVideo?.id)) &&
         nextVideoRemainingTime !== null && nextVideoRemainingTime > 0 &&
@@ -428,11 +430,11 @@ const Player = () => {
         if (inside(skipTimes.intro)) return { label: 'Skip Intro', to: skipTimes.intro.end };
         if (inside(skipTimes.recap)) return { label: 'Skip Recap', to: skipTimes.recap.end };
         if (skipTimes.outro !== null && t >= skipTimes.outro.start && (duration <= 0 || t < duration - 1)) {
-            if (player.nextVideo !== null && !nextVideoPopupOpen) return { label: 'Next Episode', next: true };
+            if (player.nextVideo !== null) return null; // the Up Next card takes over
             if (inside(skipTimes.outro) && duration > 0 && skipTimes.outro.end < duration - 5) return { label: 'Skip Credits', to: skipTimes.outro.end };
         }
         return null;
-    }, [skipTimes, video.state.time, video.state.duration, keyboardSeekTime, player.nextVideo, nextVideoPopupOpen]);
+    }, [skipTimes, video.state.time, video.state.duration, keyboardSeekTime, player.nextVideo]);
     const onSkip = React.useCallback(() => {
         if (skipAction === null) return;
         if (skipAction.next) {
@@ -441,6 +443,26 @@ const Player = () => {
         }
         commitSeek(skipAction.to * 1000);
     }, [skipAction, onNextVideoRequested, commitSeek]);
+
+    // The Up Next card: the next episode with a countdown as the credits start (or near the end when they aren't timed).
+    const [upNextDismissed, setUpNextDismissed] = React.useState(null);
+    const upNext = React.useMemo(() => {
+        if (isEpg || player.nextVideo === null || video.state.time === null || keyboardSeekTime !== null || upNextDismissed === videoId) return null;
+        return upNextAt(
+            skipTimes !== null ? skipTimes.outro : null,
+            video.state.time / 1000,
+            video.state.duration !== null ? video.state.duration / 1000 : 0,
+            settings.nextVideoNotificationDuration,
+            profile.settings.bingeWatching !== false
+        );
+    }, [isEpg, player.nextVideo, video.state.time, video.state.duration, keyboardSeekTime, upNextDismissed, videoId, skipTimes, settings.nextVideoNotificationDuration, profile.settings.bingeWatching]);
+    const onDismissUpNext = React.useCallback(() => setUpNextDismissed(videoId), [videoId]);
+    const upNextFired = React.useRef(null);
+    React.useEffect(() => {
+        if (upNext === null || !upNext.fire || video.state.paused || upNextFired.current === videoId) return;
+        upNextFired.current = videoId;
+        onNextVideoRequested();
+    }, [upNext, video.state.paused, videoId, onNextVideoRequested]);
 
     // Settings, Playback, Skip automatically: 1 = intros and recaps, 2 = credits too (straight to the next episode).
     // Each is skipped once per episode, so going back into an intro on purpose plays it.
@@ -1073,6 +1095,19 @@ const Player = () => {
             {
                 skipAction !== null && !menusOpen ?
                     <SkipButton label={skipAction.label} raised={!overlayHidden} onSkip={onSkip} />
+                    :
+                    null
+            }
+            {
+                upNext !== null && !menusOpen ?
+                    <UpNext
+                        state={upNext}
+                        video={player.nextVideo}
+                        fallbackPicture={metaItemContent ? (metaItemContent.background || metaItemContent.poster) : null}
+                        raised={!overlayHidden}
+                        onPlay={onNextVideoRequested}
+                        onDismiss={onDismissUpNext}
+                    />
                     :
                     null
             }

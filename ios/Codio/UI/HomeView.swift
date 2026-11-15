@@ -14,6 +14,7 @@ struct HomeView: View {
     @ObservedObject private var recommender = Recommender.shared
     @ObservedObject private var ratings = Ratings.shared
     @ObservedObject private var profiles = Profiles.shared
+    @ObservedObject private var newEpisodes = NewEpisodes.shared
     @State private var rows: [HomeRow] = []
     @State private var loadedFor = -1
     @State private var loading = false
@@ -27,8 +28,10 @@ struct HomeView: View {
                 header
                 UpdateBanner()
                 if let f = featured { FeaturedCard(meta: f, rank: filled.first.map { "#1 in " + typeLabel($0.catalog.type) + " Today" }).padding(.horizontal, 22) } else { Color.clear.frame(height: 420) }
-                if !store.continueWatching.isEmpty {
-                    ContinueRow(items: store.continueWatching)
+                // Shows with a new episode out come first (new episode alerts).
+                let continuing = newEpisodes.ordered(store.continueWatching, library: store.library)
+                if !continuing.isEmpty {
+                    ContinueRow(items: continuing, fresh: Set(newEpisodes.alerts.keys))
                 }
                 ForEach(recommender.rows) { r in PosterRow(title: r.title, items: r.items) }
                 ForEach(Array(filled.enumerated()), id: \.element.id) { i, row in
@@ -209,6 +212,8 @@ private struct FeaturedCard: View {
 private struct ContinueRow: View {
     @EnvironmentObject var engine: Engine
     let items: [Meta]
+    /// Shows with a new episode out: their card opens the show's page instead of resuming.
+    var fresh: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -217,14 +222,22 @@ private struct ContinueRow: View {
                 LazyHStack(spacing: 8) {
                     ForEach(items) { m in
                         VStack(spacing: 0) {
-                            Button { engine.play(m, m.lastVideoId) } label: {
-                                ZStack {
+                            if fresh.contains(m.id) {
+                                NavigationLink(value: m) {
                                     RemoteImage(url: m.poster).frame(width: 110, height: 160).clipped()
-                                    Image(systemName: "play.circle").font(.system(size: 40, weight: .light)).foregroundColor(.white)
-                                        .shadow(radius: 4)
+                                        .overlay(alignment: .topLeading) { NewEpisodeMark().padding(5) }
                                 }
+                                .buttonStyle(.plain)
+                            } else {
+                                Button { engine.play(m, m.lastVideoId) } label: {
+                                    ZStack {
+                                        RemoteImage(url: m.poster).frame(width: 110, height: 160).clipped()
+                                        Image(systemName: "play.circle").font(.system(size: 40, weight: .light)).foregroundColor(.white)
+                                            .shadow(radius: 4)
+                                    }
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                             GeometryReader { g in
                                 ZStack(alignment: .leading) {
                                     Rectangle().fill(Theme.line)

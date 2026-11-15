@@ -106,6 +106,7 @@ final class Setting {
                 else e.putString(key, String.valueOf(v));
                 e.apply();
                 if ("audio_delay_ms".equals(key)) host.audioSyncChanged();
+                if (NewEpisodes.PREF.equals(key)) host.newEpisodeAlertsChanged();
             }
         } catch (Exception ignored) {
         }
@@ -152,14 +153,18 @@ final class Setting {
         }
         l.add(new Setting(PLAYBACK, PROFILE, "Next episode", "At the end of an episode, play the next one automatically.",
                 "bingeWatching", true, ON_OFF, new String[]{"Plays automatically", "Off"}, false));
-        l.add(new Setting(PLAYBACK, DEVICE, "Skip Intro button", "Shows Skip Intro, Skip Recap and Next Episode in the player. Times come from IntroDB, a community database, so not every show has them.",
+        l.add(new Setting(PLAYBACK, DEVICE, "Skip Intro button", "Shows Skip Intro, Skip Recap and Skip Credits in the player. Times come from IntroDB, a community database, so not every show has them.",
                 "skip_buttons", "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
         l.add(new Setting(PLAYBACK, DEVICE, "Skip automatically", "Jumps past intros and recaps by itself when their times are known. With credits too, the next episode starts as the credits begin.",
                 "auto_skip", 0, new Object[]{0, 1, 2}, new String[]{"Off", "Intros and recaps", "Intros, recaps and credits"}, false));
+        Object[] popup = {0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000};
+        l.add(new Setting(PLAYBACK, PROFILE, "Up Next", "Shows the next episode with a countdown as the credits start. On episodes whose credits aren't timed, it appears this long before the end.",
+                "nextVideoNotificationDuration", 35000, popup, seconds(popup, "Don't show", " before the end"), false));
+        l.add(new Setting(PLAYBACK, DEVICE, "New episode alerts", phone
+                ? "Marks shows you're watching when a new episode is out, and sends a notification."
+                : "Marks shows you're watching when a new episode is out, and puts them first in Continue Watching.",
+                NewEpisodes.PREF, "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
         if (!phone) {
-            Object[] popup = {0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000};
-            l.add(new Setting(PLAYBACK, PROFILE, "Next Episode button", "When Next Episode appears on episodes whose credits aren't timed.",
-                    "nextVideoNotificationDuration", 35000, popup, seconds(popup, "Don't show", " before the end"), false));
             Object[] seeks = {5000, 10000, 15000, 20000, 30000};
             l.add(new Setting(PLAYBACK, PROFILE, "Skip forward and back", "How far Left and Right jump in the player.",
                     "seekTimeDuration", 10000, seeks, seconds(seeks, null, ""), false));

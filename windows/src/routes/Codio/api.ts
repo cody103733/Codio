@@ -44,6 +44,8 @@ export type Meta = {
     cast: string[],
     videos: Video[],
     progress?: number,
+    // New episodes out since the show was last watched (new episode alerts).
+    newEpisodes?: number,
 };
 
 export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';

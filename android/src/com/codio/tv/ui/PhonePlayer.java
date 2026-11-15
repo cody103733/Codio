@@ -42,6 +42,13 @@ final class PhonePlayer extends FrameLayout {
     private String skipFor;
     private static final int SKIP_NONE = 0, SKIP_INTRO = 1, SKIP_RECAP = 2, SKIP_CREDITS = 3, SKIP_NEXT = 4;
     private int skipShown = SKIP_NONE;
+    /** The Up Next card (bottom right): picture, "Up Next in 8", the episode, Play now and Watch credits. */
+    private final LinearLayout upNextCard;
+    private final android.widget.ImageView upNextPicture;
+    private final TextView upNextHeading, upNextEpisode;
+    private final ProgressBar upNextBar;
+    private boolean upNextDismissed, upNextFired;
+    private String upNextFor;
 
     PhonePlayer(final PhoneUi ui, Store.Meta m, String videoId) {
         super(ui.getContext());
@@ -255,6 +262,67 @@ final class PhonePlayer extends FrameLayout {
         slp.setMargins(0, 0, dp(24), dp(110));
         addView(skipButton, slp);
 
+        upNextCard = new LinearLayout(getContext());
+        upNextCard.setOrientation(LinearLayout.HORIZONTAL);
+        upNextCard.setGravity(Gravity.CENTER_VERTICAL);
+        upNextCard.setBackground(PhoneKit.round(0xF0161616, dp(10)));
+        upNextCard.setPadding(dp(8), dp(8), dp(12), dp(8));
+        upNextCard.setClickable(true);
+        upNextCard.setVisibility(GONE);
+        FrameLayout pic = new FrameLayout(getContext());
+        upNextPicture = new android.widget.ImageView(getContext());
+        upNextPicture.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        upNextPicture.setBackground(PhoneKit.round(Theme.RAISED, dp(6)));
+        pic.addView(upNextPicture, new LayoutParams(-1, -1));
+        upNextBar = new ProgressBar(getContext(), null, android.R.attr.progressBarStyleHorizontal);
+        upNextBar.setMax(1000);
+        upNextBar.setProgressTintList(android.content.res.ColorStateList.valueOf(Theme.RED));
+        upNextBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Theme.SCRIM));
+        pic.addView(upNextBar, new LayoutParams(-1, dp(4), Gravity.BOTTOM));
+        upNextCard.addView(pic, new LinearLayout.LayoutParams(dp(124), dp(70)));
+        LinearLayout col = new LinearLayout(getContext());
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(12), 0, 0, 0);
+        upNextHeading = PhoneKit.text(getContext(), "Up Next", 13, Color.WHITE, true);
+        col.addView(upNextHeading);
+        upNextEpisode = PhoneKit.text(getContext(), "", 13, Theme.TEXT_BODY, false);
+        upNextEpisode.setSingleLine(true);
+        upNextEpisode.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        upNextEpisode.setMaxWidth(dp(230));
+        col.addView(upNextEpisode);
+        LinearLayout upButtons = new LinearLayout(getContext());
+        upButtons.setPadding(0, dp(6), 0, 0);
+        TextView playNow = PhoneKit.text(getContext(), "▶  Play now", 13, Theme.ON_FOCUS, true);
+        playNow.setPadding(dp(12), dp(7), dp(12), dp(7));
+        playNow.setBackground(PhoneKit.pressable(PhoneKit.round(Color.WHITE, dp(6)), dp(6)));
+        playNow.setClickable(true);
+        playNow.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                playNext();
+            }
+        });
+        upButtons.addView(playNow);
+        TextView keep = PhoneKit.text(getContext(), "Watch credits", 13, Color.WHITE, true);
+        keep.setPadding(dp(12), dp(7), dp(12), dp(7));
+        keep.setBackground(PhoneKit.pressable(PhoneKit.round(Theme.GLASS, dp(6)), dp(6)));
+        keep.setClickable(true);
+        keep.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                upNextDismissed = true;
+                update();
+            }
+        });
+        LinearLayout.LayoutParams klp = new LinearLayout.LayoutParams(-2, -2);
+        klp.leftMargin = dp(8);
+        upButtons.addView(keep, klp);
+        col.addView(upButtons);
+        upNextCard.addView(col);
+        LayoutParams ulp = new LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END);
+        ulp.setMargins(0, 0, dp(24), dp(110));
+        addView(upNextCard, ulp);
+
         setVideo(m, videoId);
         keepUp();
         h.post(tick);
@@ -287,10 +355,45 @@ final class PhonePlayer extends FrameLayout {
         if (skip.intro != null && skip.intro.contains(t)) return SKIP_INTRO;
         if (skip.recap != null && skip.recap.contains(t)) return SKIP_RECAP;
         if (skip.outro != null && t >= skip.outro.start && (st.duration <= 0 || t < st.duration - 1)) {
-            if (nextVideo() != null) return SKIP_NEXT;
+            if (nextVideo() != null) return SKIP_NONE; // the Up Next card takes over
             if (skip.outro.contains(t) && st.duration > 0 && skip.outro.end < st.duration - 5) return SKIP_CREDITS;
         }
         return SKIP_NONE;
+    }
+
+    /** The Up Next card for right now, or null (see UpNext for the rules). */
+    private UpNext.Card upNext() {
+        if (upNextDismissed || !st.started || st.error != null || dragging || mini || nextVideo() == null) return null;
+        return UpNext.at(skipEnabled() ? skip : null, shownPosition(), st.duration, UpNext.beforeEndMs(ui.store), UpNext.playsByItself(ui.store));
+    }
+
+    private void updateUpNext() {
+        UpNext.Card card = upNext();
+        if (card == null) {
+            upNextCard.setVisibility(GONE);
+            return;
+        }
+        Store.Video n = nextVideo();
+        if (!n.id.equals(upNextFor)) {
+            upNextFor = n.id;
+            upNextEpisode.setText(UpNext.episodeLine(n));
+            upNextPicture.setImageDrawable(null);
+            PhoneKit.image(upNextPicture, UpNext.picture(meta, n), dp(124) * 2);
+        }
+        upNextHeading.setText(card.heading());
+        upNextBar.setVisibility(card.counting || card.fraction >= 1 ? VISIBLE : GONE);
+        upNextBar.setProgress(Math.round(card.fraction * 1000));
+        upNextCard.setVisibility(VISIBLE);
+        LayoutParams lp = (LayoutParams) upNextCard.getLayoutParams();
+        int want = shown ? dp(110) : dp(28);
+        if (lp.bottomMargin != want) {
+            lp.bottomMargin = want;
+            upNextCard.setLayoutParams(lp);
+        }
+        if (card.fire && !upNextFired && !st.paused) {
+            upNextFired = true;
+            playNext();
+        }
     }
 
     private int autoSkipped;
@@ -333,6 +436,8 @@ final class PhonePlayer extends FrameLayout {
         Store.Video v = current();
         title.setText((meta.name != null ? meta.name : "") + (v != null ? "  ·  S" + v.season + " E" + v.episode + (v.title != null && !v.title.isEmpty() ? " " + v.title : "") : ""));
         next.setVisibility(nextVideo() != null ? VISIBLE : GONE);
+        upNextDismissed = false;
+        upNextFired = false;
         loadSkip();
         keepUp();
     }
@@ -602,6 +707,7 @@ final class PhonePlayer extends FrameLayout {
             lp.bottomMargin = want;
             skipButton.setLayoutParams(lp);
         }
+        updateUpNext();
         if (st.paused && !shown) keepUp();
     }
 

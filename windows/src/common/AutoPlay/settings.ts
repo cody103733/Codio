@@ -40,6 +40,8 @@ export type AutoPlaySettings = {
     skipButtons: boolean,
     // Skip by itself: 0 = off, 1 = intros and recaps, 2 = credits too (straight to the next episode).
     autoSkip: number,
+    // New episode alerts: mark shows with a new episode out and put them first in Continue Watching.
+    newEpisodeAlerts: boolean,
 };
 
 export const QUALITIES: Quality[] = ['2160p', '1440p', '1080p', '720p', '480p'];
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: AutoPlaySettings = {
     maxBitrateMbps: 70,
     skipButtons: true,
     autoSkip: 0,
+    newEpisodeAlerts: true,
 };
 
 const STORAGE_KEY = 'autoPlaySettings';

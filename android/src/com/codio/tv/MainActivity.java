@@ -55,6 +55,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         com.codio.tv.ui.CastInfo.init(getSharedPreferences("codio", MODE_PRIVATE));
+        com.codio.tv.ui.NewEpisodes.load(this);
+        NewEpisodesJob.schedule(this);
+        openFromNotification(getIntent());
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         if (!BuildConfig.PHONE) getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setBackgroundDrawableResource(android.R.color.black);
@@ -434,6 +437,65 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         Updater.handle(this, intent);
+        openFromNotification(intent);
+    }
+
+    // ------------------------------------------------------------------ new episode alerts
+
+    /** The show a "New episode" notification was tapped for, until the screens are ready to open it. */
+    private String pendingShow, pendingShowType, pendingShowName;
+
+    private void openFromNotification(Intent intent) {
+        String id = intent != null ? intent.getStringExtra(NewEpisodesJob.EXTRA_SHOW) : null;
+        if (id == null) return;
+        intent.removeExtra(NewEpisodesJob.EXTRA_SHOW);
+        pendingShow = id;
+        pendingShowType = intent.getStringExtra(NewEpisodesJob.EXTRA_TYPE);
+        pendingShowName = intent.getStringExtra(NewEpisodesJob.EXTRA_NAME);
+        openPendingShow();
+    }
+
+    /** Opens the tapped show's page once the library has been read (its saved name and poster make the page). */
+    private void openPendingShow() {
+        if (pendingShow == null || tvUi == null || store == null || !store.profileLoaded) return;
+        com.codio.tv.ui.Store.LibraryEntry e = store.libraryEntry(pendingShow);
+        com.codio.tv.ui.Store.Meta m = e != null ? e.meta : null;
+        if (m == null) {
+            m = new com.codio.tv.ui.Store.Meta();
+            m.id = pendingShow;
+            m.type = pendingShowType != null ? pendingShowType : "series";
+            m.name = pendingShowName != null ? pendingShowName : "";
+        }
+        String id = pendingShow;
+        pendingShow = null;
+        if (!tvUi.showingDetail(id)) tvUi.openDetail(m);
+    }
+
+    private void syncNewEpisodes() {
+        if (store == null || !store.profileLoaded) return;
+        com.codio.tv.ui.NewEpisodes.sync(this, store, new Runnable() {
+            @Override
+            public void run() {
+                if (tvUi != null) tvUi.dataChanged(false);
+            }
+        });
+    }
+
+    /**
+     * Phones on Android 13+: notifications need the viewer's OK. Asked once, the first time there is a show to follow
+     * (and again when they switch the setting back on themselves).
+     */
+    private void askForNotifications(boolean again) {
+        if (!BuildConfig.PHONE || android.os.Build.VERSION.SDK_INT < 33 || !com.codio.tv.ui.NewEpisodes.enabled(this)) return;
+        android.content.SharedPreferences prefs = getSharedPreferences("codio", MODE_PRIVATE);
+        if (!again && prefs.getBoolean("notifications_asked", false)) return;
+        if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+        prefs.edit().putBoolean("notifications_asked", true).apply();
+        try {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 71);
+        } catch (Exception e) {
+            Log.w(TAG, "notification permission not asked: " + e);
+        }
     }
 
     @Override
@@ -1061,6 +1123,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         }
 
         @Override
+        public void newEpisodeAlertsChanged() {
+            com.codio.tv.ui.NewEpisodes.settingChanged(MainActivity.this);
+            NewEpisodesJob.schedule(MainActivity.this);
+            if (com.codio.tv.ui.NewEpisodes.enabled(MainActivity.this)) {
+                askForNotifications(true);
+                syncNewEpisodes();
+            }
+            if (tvUi != null) tvUi.dataChanged(false);
+        }
+
+        @Override
         public String version() {
             return BuildConfig.VERSION;
         }
@@ -1426,6 +1499,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                                         }
                                     });
                                     tvUi.dataChanged(Boolean.TRUE.equals(changed));
+                                    syncNewEpisodes();
+                                    if (!store.continueWatching().isEmpty()) askForNotifications(false);
+                                    openPendingShow();
                                 }
                             });
                         } catch (Exception e) {

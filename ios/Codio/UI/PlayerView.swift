@@ -42,6 +42,9 @@ struct PlayerView: View {
     @State private var showCast = false
     /// Segments already auto-skipped in this video, so going back to watch one doesn't skip it again.
     @State private var autoSkipped: Set<String> = []
+    /// The Up Next card was sent away with "Watch credits" (for this episode), or its countdown already ran out.
+    @State private var upNextDismissed = false
+    @State private var upNextFired = false
 
     private var meta: Meta? { engine.playMeta }
     private var title: String {
@@ -75,6 +78,7 @@ struct PlayerView: View {
                 }
                 if controls { controlsLayer(pos) }
                 skipButton(pos)
+                upNextCard(pos)
             }
         }
         .statusBarHidden(true)
@@ -84,7 +88,13 @@ struct PlayerView: View {
             loadSkip()
         }
         .onChange(of: engine.playVideo) { _ in loadSkip() }
-        .onChange(of: st.position) { p in autoSkip(p) }
+        .onChange(of: st.position) { p in
+            autoSkip(p)
+            if let c = upNext(p), c.fire, !upNextFired, !st.paused, let n = nextVideo {
+                upNextFired = true
+                playNext(n)
+            }
+        }
         .sheet(isPresented: $showCast, onDismiss: { scheduleHide() }) {
             if let m = meta { CastSheet(meta: m) }
         }
@@ -175,7 +185,7 @@ struct PlayerView: View {
 
     // MARK: - Skip Intro / Next Episode
 
-    private enum SkipKind { case intro, recap, credits, next }
+    private enum SkipKind { case intro, recap, credits }
 
     private var nextVideo: Video? { meta?.next(after: engine.playVideo) }
 
@@ -184,7 +194,7 @@ struct PlayerView: View {
         if let i = s.intro, i.contains(t) { return .intro }
         if let r = s.recap, r.contains(t) { return .recap }
         if let o = s.outro, t >= o.start, st.duration <= 0 || t < st.duration - 1 {
-            if nextVideo != nil { return .next }
+            if nextVideo != nil { return nil } // the Up Next card takes over
             if o.contains(t), st.duration > 0, o.end < st.duration - 5 { return .credits }
         }
         return nil
@@ -201,10 +211,9 @@ struct PlayerView: View {
                         case .intro: if let s = skip?.intro { seek(to: s.end) }
                         case .recap: if let s = skip?.recap { seek(to: s.end) }
                         case .credits: if let s = skip?.outro { seek(to: s.end) }
-                        case .next: if let n = nextVideo { playNext(n) }
                         }
                     } label: {
-                        Text(kind == .intro ? "Skip Intro" : kind == .recap ? "Skip Recap" : kind == .credits ? "Skip Credits" : "Next Episode ›")
+                        Text(kind == .intro ? "Skip Intro" : kind == .recap ? "Skip Recap" : "Skip Credits")
                             .font(.headline).foregroundColor(.black)
                             .padding(.horizontal, 20).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
@@ -216,12 +225,106 @@ struct PlayerView: View {
         }
     }
 
+    // MARK: - Up Next
+
+    /// Where the Up Next countdown stands (the rules are in android/src/com/codio/tv/ui/UpNext.java and DESIGN.md).
+    private struct UpNextState {
+        /// A countdown is running: `left` seconds to go, `fraction` 0...1 of it done.
+        var counting: Bool
+        var left: Double
+        var fraction: Double
+        /// The countdown ran out: start the next episode now.
+        var fire: Bool
+    }
+
+    private func upNext(_ t: Double) -> UpNextState? {
+        guard !upNextDismissed, st.started, st.error == nil, !dragging, nextVideo != nil else { return nil }
+        let settings = engine.store.settings
+        let beforeEnd = (settings["nextVideoNotificationDuration"] as? NSNumber)?.doubleValue ?? 35000
+        let byItself = (settings["bingeWatching"] as? Bool) ?? true
+        let d = st.duration
+        if beforeEnd <= 0 { return nil }
+        if d > 0, t >= d - 1 { return nil }
+        if Store.skipButtons, let o = skip?.outro {
+            // Credits timed: the card comes up as they start and counts down 10 seconds.
+            if t < o.start { return nil }
+            var end = o.start + 10
+            if d > 0 { end = min(end, d - 1) }
+            let left = end - t
+            let fraction = end > o.start ? min(1, max(0, (t - o.start) / (end - o.start))) : 1
+            return UpNextState(counting: byItself && left > 0, left: left, fraction: fraction, fire: byItself && left <= 0)
+        }
+        // Not timed: the card counts down to the end, where the player moves on by itself.
+        if d <= 0 { return nil }
+        let left = d - t
+        let window = beforeEnd / 1000
+        if left <= 0 || left > window { return nil }
+        return UpNextState(counting: byItself, left: left, fraction: min(1, max(0, 1 - left / window)), fire: false)
+    }
+
+    @ViewBuilder private func upNextCard(_ pos: Double) -> some View {
+        if let c = upNext(pos), let n = nextVideo, let m = meta {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    HStack(spacing: 12) {
+                        RemoteImage(url: n.thumbnail ?? m.background ?? m.poster)
+                            .frame(width: 124, height: 70)
+                            .clipped()
+                            .overlay(alignment: .bottomLeading) {
+                                if c.counting || c.fraction >= 1 {
+                                    GeometryReader { g in
+                                        ZStack(alignment: .leading) {
+                                            Rectangle().fill(Color.black.opacity(0.6))
+                                            Rectangle().fill(Theme.red).frame(width: g.size.width * c.fraction)
+                                        }
+                                    }
+                                    .frame(height: 4)
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(c.counting ? "Up Next in \(Int(max(1, c.left.rounded(.up))))" : "Up Next")
+                                .font(.footnote.weight(.bold)).foregroundColor(.white).monospacedDigit()
+                            Text("S\(n.season) E\(n.episode)" + (n.title.isEmpty ? "" : "  ·  " + n.title))
+                                .font(.footnote).foregroundColor(Theme.body).lineLimit(1)
+                            HStack(spacing: 8) {
+                                Button { playNext(n) } label: {
+                                    Label("Play now", systemImage: "play.fill")
+                                        .font(.footnote.weight(.bold)).foregroundColor(.black)
+                                        .padding(.horizontal, 12).padding(.vertical, 7)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
+                                }
+                                Button { upNextDismissed = true } label: {
+                                    Text("Watch credits")
+                                        .font(.footnote.weight(.bold)).foregroundColor(.white)
+                                        .padding(.horizontal, 12).padding(.vertical, 7)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.2)))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 3)
+                        }
+                        .frame(maxWidth: 250, alignment: .leading)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card.opacity(0.94)))
+                    .padding(.trailing, 28)
+                    .padding(.bottom, controls ? 70 : 24)
+                }
+            }
+        }
+    }
+
     private func loadSkip() {
         let vid = engine.playVideo
         guard let vid = vid, vid != skipFor else { return }
         skipFor = vid
         skip = nil
         autoSkipped = []
+        upNextDismissed = false
+        upNextFired = false
         let m = meta
         Task {
             if let m = m, !m.full, m.type == "series" { await engine.store.loadMeta(m) }

@@ -92,6 +92,8 @@ final class PlayerScreen extends Screen {
         skipFor = videoId;
         skip = null;
         autoSkipped = 0;
+        upNextDismissed = false;
+        upNextFired = false;
         final String forVideo = videoId;
         SkipTimes.load(imdb, se[0], se[1], new SkipTimes.Done() {
             @Override
@@ -113,14 +115,21 @@ final class PlayerScreen extends Screen {
             if (skip.intro != null && skip.intro.contains(t)) return SKIP_INTRO;
             if (skip.recap != null && skip.recap.contains(t)) return SKIP_RECAP;
             if (skip.outro != null && t >= skip.outro.start && (st.duration <= 0 || t < st.duration - 1)) {
-                if (next != null) return SKIP_NEXT;
+                if (next != null) return upNext() != null ? SKIP_NEXT : SKIP_NONE;
                 if (skip.outro.contains(t) && (st.duration <= 0 || skip.outro.end < st.duration - 5)) return SKIP_CREDITS;
                 return SKIP_NONE;
             }
         }
-        // No credits times: the "Up next" moment from Settings.
-        if (upNextWindow()) return SKIP_NEXT;
-        return SKIP_NONE;
+        return upNext() != null ? SKIP_NEXT : SKIP_NONE;
+    }
+
+    /** The Up Next card was sent away with Back (for this episode), or its countdown already ran out. */
+    private boolean upNextDismissed, upNextFired;
+
+    /** The Up Next card for right now, or null. */
+    private UpNext.Card upNext() {
+        if (next == null || upNextDismissed || !st.started || st.error != null) return null;
+        return UpNext.at(skipEnabled() ? skip : null, st.position(), st.duration, UpNext.beforeEndMs(tv.store), UpNext.playsByItself(tv.store));
     }
 
     private int autoSkipped;
@@ -250,15 +259,6 @@ final class PlayerScreen extends Screen {
         tv.host.play(meta, next.id);
     }
 
-    private boolean upNextWindow() {
-        if (next == null || st.duration <= 0 || !st.started) return false;
-        JSONObject s = tv.store.profileJson.optJSONObject("settings");
-        int ms = s != null ? s.optInt("nextVideoNotificationDuration", 35000) : 35000;
-        if (ms <= 0) return false;
-        double left = st.duration - st.position();
-        return left > 0 && left * 1000 <= ms;
-    }
-
     // ------------------------------------------------------------------ drawing
 
     @Override
@@ -290,12 +290,21 @@ final class PlayerScreen extends Screen {
         autoSkip();
         int sk = skipKind();
         if (sk == SKIP_NONE) skipInZone = false;
-        if (sk != SKIP_NONE && menu < 0) drawSkip(c, sk, a);
+        if (sk == SKIP_NEXT && menu < 0) {
+            UpNext.Card card = upNext();
+            if (card != null) {
+                drawUpNext(c, card, a);
+                if (card.fire && !upNextFired && !st.paused && seekTarget < 0) {
+                    upNextFired = true;
+                    playNext();
+                }
+            }
+        } else if (sk != SKIP_NONE && menu < 0) drawSkip(c, sk, a);
         if (menu >= 0) drawMenu(c, dt);
         // Keep the clock and the seek bar moving while they're on screen.
         if (a > 0.01f && !st.paused) tv.moving();
         if (seekTarget >= 0 || (controls && !st.paused)) tv.moving();
-        if (sk != SKIP_NONE || upNextWindow() || (skip != null && st.started && !st.paused)) tv.moving();
+        if (sk != SKIP_NONE || (next != null && st.started && !st.paused)) tv.moving();
     }
 
     private String tagFor;
@@ -383,9 +392,8 @@ final class PlayerScreen extends Screen {
     private void drawSkip(Canvas c, int kind, float controlsShown) {
         String label = skipLabel(kind);
         boolean focused = !controls || skipInZone;
-        boolean nextIcon = kind == SKIP_NEXT;
-        float h = 76, pad = 34, icon = nextIcon ? 40 : 0;
-        float w = pad * 2 + icon + tv.tLabel.measureText(label);
+        float h = 76, pad = 34;
+        float w = pad * 2 + tv.tLabel.measureText(label);
         float x = TvView.W - TvView.MARGIN - w;
         float y = controlsShown > 0.01f ? BAR_Y - 150 : TvView.H - 190;
         sr.set(x, y, x + w, y + h);
@@ -398,27 +406,52 @@ final class PlayerScreen extends Screen {
             c.drawRoundRect(sr, 8, 8, p);
         }
         int fg = focused ? Color.BLACK : Color.WHITE;
-        if (nextIcon) {
-            // Play-next symbol: triangle with a bar.
-            float ix = x + pad, iy = y + h / 2;
-            android.graphics.Path tri = new android.graphics.Path();
-            tri.moveTo(ix, iy - 13);
-            tri.lineTo(ix + 20, iy);
-            tri.lineTo(ix, iy + 13);
-            tri.close();
-            tv.fill.setColor(fg);
-            c.drawPath(tri, tv.fill);
-            c.drawRect(ix + 22, iy - 13, ix + 27, iy + 13, tv.fill);
-        }
         tv.tLabel.setColor(fg);
-        c.drawText(label, x + pad + icon, y + h / 2 + 10, tv.tLabel);
+        c.drawText(label, x + pad, y + h / 2 + 10, tv.tLabel);
         tv.tLabel.setColor(Color.WHITE);
-        if (kind == SKIP_NEXT && next != null && !controls) {
-            String sub = "S" + next.season + " E" + next.episode + (next.title == null || next.title.isEmpty() ? "" : "  ·  " + next.title);
-            tv.tSmall.setColor(Theme.TEXT_BODY);
-            String f = tv.fit(sub, tv.tSmall, 700);
-            c.drawText(f, TvView.W - TvView.MARGIN - tv.tSmall.measureText(f), y - 16, tv.tSmall);
-            tv.tSmall.setColor(Theme.TEXT_DIM);
+    }
+
+    private static final float UP_W = 800, UP_H = 184, UP_PIC_W = 270, UP_PIC_H = 152;
+
+    /**
+     * The Up Next card, bottom right: the next episode's picture, "Up Next in 8", its name, and Play now (which has the
+     * focus while the controls are hidden: OK plays, Back keeps watching the credits). The red line fills as the
+     * countdown runs.
+     */
+    private void drawUpNext(Canvas c, UpNext.Card card, float controlsShown) {
+        boolean focused = !controls || skipInZone;
+        float x = TvView.W - TvView.MARGIN - UP_W;
+        float y = (controlsShown > 0.01f ? BAR_Y - 64 : TvView.H - 90) - UP_H;
+        sr.set(x, y, x + UP_W, y + UP_H);
+        tv.fill.setColor(0xF0161616);
+        c.drawRoundRect(sr, 12, 12, tv.fill);
+        float px = x + 16, py = y + 16;
+        android.graphics.Bitmap pic = tv.images.get(UpNext.picture(meta, next), Math.round(UP_PIC_W * tv.scale()), Math.round(UP_PIC_H * tv.scale()), 8 * tv.scale());
+        sr.set(px, py, px + UP_PIC_W, py + UP_PIC_H);
+        if (pic != null) {
+            c.drawBitmap(pic, null, sr, tv.bmp);
+        } else {
+            tv.fill.setColor(Theme.RAISED);
+            c.drawRoundRect(sr, 8, 8, tv.fill);
+        }
+        float tx = px + UP_PIC_W + 28, tw = x + UP_W - 24 - tx;
+        tv.tMeta.setColor(card.counting ? Color.WHITE : Theme.TEXT_DIM);
+        c.drawText(card.heading(), tx, y + 46, tv.tMeta);
+        tv.tMeta.setColor(Theme.TEXT_DIM);
+        tv.tSmall.setColor(Theme.TEXT_BODY);
+        c.drawText(tv.fit(UpNext.episodeLine(next), tv.tSmall, tw), tx, y + 84, tv.tSmall);
+        tv.tSmall.setColor(Theme.TEXT_DIM);
+        float bw = tv.drawButton(c, tx, y + 102, "Play now", true, focused, true);
+        if (!controls) {
+            String hint = card.counting ? "Back to keep watching" : "Back to hide";
+            c.drawText(tv.fit(hint, tv.tSmall, tw - bw - 22), tx + bw + 22, y + 148, tv.tSmall);
+        }
+        if (card.counting || card.fraction >= 1) {
+            // The countdown, along the bottom edge of the picture.
+            tv.fill.setColor(Theme.SCRIM);
+            c.drawRect(px, py + UP_PIC_H - 6, px + UP_PIC_W, py + UP_PIC_H, tv.fill);
+            tv.fill.setColor(Theme.RED);
+            c.drawRect(px, py + UP_PIC_H - 6, px + UP_PIC_W * card.fraction, py + UP_PIC_H, tv.fill);
         }
     }
 
@@ -697,6 +730,13 @@ final class PlayerScreen extends Screen {
         }
         if (controls && st.error == null && !st.paused) {
             hideControls();
+            return true;
+        }
+        if (st.error == null && skipKind() == SKIP_NEXT) {
+            // Back on the Up Next card: keep watching (the credits), nothing starts early.
+            upNextDismissed = true;
+            skipInZone = false;
+            tv.kick();
             return true;
         }
         tv.host.stopPlayer();

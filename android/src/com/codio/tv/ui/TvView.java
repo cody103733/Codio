@@ -64,6 +64,9 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
 
         void audioSyncChanged();
 
+        /** Settings, Playback, New episode alerts was switched. */
+        void newEpisodeAlertsChanged();
+
         String version();
 
         /** Settings > Check for updates: looks for a newer Codio in the repo and offers to install it. */
@@ -353,6 +356,8 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
     }
 
     public void openDetail(Store.Meta m) {
+        // Its "New episode" mark has done its job.
+        NewEpisodes.seen(getContext(), m.id);
         push(new DetailScreen(this, m));
     }
 
@@ -549,6 +554,20 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
             c.drawRect(bx, by, bx + bw, by + 6, fill);
             fill.setColor(Theme.RED);
             c.drawRect(bx, by, bx + bw * Math.max(0.03f, m.progress), by + 6, fill);
+        }
+        NewEpisodes.Alert alert = NewEpisodes.of(m.id);
+        if (alert != null) {
+            // "New episode" across the top of the poster.
+            String label = alert.count > 1 ? "New episodes" : "New episode";
+            float tw = tSmall.measureText(label), bh = 38, bx = dx + 10, by = dy + 10;
+            fill.setColor(Theme.RED);
+            c.drawRoundRect(bx, by, bx + tw + 24, by + bh, bh / 2, bh / 2, fill);
+            int was = tSmall.getColor();
+            tSmall.setColor(Color.WHITE);
+            tSmall.setFakeBoldText(true);
+            c.drawText(label, bx + 12, by + bh / 2 + 8, tSmall);
+            tSmall.setFakeBoldText(false);
+            tSmall.setColor(was);
         }
         if (focus > 0.01f) ring(c, r, 14, focus);
     }

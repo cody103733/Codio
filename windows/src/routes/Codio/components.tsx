@@ -245,6 +245,7 @@ export const Poster = React.memo(({ meta, badge, onOpen, onPlay, onFocusItem, ca
                         : null
                 }
                 {badge ? <DownloadBadge done={badge.done} progress={badge.progress} className={styles['poster-badge']} /> : null}
+                {meta.newEpisodes ? <span className={styles['poster-new']}>{meta.newEpisodes > 1 ? 'New episodes' : 'New episode'}</span> : null}
                 {
                     meta.releaseInfo || meta.imdbRating ?
                         <span className={styles['poster-hover']}>

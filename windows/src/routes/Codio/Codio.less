@@ -498,6 +498,21 @@
     overflow: visible;
 }
 
+// "New episode" across the top of a poster (new episode alerts).
+.poster-new {
+    position: absolute;
+    top: calc(@u * 10);
+    left: calc(@u * 10);
+    padding: calc(@u * 5) calc(@u * 12) calc(@u * 6);
+    border-radius: calc(@u * 19);
+    background: @red;
+    color: #fff;
+    font-size: calc(@u * 20);
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 .progress {
     position: absolute;
     height: calc(@u * 6);
