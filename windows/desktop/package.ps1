@@ -6,7 +6,7 @@
 #   -RuntimeDir  a folder with libmpv-2.dll (mpv)
 #   -NodeExe     an official Node.js node.exe (win-x64); shipped as codio-runtime.exe
 #   -Makensis    NSIS's makensis.exe
-#   -SkipWebBuild  reuse an existing build\ folder
+#   -SkipWebBuild  reuse an existing .app\build folder
 param(
     [Parameter(Mandatory)] [string]$ShellExe,
     [Parameter(Mandatory)] [string]$LoaderDll,
@@ -21,16 +21,24 @@ $here = $PSScriptRoot
 $repo = Split-Path -Parent $here
 Set-Location $repo
 
+# The interface is ..\web with this folder's files laid over it, put together in .app (see assemble.js).
+$app = Join-Path $repo '.app'
 if (-not $SkipWebBuild) {
+    & node (Join-Path $repo 'assemble.js')
+    if ($LASTEXITCODE) { throw 'assemble.js failed' }
+    Set-Location $app
+    & pnpm install --frozen-lockfile
+    if ($LASTEXITCODE) { throw 'pnpm install failed' }
     $env:CODIO_VERSION = $Version
     & pnpm build
     if ($LASTEXITCODE) { throw 'pnpm build failed' }
+    Set-Location $repo
 }
 
 $out = Join-Path $repo 'dist\Codio-win64'
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Force $out | Out-Null
-Copy-Item -Recurse (Join-Path $repo 'build') (Join-Path $out 'web')
+Copy-Item -Recurse (Join-Path $app 'build') (Join-Path $out 'web')
 Copy-Item (Join-Path $here 'codio-web.js'), (Join-Path $here 'codio-downloads.js'), (Join-Path $here 'codio-update.js'), (Join-Path $here 'codio.ico'), (Join-Path $here 'README.txt') $out
 Copy-Item $ShellExe (Join-Path $out 'Codio.exe')
 Copy-Item $LoaderDll (Join-Path $out 'WebView2Loader.dll')

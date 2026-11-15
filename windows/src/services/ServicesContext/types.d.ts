@@ -1,3 +1,0 @@
-type ServicesContext = {
-    chromecast: any,
-};

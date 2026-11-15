@@ -1,6 +1,6 @@
 name: Build Codio for Windows
 
-# Builds the Windows installer (CodioSetup-<version>.exe) on every change to windows/.
+# Builds the Windows installer (CodioSetup-<version>.exe) on every change to windows/ or to web/, which it is built on.
 # When the version in windows/desktop/shell/Cargo.toml has no release yet, it also publishes
 # release windows-v<version> and points the "windows" entry of updates.json at it, which is
 # what Codio's Settings > Updates reads. So: bump that version (and UPDATE_NOTES.txt) to ship.
@@ -8,7 +8,7 @@ name: Build Codio for Windows
 on:
   push:
     branches: [main]
-    paths: ['windows/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'web/**', '.github/workflows/windows.yml']
   workflow_dispatch:
 
 permissions:
@@ -45,11 +45,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: windows/package.json
-
-      - name: Install the interface's packages
-        working-directory: windows
-        run: pnpm install --frozen-lockfile
+          package_json_file: web/package.json
 
       - name: Tools (llvm-mingw, NSIS)
         run: |

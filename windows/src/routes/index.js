@@ -1,29 +1,12 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
-const Addons = require('./Addons');
-const Board = require('./Board');
-const Discover = require('./Discover');
-const Library = require('./Library');
-const Calendar = require('./Calendar').default;
-const MetaDetails = require('./MetaDetails');
+// Codio for Windows uses its own screens (./Codio) and the player; the other web screens are not built in.
 const NotFound = require('./NotFound');
-const Search = require('./Search');
-const { default: Settings } = require('./Settings');
 const Player = require('./Player');
-const Intro = require('./Intro');
 const { default: Codio } = require('./Codio');
 
 module.exports = {
-    Addons,
-    Board,
-    Discover,
-    Library,
-    Calendar,
-    MetaDetails,
     NotFound,
-    Search,
-    Settings,
     Player,
-    Intro,
     Codio
 };
