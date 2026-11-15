@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.4.33",
-    "versionCode": 57,
+    "version": "1.4.34",
+    "versionCode": 58,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
+    "notes": "A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you."
   },
   "phone": {
-    "version": "1.0.15",
-    "versionCode": 16,
+    "version": "1.0.16",
+    "versionCode": 17,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "An episode you pick now always plays, even when the show is in Continue Watching on a later episode."
+    "notes": "A tidier Codio that matches on every device: settings are grouped the same way, Search remembers your recent searches, and the new Skip automatically setting jumps past intros, recaps and credits for you."
   },
   "windows": {
     "version": "1.6.9",
