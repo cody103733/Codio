@@ -6,7 +6,6 @@ import android.os.HandlerThread;
 import android.util.Log;
 import android.view.Surface;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
@@ -35,7 +34,7 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
     }
 
     // Observation formats, matching stremio-shell-ng.
-    private static final int FMT_NONE = 0, FMT_STRING = 1, FMT_FLAG = 3, FMT_INT64 = 4, FMT_DOUBLE = 5;
+    private static final int FMT_STRING = 1, FMT_FLAG = 3, FMT_INT64 = 4, FMT_DOUBLE = 5;
     private static final Map<String, Integer> FORMATS = new HashMap<>();
     static {
         for (String p : new String[]{"pause", "paused-for-cache", "seeking", "eof-reached", "keepaspect", "mute", "idle-active"}) FORMATS.put(p, FMT_FLAG);
@@ -248,49 +247,23 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
 
     // ---------------------------------------------------------------- web UI -> mpv
 
-    /** Handles one invoke from the web UI. Returns true if it was an mpv message. */
-    @Override public boolean handle(final String method, final Object params) {
-        switch (method) {
-            case "mpv-observe-prop":
-                if (params instanceof String) {
-                    final String name = (String) params;
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            observe(name, true);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-set-prop":
-                if (params instanceof JSONArray && ((JSONArray) params).length() >= 2) {
-                    final JSONArray a = (JSONArray) params;
-                    final String name = a.optString(0);
-                    final Object value = a.opt(1);
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            setProp(name, value);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-command":
-                if (params instanceof JSONArray) {
-                    final JSONArray a = (JSONArray) params;
-                    final String[] cmd = new String[a.length()];
-                    for (int i = 0; i < cmd.length; i++) cmd[i] = String.valueOf(a.opt(i));
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            command(cmd);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-set-gpu-video-processing":
-                return true;
-            default:
-                return false;
-        }
+    @Override public boolean handle(String method, Object params) {
+        return ShellProtocol.dispatch(method, params, worker, commands);
     }
+
+    private final ShellProtocol.Commands commands = new ShellProtocol.Commands() {
+        @Override public void observe(String name) {
+            MpvShell.this.observe(name, true);
+        }
+
+        @Override public void setProp(String name, Object value) {
+            MpvShell.this.setProp(name, value);
+        }
+
+        @Override public void command(String[] cmd) {
+            MpvShell.this.command(cmd);
+        }
+    };
 
     private void observe(String name, boolean fromUi) {
         if (fromUi) {
@@ -504,10 +477,7 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
         }
         if (!wanted) return;
         try {
-            JSONObject change = new JSONObject();
-            change.put("name", name);
-            change.put("data", data);
-            signal("mpv-prop-change", change);
+            sink.send(ShellProtocol.propChange(name, data));
         } catch (Throwable t) {
             Log.w(TAG, "forward " + name + " failed", t);
         }
@@ -629,10 +599,7 @@ final class MpvShell implements PlayerShell, MPVLib.EventObserver, MPVLib.LogObs
 
     private void sendVideoReady(int id, boolean ready) {
         try {
-            JSONObject o = new JSONObject();
-            o.put("loadId", id);
-            o.put("ready", ready);
-            signal("mpv-event-video-ready", o);
+            sink.send(ShellProtocol.videoReady(id, ready));
         } catch (Throwable ignored) {
         }
     }

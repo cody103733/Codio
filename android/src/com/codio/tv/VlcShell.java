@@ -1,5 +1,9 @@
 package com.codio.tv;
 
+import static com.codio.tv.ShellProtocol.num;
+import static com.codio.tv.ShellProtocol.trackId;
+import static com.codio.tv.ShellProtocol.truthy;
+
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.net.Uri;
@@ -325,48 +329,23 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
 
     // ---------------------------------------------------------------- web UI -> VLC
 
-    @Override public boolean handle(final String method, final Object params) {
-        switch (method) {
-            case "mpv-observe-prop":
-                if (params instanceof String) {
-                    final String name = (String) params;
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            observe(name);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-set-prop":
-                if (params instanceof JSONArray && ((JSONArray) params).length() >= 2) {
-                    final JSONArray a = (JSONArray) params;
-                    final String name = a.optString(0);
-                    final Object value = a.opt(1);
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            setProp(name, value);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-command":
-                if (params instanceof JSONArray) {
-                    final JSONArray a = (JSONArray) params;
-                    final String[] cmd = new String[a.length()];
-                    for (int i = 0; i < cmd.length; i++) cmd[i] = String.valueOf(a.opt(i));
-                    worker.post(new Runnable() {
-                        @Override public void run() {
-                            command(cmd);
-                        }
-                    });
-                }
-                return true;
-            case "mpv-set-gpu-video-processing":
-                return true;
-            default:
-                return false;
-        }
+    @Override public boolean handle(String method, Object params) {
+        return ShellProtocol.dispatch(method, params, worker, commands);
     }
+
+    private final ShellProtocol.Commands commands = new ShellProtocol.Commands() {
+        @Override public void observe(String name) {
+            VlcShell.this.observe(name);
+        }
+
+        @Override public void setProp(String name, Object value) {
+            VlcShell.this.setProp(name, value);
+        }
+
+        @Override public void command(String[] cmd) {
+            VlcShell.this.command(cmd);
+        }
+    };
 
     private void observe(String name) {
         Object replay;
@@ -403,32 +382,6 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
         if (replay != null) forward(name, replay);
     }
 
-    private static boolean truthy(Object v) {
-        if (v instanceof Boolean) return (Boolean) v;
-        if (v instanceof Number) return ((Number) v).doubleValue() != 0;
-        String s = String.valueOf(v);
-        return "yes".equals(s) || "true".equals(s);
-    }
-
-    private static int trackId(Object v) {
-        if (v == null || v == JSONObject.NULL) return -1;
-        String s = String.valueOf(v);
-        if ("no".equals(s) || "false".equals(s)) return -1;
-        try {
-            return (int) Double.parseDouble(s);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-
-    private static double num(Object v, double fallback) {
-        if (v instanceof Number) return ((Number) v).doubleValue();
-        try {
-            return Double.parseDouble(String.valueOf(v));
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
 
     private void setProp(String name, Object value) {
         if (value == null || value == JSONObject.NULL) return;
@@ -1313,10 +1266,7 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
         }
         if (!wanted) return;
         try {
-            JSONObject change = new JSONObject();
-            change.put("name", name);
-            change.put("data", data);
-            signal("mpv-prop-change", change);
+            sink.send(ShellProtocol.propChange(name, data));
         } catch (Throwable t) {
             Log.w(TAG, "forward " + name + " failed", t);
         }
@@ -1324,10 +1274,7 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
 
     private void sendVideoReady(int id, boolean ready) {
         try {
-            JSONObject o = new JSONObject();
-            o.put("loadId", id);
-            o.put("ready", ready);
-            signal("mpv-event-video-ready", o);
+            sink.send(ShellProtocol.videoReady(id, ready));
         } catch (Throwable ignored) {
         }
     }

@@ -1,5 +1,9 @@
 package com.codio.tv;
 
+import static com.codio.tv.ShellProtocol.num;
+import static com.codio.tv.ShellProtocol.trackId;
+import static com.codio.tv.ShellProtocol.truthy;
+
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -14,7 +18,6 @@ import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -127,7 +130,6 @@ final class DvShell {
     // ---------------------------------------------------------------- can this TV do it?
 
     private static Boolean supported;
-
 
     /** The screen takes Dolby Vision and there's a Dolby Vision decoder apps can use. */
     static synchronized boolean deviceSupports(android.content.Context c) {
@@ -857,10 +859,7 @@ final class DvShell {
 
     private void videoReady(boolean ready) {
         try {
-            JSONObject o = new JSONObject();
-            o.put("loadId", loadId);
-            o.put("ready", ready);
-            sink.send(ShellProtocol.signal("mpv-event-video-ready", o));
+            sink.send(ShellProtocol.videoReady(loadId, ready));
         } catch (Throwable ignored) {
         }
     }
@@ -873,38 +872,9 @@ final class DvShell {
             last.put(name, data);
         }
         try {
-            JSONObject change = new JSONObject();
-            change.put("name", name);
-            change.put("data", data);
-            sink.send(ShellProtocol.signal("mpv-prop-change", change));
+            sink.send(ShellProtocol.propChange(name, data));
         } catch (Throwable ignored) {
         }
     }
 
-    private static boolean truthy(Object v) {
-        if (v instanceof Boolean) return (Boolean) v;
-        if (v instanceof Number) return ((Number) v).doubleValue() != 0;
-        String s = String.valueOf(v);
-        return "yes".equals(s) || "true".equals(s);
-    }
-
-    private static int trackId(Object v) {
-        if (v == null || v == JSONObject.NULL) return -1;
-        String s = String.valueOf(v);
-        if ("no".equals(s) || "false".equals(s)) return -1;
-        try {
-            return (int) Double.parseDouble(s);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-
-    private static double num(Object v, double fallback) {
-        if (v instanceof Number) return ((Number) v).doubleValue();
-        try {
-            return Double.parseDouble(String.valueOf(v));
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
 }
