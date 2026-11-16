@@ -124,7 +124,7 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .padding(.bottom, 24)
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea())
         .navigationBarHidden(true)
         .onAppear { if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) } }
         .alert("Sign in", isPresented: $showSignIn) {

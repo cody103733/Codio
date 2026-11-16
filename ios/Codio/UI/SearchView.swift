@@ -39,7 +39,7 @@ struct SearchView: View {
             }
             .scrollDismissesKeyboard(.immediately)
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea())
         .navigationBarHidden(true)
         .onSubmit { remember() }
         .onDisappear { remember() }
@@ -131,7 +131,7 @@ struct LibraryView: View {
                 .padding(.bottom, 16)
             }
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea())
         .navigationBarHidden(true)
     }
 }

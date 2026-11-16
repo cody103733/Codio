@@ -40,7 +40,7 @@ final class PhoneKit {
         } catch (Throwable t) {
             regular = Typeface.SANS_SERIF;
         }
-        bold = Typeface.create(regular, Typeface.BOLD);
+        bold = Theme.boldFont(ctx, regular);
     }
 
     static int dp(Context c, float v) {

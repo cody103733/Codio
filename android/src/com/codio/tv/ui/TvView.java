@@ -144,7 +144,7 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
             tf = Typeface.SANS_SERIF;
         }
         regular = tf;
-        bold = Typeface.create(tf, Typeface.BOLD);
+        bold = Theme.boldFont(ctx, tf);
         tHero = text(64, Color.WHITE, true);
         tTitle = text(34, Color.WHITE, true);
         tBody = text(27, Theme.TEXT_BODY, false);

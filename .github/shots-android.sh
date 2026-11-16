@@ -21,6 +21,8 @@ for name in search library settings; do
   i=$((i+1))
   adb shell input tap $((W/8 + i*W/4)) $TABY
   shot android-phone-$name 6
+  # Search opens the keyboard, which lifts the tab bar: put it away before the next tap.
+  [ "$name" = search ] && adb shell input keyevent BACK && sleep 1
 done
 adb shell input swipe $((W/2)) $((H*7/10)) $((W/2)) $((H*2/10)) 400
 shot android-phone-settings-2 4

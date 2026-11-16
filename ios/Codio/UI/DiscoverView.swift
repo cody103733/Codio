@@ -34,7 +34,7 @@ struct DiscoverView: View {
             }
             .padding(.vertical, 10)
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea())
         .navigationTitle(typeLabel(target.type))
         .navigationBarTitleDisplayMode(.inline)
         .profileToolbar()

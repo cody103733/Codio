@@ -1405,12 +1405,11 @@
 
 // ---- Settings sections, sign-in, start screen
 .settings .setting-heading {
-    font-size: calc(@u * 24);
+    // The same heading as on the TV and phone apps: white, bold, written as "Playback".
+    font-size: calc(@u * 32);
     font-weight: 700;
-    color: @dim;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: calc(@u * 26) calc(@u * 30) calc(@u * 12) calc(@u * 30);
+    color: @text;
+    padding: calc(@u * 30) 0 calc(@u * 14) 0;
 
     &:first-child {
         padding-top: 0;
