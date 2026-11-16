@@ -47,13 +47,13 @@ struct DetailView: View {
                     buttons
                     sourceStatus
                     if let d = meta.description {
-                        Text(d).font(.subheadline).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
+                        Text(d).font(Theme.font(.subheadline)).foregroundColor(.white).fixedSize(horizontal: false, vertical: true)
                     }
                     if !meta.cast.isEmpty {
-                        Text("Starring: " + meta.cast.prefix(4).joined(separator: ", ")).font(.caption).foregroundColor(Theme.dim).lineLimit(2)
+                        Text("Starring: " + meta.cast.prefix(4).joined(separator: ", ")).font(Theme.font(.caption)).foregroundColor(Theme.dim).lineLimit(2)
                     }
                     if !meta.genres.isEmpty {
-                        Text("Genres: " + meta.genres.joined(separator: ", ")).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
+                        Text("Genres: " + meta.genres.joined(separator: ", ")).font(Theme.font(.caption)).foregroundColor(Theme.dim).lineLimit(1)
                     }
                     actionIcons
                     rating
@@ -106,11 +106,11 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     BrandWordmark(height: 14)
-                    Text(isSeries ? "SHOW" : "MOVIE").font(.caption2.weight(.bold)).kerning(2).foregroundColor(Theme.red)
+                    Text(isSeries ? "SHOW" : "MOVIE").font(Theme.font(.caption2, .bold)).kerning(2).foregroundColor(Theme.red)
                 }
-                Text(meta.name).font(.title2.bold()).foregroundColor(.white)
+                Text(meta.name).font(Theme.font(.title2, .bold)).foregroundColor(.white)
                 if !meta.metaLine.isEmpty {
-                    Text(meta.metaLine).font(.footnote).foregroundColor(Theme.dim)
+                    Text(meta.metaLine).font(Theme.font(.footnote)).foregroundColor(Theme.dim)
                 }
             }
             .padding(.horizontal, 16)
@@ -120,7 +120,7 @@ struct DetailView: View {
     /// Your stars for this title (they feed Top Picks for You).
     private var rating: some View {
         HStack(spacing: 12) {
-            Text(ratings.stars(meta.id) > 0 ? "Your rating" : "Rate this").font(.caption).foregroundColor(Theme.dim)
+            Text(ratings.stars(meta.id) > 0 ? "Your rating" : "Rate this").font(Theme.font(.caption)).foregroundColor(Theme.dim)
             StarRating(stars: ratings.stars(meta.id), size: 22) { s in
                 ratings.set(meta, s)
                 if s > 0 { engine.show(toast: "Rated \(s) star" + (s == 1 ? "" : "s")) }
@@ -156,7 +156,7 @@ struct DetailView: View {
     private func iconLabel(_ icon: String, _ text: String) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 22, weight: .regular))
-            Text(text).font(.caption2).foregroundColor(Theme.dim)
+            Text(text).font(Theme.font(.caption2)).foregroundColor(Theme.dim)
         }
         .foregroundColor(.white)
         .frame(minWidth: 50)
@@ -259,11 +259,11 @@ struct DetailView: View {
         if let s = store.sourcesFor(meta, playTarget) {
             if let b = s.best {
                 Text("Ready" + (b.qualityLabel.map { " in " + $0 } ?? "") + (b.cached ? " · instant" : ""))
-                    .font(.caption).foregroundColor(.green)
+                    .font(Theme.font(.caption)).foregroundColor(.green)
             } else if s.loading {
-                Text("Finding sources…").font(.caption).foregroundColor(Theme.dim)
+                Text("Finding sources…").font(Theme.font(.caption)).foregroundColor(Theme.dim)
             } else if s.list.isEmpty {
-                Text("No sources found for this yet").font(.caption).foregroundColor(Theme.dim)
+                Text("No sources found for this yet").font(Theme.font(.caption)).foregroundColor(Theme.dim)
             }
         }
     }
@@ -273,7 +273,7 @@ struct DetailView: View {
             let seasons = meta.seasons
             VStack(alignment: .leading, spacing: 0) {
                 Rectangle().fill(Theme.red).frame(width: 80, height: 4)
-                Text("EPISODES").font(.subheadline.weight(.bold)).foregroundColor(.white).padding(.top, 8)
+                Text("EPISODES").font(Theme.font(.subheadline, .bold)).foregroundColor(.white).padding(.top, 8)
             }
             .padding(.horizontal, 16)
             .padding(.top, 6)
@@ -285,9 +285,9 @@ struct DetailView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(season == 0 ? "Specials" : "Season \(season)")
-                        Image(systemName: "chevron.down").font(.caption)
+                        Image(systemName: "chevron.down").font(Theme.font(.caption))
                     }
-                    .font(.subheadline.weight(.semibold)).foregroundColor(.white)
+                    .font(Theme.font(.subheadline, .semibold)).foregroundColor(.white)
                     .padding(.horizontal, 14).padding(.vertical, 9)
                     .background(RoundedRectangle(cornerRadius: 4).fill(Theme.raised))
                 }
@@ -345,17 +345,17 @@ private struct EpisodeRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     VStack(alignment: .leading, spacing: 3) {
                         Text("\(video.episode). " + (video.title.isEmpty ? "Episode \(video.episode)" : video.title))
-                            .font(.subheadline.weight(.medium)).foregroundColor(.white).lineLimit(2)
+                            .font(Theme.font(.subheadline, .medium)).foregroundColor(.white).lineLimit(2)
                         if let e = entry {
-                            Text(downloadStatusText(e)).font(.caption2).foregroundColor(e.state == .done ? .white : Theme.dim).lineLimit(1)
+                            Text(downloadStatusText(e)).font(Theme.font(.caption2)).foregroundColor(e.state == .done ? .white : Theme.dim).lineLimit(1)
                         } else if store.entry(meta.id)?.videoId == video.id {
-                            Text("Last watched").font(.caption2.bold()).foregroundColor(Theme.red)
+                            Text("Last watched").font(Theme.font(.caption2, .bold)).foregroundColor(Theme.red)
                         }
                     }
                     Spacer(minLength: 0)
                 }
                 if let o = video.overview {
-                    Text(o).font(.caption).foregroundColor(Theme.dim).lineLimit(3)
+                    Text(o).font(Theme.font(.caption)).foregroundColor(Theme.dim).lineLimit(3)
                 }
             }
             .contentShape(Rectangle())

@@ -52,6 +52,20 @@ final class Theme {
     static final int[] PROFILE_COLORS = {0xFFE60A14, 0xFF2178F2, 0xFFFABA1A, 0xFF29AD61, 0xFF8C4DD9, 0xFFF27326};
 
     /**
+     * The bold cut of Plus Jakarta Sans. The font file holds every weight, and asking Android for "bold" of it
+     * only gave the regular weight, so headings looked lighter than on Windows; this asks for weight 700 itself.
+     */
+    static android.graphics.Typeface boldFont(android.content.Context ctx, android.graphics.Typeface regular) {
+        try {
+            android.graphics.Typeface t = new android.graphics.Typeface.Builder(ctx.getAssets(), "web/fonts/PlusJakartaSans.ttf")
+                    .setFontVariationSettings("'wght' 700").build();
+            if (t != null) return t;
+        } catch (Throwable ignored) {
+        }
+        return android.graphics.Typeface.create(regular, android.graphics.Typeface.BOLD);
+    }
+
+    /**
      * The Codio wordmark, drawn in a 129x40 box: the red C around a play button IS the C of "codio" (one mark, never an
      * icon beside the word). Same drawing as BrandLogo on Windows and BrandWordmark on the iPhone.
      */

@@ -191,12 +191,13 @@ struct ProfileAvatar: View {
             .fill(Theme.profileColors[profile.color % Theme.profileColors.count])
             .frame(width: size, height: size)
             .overlay(Text(String(profile.name.prefix(1)).uppercased())
-                .font(.system(size: size * 0.48, weight: .heavy)).foregroundColor(.white))
+                .font(Theme.font(size * 0.48, .heavy)).foregroundColor(.white))
     }
 }
 
 /// The round avatar in the top right of every screen: tap it to pick who's watching.
 struct ProfileButton: View {
+    @EnvironmentObject var engine: Engine
     @ObservedObject private var profiles = Profiles.shared
     var size: CGFloat = 30
     var body: some View {
@@ -207,6 +208,16 @@ struct ProfileButton: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Who's watching: \(p.name)")
+        } else {
+            // Not signed in yet: the same grey "?" Codio shows on Android.
+            Button { engine.show(toast: "Sign in first, in Settings.") } label: {
+                Text("?").font(Theme.font(size * 0.45, .bold)).foregroundColor(Theme.dim)
+                    .frame(width: size, height: size)
+                    .background(Circle().fill(Theme.raised))
+                    .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Who's watching")
         }
     }
 }
@@ -236,9 +247,9 @@ struct ProfilePicker: View {
                 }
                 .overlay(alignment: .trailing) {
                     Button(editing ? "Done" : "Edit") { editing.toggle() }
-                        .font(.subheadline.weight(.semibold)).foregroundColor(.white).padding(.trailing, 20)
+                        .font(Theme.font(.subheadline, .semibold)).foregroundColor(.white).padding(.trailing, 20)
                 }
-                Text(editing ? "Manage Profiles" : "Who's watching?").font(.title2.weight(.semibold)).foregroundColor(.white)
+                Text(editing ? "Manage Profiles" : "Who's watching?").font(Theme.font(.title2, .semibold)).foregroundColor(.white)
                 LazyVGrid(columns: [GridItem(.fixed(120), spacing: 24), GridItem(.fixed(120), spacing: 24)], spacing: 22) {
                     ForEach(profiles.list) { p in
                         Button {
@@ -251,13 +262,13 @@ struct ProfilePicker: View {
                                     .overlay(alignment: .topTrailing) {
                                         if editing, p.id != profiles.currentEmail {
                                             Button { profiles.remove(p) } label: {
-                                                Image(systemName: "minus.circle.fill").font(.title2)
+                                                Image(systemName: "minus.circle.fill").font(Theme.font(.title2))
                                                     .foregroundStyle(Color.white, Theme.red)
                                             }
                                             .offset(x: 8, y: -8)
                                         }
                                     }
-                                Text(p.name).font(.subheadline).foregroundColor(Theme.dim).lineLimit(1)
+                                Text(p.name).font(Theme.font(.subheadline)).foregroundColor(Theme.dim).lineLimit(1)
                             }
                         }
                         .buttonStyle(.plain)
@@ -268,14 +279,14 @@ struct ProfilePicker: View {
                                 RoundedRectangle(cornerRadius: 8).stroke(Theme.line, lineWidth: 2)
                                     .frame(width: 104, height: 104)
                                     .overlay(Image(systemName: "plus").font(.system(size: 38, weight: .light)).foregroundColor(.white))
-                                Text("Add Profile").font(.subheadline).foregroundColor(Theme.dim)
+                                Text("Add Profile").font(Theme.font(.subheadline)).foregroundColor(Theme.dim)
                             }
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 if editing {
-                    Text("Tap a profile to change its colour.").font(.caption).foregroundColor(Theme.dim)
+                    Text("Tap a profile to change its colour.").font(Theme.font(.caption)).foregroundColor(Theme.dim)
                 }
                 if let b = profiles.busy {
                     HStack(spacing: 10) { ProgressView().tint(Theme.red); Text(b).foregroundColor(.white) }

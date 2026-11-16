@@ -19,9 +19,9 @@ label, take it from here; when something new is needed, add it here and to all t
 | red-soft | `#FF5A5F` | Error text on dark backgrounds |
 | logo gradient | `#FF4B2B` to `#C3001D` | The C of the wordmark only |
 | black | `#000000` | Behind video and artwork |
-| bg | `#0B0B0B` | Flat pages (Search, Library, Settings). The iPhone uses true black instead |
+| bg | `#0B0B0B` | Flat pages on TV and Windows (Search, Library, Settings), and the phones' tab bar. Phone pages are black |
 | card | `#161616` | Rows, cards, poster placeholders |
-| raised | `#262626` | Chips, buttons and fields that sit on a card or page |
+| raised | `#262626` | Chips that aren't chosen, buttons and fields that sit on a card or page |
 | line | `#333333` | Dividers, empty progress tracks |
 | text | `#FFFFFF` | Titles and anything focused-on-dark |
 | body | `#D6D6D6` | Paragraphs and help text |
@@ -33,9 +33,13 @@ Profile colours, in order: `#E60A14`, `#2178F2`, `#FABA1A`, `#29AD61`, `#8C4DD9`
 
 ## Type and shape
 
-- Font: Plus Jakarta Sans (the iPhone uses the system font).
+- Font: Plus Jakarta Sans on every app (`Theme.font` on the iPhone, which loads the same file the other apps use).
 - Focus is shown by turning the row or button white with dark text, never by an outline alone.
 - Corners: 8 to 10 on rows, keys and buttons, fully round on chips and avatars.
+- Chips (Both / Movies / Shows, the Library and genre filters): red with white text when chosen, raised grey with white
+  text otherwise. Never white, never outlined.
+- Settings rows are cards (`card`, corner 10): the name in bold white on the left, what it's set to in `dim` on the right.
+  Section headings are bold white and written as "Playback", not in capitals.
 
 ## The wordmark
 
@@ -64,18 +68,37 @@ Search filter: Both, Movies, Shows. Empty search shows "Recent searches" with "C
 Sections, in order, with the same labels and help text everywhere a setting exists:
 
 1. **Playback**: Smart auto-play, Preferred quality, If that quality isn't available, Skip sources above, Prefer instant
-   sources, Source list, Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts, Skip forward
-   and back
+   sources, Source list (TV, Windows), Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts,
+   Mini player (phones), Skip forward and back (TV)
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
    Hardware decoding, Surround sound on Windows)
 3. **Downloads** (phones)
 4. **Languages & subtitles**: Audio language, Subtitles, Subtitle size
-5. **Account**: sign in or out, Who's watching
+5. **Account**: sign in or out, Who's watching, When Codio opens (phones), Cast photos (TMDB key)
 6. **Addons**
 7. **About**: Updates, and the version as "Codio 1.2.3 for Android TV / Android / iPhone / Windows"
 
 Choices read as plain values ("On", "Off", "Plays automatically", "4 seconds (balanced)"). The canonical wording is in
 `android/src/com/codio/tv/ui/Setting.java`.
+
+## Phones
+
+Codio for iPhone and Codio for Android are the same screens, drawn to the same numbers (points on one are dp on the other).
+`android/src/com/codio/tv/ui/Phone*.java` is the reference; `ios/Codio/UI` follows it. A change to one is made to both.
+
+- **Tab bar**: Home, Search, Library, Settings. 58 high on `bg`, line-drawn icons (2 thick) over an 11 label; white with a
+  short red line on top when chosen, `faint` otherwise.
+- **Home**: the featured title's poster edge to edge (1.2 times as tall as the screen is wide), shaded dark at the top and
+  to black at the bottom. Over its top: the wordmark, "Movies", "Shows", and the round avatar (34). At its bottom, centred:
+  the title's logo (or its name, 28 bold), the genres on one line (13, `body`), then Play (white) and Info (glass) side by
+  side. Below: Continue Watching, then a row per catalog. Rows are a 17 bold heading over posters 110 by 165, 8 apart,
+  corner 6. A poster opens the title's page.
+- **Search**: a `raised` field (corner 8, "Movies, shows…") with the avatar beside it, the Both / Movies / Shows chips,
+  then "Recent searches" or the results three across (6 apart).
+- **Library**: "Library" (24 bold) with the avatar, the chips All / Movies / Shows / Downloads, then the grid.
+- **Movies / Shows** (from Home): a row of catalog chips, a row of genre chips, the grid.
+- **Settings**: "Settings" (24 bold) with the avatar, then the sections below as card rows with a line of help (12, `dim`)
+  inside each. Tapping a row offers its choices.
 
 ## Up Next
 

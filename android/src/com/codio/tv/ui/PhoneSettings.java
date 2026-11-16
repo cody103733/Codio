@@ -57,7 +57,7 @@ final class PhoneSettings extends PhoneUi.Page {
         sig = signature();
         list.removeAllViews();
         TextView title = PhoneKit.text(ctx(), "Settings", 24, Color.WHITE, true);
-        title.setPadding(dp(16), dp(14), dp(16), dp(4));
+        title.setPadding(dp(16), dp(14), dp(16), dp(6));
         list.addView(PhoneUi.titleRow(ui, title));
         String section = null;
         for (Setting s : Setting.all(true)) {
@@ -67,6 +67,7 @@ final class PhoneSettings extends PhoneUi.Page {
         list.addView(PhoneUi.sectionTitle(ctx(), Setting.ACCOUNT));
         list.addView(accountRow());
         list.addView(profilesRow());
+        list.addView(choiceRow(Setting.askProfile()));
         list.addView(tmdbRow());
         list.addView(PhoneUi.sectionTitle(ctx(), "Addons"));
         addAddons();
@@ -81,14 +82,17 @@ final class PhoneSettings extends PhoneUi.Page {
     private LinearLayout row(String label, String value, String help, View.OnClickListener onClick) {
         LinearLayout r = new LinearLayout(ctx());
         r.setOrientation(LinearLayout.VERTICAL);
-        r.setPadding(dp(16), dp(10), dp(16), dp(10));
-        r.setBackground(PhoneKit.pressable(null, 0));
+        r.setPadding(dp(14), dp(11), dp(14), dp(11));
+        r.setBackground(PhoneKit.pressable(PhoneKit.round(Theme.CARD, dp(10)), dp(10)));
         r.setOnClickListener(onClick);
+        LinearLayout.LayoutParams card = new LinearLayout.LayoutParams(-1, -2);
+        card.setMargins(dp(12), dp(3), dp(12), dp(3));
+        r.setLayoutParams(card);
         LinearLayout line = new LinearLayout(ctx());
         line.setGravity(Gravity.CENTER_VERTICAL);
         TextView l = PhoneKit.text(ctx(), label, 15, Color.WHITE, true);
         line.addView(l, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView v = PhoneKit.text(ctx(), value, 14, Theme.RED_SOFT, true);
+        TextView v = PhoneKit.text(ctx(), value, 14, Theme.TEXT_DIM, true);
         v.setGravity(Gravity.END);
         v.setPadding(dp(8), 0, 0, 0);
         line.addView(v, new LinearLayout.LayoutParams(-2, -2));
@@ -143,7 +147,7 @@ final class PhoneSettings extends PhoneUi.Page {
     private View profilesRow() {
         JSONObject p = Profiles.current(ui.store, ui.host.prefs());
         return row("Who's watching", p != null ? Profiles.name(p) : "Sign in first",
-                "Each profile has its own library, Continue Watching and addons. Profiles are made on the iPhone and show up here on their own.", new View.OnClickListener() {
+                "Each profile has its own library, Continue Watching and addons.", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 ui.pickProfile();

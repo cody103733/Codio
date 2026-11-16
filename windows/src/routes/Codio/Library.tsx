@@ -234,7 +234,7 @@ const Library = () => {
             <div ref={scroller} className={styles['page-scroll']} onScroll={(e) => setScrolled((e.target as HTMLDivElement).scrollTop > 0)}>
                 <div className={styles['discover-chips']}>
                     <Strip className={styles['chip-strip']}>
-                        {types.map((t) => <Chip key={t.type ?? '*'} label={t.type === null ? 'Everything' : typeLabel(t.type)} selected={!showDownloads && (t.selected || (t.type === null && !types.some((o) => o.selected)))} onClick={() => pick(() => setType(t.type))} />)}
+                        {types.map((t) => <Chip key={t.type ?? '*'} label={t.type === null ? 'All' : typeLabel(t.type)} selected={!showDownloads && (t.selected || (t.type === null && !types.some((o) => o.selected)))} onClick={() => pick(() => setType(t.type))} />)}
                         {downloads.available ? <Chip label={`Downloads${downloads.entries.length > 0 ? `  ${downloads.entries.length}` : ''}`} selected={showDownloads} onClick={() => { setShowDownloads(true); if (scroller.current) scroller.current.scrollTop = 0; }} /> : null}
                     </Strip>
                     {
@@ -251,7 +251,7 @@ const Library = () => {
                         <div className={styles['empty']}>
                             {
                                 library?.selected === null || library === null ? <Spinner /> :
-                                    'Nothing here yet. Titles you watch, or add with "+ Library", show up here.'
+                                    'Nothing here yet. Use \u201C+ Library\u201D on a movie or show to save it.'
                             }
                         </div>
                         : null
