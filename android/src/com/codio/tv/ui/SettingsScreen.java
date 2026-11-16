@@ -249,6 +249,9 @@ final class SettingsScreen extends Screen {
                 c.drawRoundRect(r, 14, 14, tv.fill);
             }
             tv.tLabel.setColor(f ? Theme.ON_FOCUS : Theme.TEXT);
+            // Regular weight, like the iPhone's settings rows.
+            tv.tLabel.setTypeface(tv.regular);
+            tv.tNav.setTypeface(tv.regular);
             c.drawText(it.label, LIST_X + 30, y + 49, tv.tLabel);
             String v = it.value();
             tv.tNav.setColor(f ? Theme.ON_FOCUS_DIM : Theme.RED);
@@ -259,6 +262,8 @@ final class SettingsScreen extends Screen {
                 c.drawText("\u2039", vx - 30, y + 49, tv.tNav);
                 c.drawText("\u203A", LIST_X + LIST_W - 40, y + 49, tv.tNav);
             }
+            tv.tLabel.setTypeface(tv.bold);
+            tv.tNav.setTypeface(tv.bold);
         }
         c.restore();
         tv.tLabel.setColor(Theme.TEXT);
