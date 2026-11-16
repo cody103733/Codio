@@ -41,6 +41,8 @@ jobs:
           echo "device $DEVICE"
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
+          # Dark mode, as on Cody's iPhone.
+          xcrun simctl ui "$DEVICE" appearance dark || true
           xcrun simctl install "$DEVICE" ios/build/Build/Products/Debug-iphonesimulator/Codio.app
           names=(home search library settings)
           for i in 0 1 2 3; do

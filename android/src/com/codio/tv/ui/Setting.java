@@ -132,10 +132,10 @@ final class Setting {
         return l;
     }
 
-    /** Under Account on phones: open in the last profile, or ask who's watching each time. */
+    /** Phones (Playback, as on the iPhone): open in the last profile, or ask who's watching each time. */
     static Setting askProfile() {
-        return new Setting(ACCOUNT, DEVICE, "When Codio opens", "Codio opens in the profile you used last, or asks who's watching every time.",
-                "ask_profile", "off", new Object[]{"off", "on"}, new String[]{"Open the last profile", "Ask who's watching"}, false);
+        return new Setting(PLAYBACK, DEVICE, "Who's watching?", "Codio opens in the profile you used last. Turn this on to be asked who's watching every time it opens.",
+                "ask_profile", "off", new Object[]{"on", "off"}, new String[]{"Ask when Codio opens", "Open the last profile"}, false);
     }
 
     /** Every choice setting, in the order shown. phone = Codio for phones, otherwise Android TV. */
@@ -171,6 +171,7 @@ final class Setting {
                 : "Marks shows you're watching when a new episode is out, and puts them first in Continue Watching.",
                 NewEpisodes.PREF, "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
         if (phone) {
+            l.add(askProfile());
             l.add(new Setting(PLAYBACK, DEVICE, "Mini player", "When you leave Codio during a video, it keeps playing in a small window over your other apps.",
                     "pip_auto", "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
         }

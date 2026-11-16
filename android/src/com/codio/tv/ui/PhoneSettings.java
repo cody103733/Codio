@@ -1,23 +1,40 @@
 package com.codio.tv.ui;
 
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
+import android.text.method.PasswordTransformationMethod;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-
-/** Settings in sections: playback, downloads, languages, account, addons. Tap a row to change it. */
+/**
+ * Settings, laid out like the iPhone's (the standard for the phones): a grouped list with Playback, Downloads,
+ * Languages & subtitles, the TMDB key, Updates, Account and Addons. A row's value is red; tap it for the choices.
+ */
 final class PhoneSettings extends PhoneUi.Page {
     private LinearLayout list;
     private String sig;
+    private EditText keyField;
+    private TextView keyStatus;
+    private final Handler h = new Handler(Looper.getMainLooper());
+    /** Bumped for every key typed, so an older check that answers late is ignored. */
+    private int keyCheck = 0;
 
     PhoneSettings(PhoneUi ui) {
         super(ui);
@@ -26,6 +43,7 @@ final class PhoneSettings extends PhoneUi.Page {
     @Override
     View build() {
         ScrollView sv = new ScrollView(ctx());
+        sv.setBackgroundColor(Color.BLACK);
         list = new LinearLayout(ctx());
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(0, 0, 0, dp(24));
@@ -56,137 +74,318 @@ final class PhoneSettings extends PhoneUi.Page {
         if (list == null) return;
         sig = signature();
         list.removeAllViews();
-        TextView title = PhoneKit.text(ctx(), "Settings", 24, Color.WHITE, true);
-        title.setPadding(dp(16), dp(14), dp(16), dp(6));
-        list.addView(PhoneUi.titleRow(ui, title));
+        list.addView(ui.largeTitle("Settings", false));
         String section = null;
+        LinearLayout group = null;
         for (Setting s : Setting.all(true)) {
-            if (!s.section.equals(section)) list.addView(PhoneUi.sectionTitle(ctx(), section = s.section));
-            list.addView(choiceRow(s));
+            if (!s.section.equals(section)) {
+                header(section = s.section, section.equals(Setting.PLAYBACK));
+                group = group();
+            }
+            add(group, choiceRow(s));
         }
-        list.addView(PhoneUi.sectionTitle(ctx(), Setting.ACCOUNT));
-        list.addView(accountRow());
-        list.addView(profilesRow());
-        list.addView(choiceRow(Setting.askProfile()));
-        list.addView(tmdbRow());
-        list.addView(PhoneUi.sectionTitle(ctx(), "Addons"));
-        addAddons();
-        list.addView(PhoneUi.sectionTitle(ctx(), Setting.ABOUT));
-        list.addView(updatesRow());
-        TextView ver = PhoneKit.text(ctx(), "Codio " + ui.host.version() + " for Android", 12, Theme.TEXT_FAINT, false);
-        ver.setGravity(Gravity.CENTER);
-        ver.setPadding(0, dp(24), 0, 0);
-        list.addView(ver);
-    }
 
-    private LinearLayout row(String label, String value, String help, View.OnClickListener onClick) {
-        LinearLayout r = new LinearLayout(ctx());
-        r.setOrientation(LinearLayout.VERTICAL);
-        r.setPadding(dp(14), dp(11), dp(14), dp(11));
-        r.setBackground(PhoneKit.pressable(PhoneKit.round(Theme.CARD, dp(10)), dp(10)));
-        r.setOnClickListener(onClick);
-        LinearLayout.LayoutParams card = new LinearLayout.LayoutParams(-1, -2);
-        card.setMargins(dp(12), dp(3), dp(12), dp(3));
-        r.setLayoutParams(card);
-        LinearLayout line = new LinearLayout(ctx());
-        line.setGravity(Gravity.CENTER_VERTICAL);
-        TextView l = PhoneKit.text(ctx(), label, 15, Color.WHITE, true);
-        line.addView(l, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView v = PhoneKit.text(ctx(), value, 14, Theme.TEXT_DIM, true);
-        v.setGravity(Gravity.END);
-        v.setPadding(dp(8), 0, 0, 0);
-        line.addView(v, new LinearLayout.LayoutParams(-2, -2));
-        r.addView(line);
-        if (help != null) {
-            TextView h = PhoneKit.text(ctx(), help, 12, Theme.TEXT_DIM, false);
-            h.setPadding(0, dp(3), 0, 0);
-            r.addView(h);
-        }
-        return r;
-    }
+        header("Cast & actors", false);
+        LinearLayout cast = group();
+        add(cast, keyRow());
+        keyStatus = PhoneKit.text(ctx(), "", 17, Theme.TEXT_DIM, PhoneKit.REGULAR);
+        keyStatus.setPadding(dp(16), dp(11), dp(16), dp(11));
+        add(cast, keyStatus);
+        footer("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away, and saves it with your "
+                + "Stremio account so your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.");
+        showKeyStatus(keyField.getText().toString().trim().isEmpty() ? KEY_EMPTY : CastInfo.key() != null ? KEY_SAVED : KEY_EMPTY, null);
 
-    private View choiceRow(final Setting s) {
-        return row(s.label, s.value(ui.store, ui.host.prefs()), s.help, new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ui.dialog().setTitle(s.label)
-                        .setSingleChoiceItems(s.labels, s.index(ui.store, ui.host.prefs()), new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface d, int which) {
-                                d.dismiss();
-                                if (!s.set(which, ui.store, ui.host)) ui.toast(Setting.LOADING);
-                                fill();
-                            }
-                        })
-                        .setNegativeButton("Cancel", null).show();
-            }
-        });
-    }
-
-    private View accountRow() {
-        final String e = Profiles.email(ui.store);
-        return row(e != null ? e : "Not signed in", e != null ? "Sign out" : "Sign in",
-                "Signed in, your library, addons and settings are kept in your account and synced to your other devices.", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (e == null) {
-                    signIn();
-                    return;
-                }
-                ui.dialog().setTitle("Sign out?").setMessage("Your downloads stay on this phone.")
-                        .setPositiveButton("Sign out", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface d, int w) {
-                                ui.ctx("Logout", null);
-                            }
-                        }).setNegativeButton("Cancel", null).show();
-            }
-        });
-    }
-
-    private View profilesRow() {
-        JSONObject p = Profiles.current(ui.store, ui.host.prefs());
-        return row("Who's watching", p != null ? Profiles.name(p) : "Sign in first",
-                "Each profile has its own library, Continue Watching and addons.", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ui.pickProfile();
-            }
-        });
-    }
-
-    private View tmdbRow() {
-        return row("Cast photos (TMDB key)", CastInfo.key() != null ? "Key saved" : "Add key",
-                "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). It's saved with your account, so your other devices get it. Without a key, the cast shows names only.", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                final EditText t = field("32 letters and numbers", InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-                if (CastInfo.key() != null) t.setText(CastInfo.key());
-                ui.dialog().setTitle("TMDB API key").setView(boxed(t))
-                        .setPositiveButton("Save", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface d, int w) {
-                                String k = t.getText().toString().trim();
-                                if (!k.isEmpty() && !CastInfo.looksLikeKey(k)) {
-                                    ui.toast(CastInfo.BAD_KEY);
-                                    return;
-                                }
-                                CastInfo.saveKey(ui.host.prefs(), ui.store, k);
-                                fill();
-                            }
-                        }).setNegativeButton("Cancel", null).show();
-            }
-        });
-    }
-
-    private View updatesRow() {
-        return row("Updates", "Check now", "Codio checks for a newer version when it starts and offers to install it.", new View.OnClickListener() {
+        header("Updates", false);
+        LinearLayout upd = group();
+        add(upd, button("Check for updates", Theme.RED, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 ui.host.checkUpdates();
             }
-        });
+        }));
+        footer("New versions install over this one and keep your data.");
+
+        header(Setting.ACCOUNT, false);
+        LinearLayout acct = group();
+        final String e = Profiles.email(ui.store);
+        if (e != null) {
+            add(acct, plain(e, Color.WHITE));
+            add(acct, button("Profiles", Theme.RED, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ui.pickProfile();
+                }
+            }));
+            add(acct, button("Sign out", PhoneKit.DESTRUCTIVE, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ui.dialog().setTitle("Sign out?").setMessage("Your downloads stay on this phone.")
+                            .setPositiveButton("Sign out", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface d, int w) {
+                                    ui.ctx("Logout", null);
+                                }
+                            }).setNegativeButton("Cancel", null).show();
+                }
+            }));
+        } else {
+            add(acct, plain("Not signed in", Theme.TEXT_DIM));
+            add(acct, button("Sign in", Theme.RED, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    signIn();
+                }
+            }));
+        }
+
+        header("Addons", false);
+        LinearLayout addons = group();
+        addAddons(addons);
+        TextView ver = PhoneKit.text(ctx(), "Codio " + ui.host.version() + " for Android", 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
+        ver.setGravity(Gravity.CENTER);
+        ver.setPadding(0, dp(20), 0, 0);
+        list.addView(ver, new LinearLayout.LayoutParams(-1, -2));
     }
+
+    // ------------------------------------------------------------------ the grouped list
+
+    private void header(String s, boolean first) {
+        TextView t = PhoneKit.text(ctx(), s.toUpperCase(java.util.Locale.ROOT), 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
+        t.setPadding(dp(32), dp(first ? 10 : 24), dp(32), dp(7));
+        list.addView(t);
+    }
+
+    private void footer(String s) {
+        TextView t = PhoneKit.text(ctx(), s, 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
+        t.setPadding(dp(32), dp(7), dp(32), 0);
+        list.addView(t);
+    }
+
+    private LinearLayout group() {
+        LinearLayout g = new LinearLayout(ctx());
+        g.setOrientation(LinearLayout.VERTICAL);
+        g.setBackground(PhoneKit.round(PhoneKit.GROUPED, dp(10)));
+        g.setClipToOutline(true);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(dp(16), 0, dp(16), 0);
+        list.addView(g, lp);
+        return g;
+    }
+
+    /** Adds a row, with the thin line above it that the iPhone draws between rows. */
+    private void add(LinearLayout group, View row) {
+        if (group.getChildCount() > 0) {
+            View line = new View(ctx());
+            line.setBackgroundColor(PhoneKit.SEPARATOR);
+            LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, Math.max(1, dp(0.5f)));
+            ll.leftMargin = dp(16);
+            group.addView(line, ll);
+        }
+        group.addView(row, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private TextView plain(String text, int color) {
+        TextView t = PhoneKit.text(ctx(), text, 17, color, PhoneKit.REGULAR);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setPadding(dp(16), dp(11), dp(16), dp(11));
+        return t;
+    }
+
+    private TextView button(String text, int color, View.OnClickListener onClick) {
+        TextView t = plain(text, color);
+        t.setBackground(PhoneKit.pressable(null, 0));
+        t.setClickable(true);
+        t.setOnClickListener(onClick);
+        return t;
+    }
+
+    /** A setting with a fixed list of values: its name, the value in red with ⌃⌄, the help underneath; tap for the list. */
+    private View choiceRow(final Setting s) {
+        LinearLayout r = new LinearLayout(ctx());
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(dp(16), dp(11), dp(16), dp(11));
+        r.setBackground(PhoneKit.pressable(null, 0));
+        LinearLayout line = new LinearLayout(ctx());
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        TextView l = PhoneKit.text(ctx(), s.label, 17, Color.WHITE, PhoneKit.REGULAR);
+        line.addView(l, new LinearLayout.LayoutParams(0, -2, 1));
+        final LinearLayout val = new LinearLayout(ctx());
+        val.setGravity(Gravity.CENTER_VERTICAL);
+        TextView v = PhoneKit.text(ctx(), s.value(ui.store, ui.host.prefs()), 17, Theme.RED, PhoneKit.REGULAR);
+        v.setGravity(Gravity.END);
+        val.addView(v);
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2);
+        cl.leftMargin = dp(5);
+        val.addView(new PhoneKit.Chevrons(ctx(), Theme.RED), cl);
+        LinearLayout.LayoutParams vl = new LinearLayout.LayoutParams(-2, -2);
+        vl.leftMargin = dp(8);
+        line.addView(val, vl);
+        r.addView(line);
+        if (s.help != null) {
+            TextView hv = PhoneKit.text(ctx(), s.help, 12, Theme.TEXT_DIM, PhoneKit.REGULAR);
+            hv.setPadding(0, dp(4), 0, 0);
+            r.addView(hv);
+        }
+        r.setClickable(true);
+        r.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View x) {
+                PopupMenu pm = new PopupMenu(new ContextThemeWrapper(ctx(), android.R.style.Theme_DeviceDefault), val, Gravity.END);
+                int cur = s.index(ui.store, ui.host.prefs());
+                for (int i = 0; i < s.labels.length; i++) pm.getMenu().add(0, i, i, s.labels[i]).setCheckable(true).setChecked(i == cur);
+                pm.getMenu().setGroupCheckable(0, true, true);
+                pm.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        if (!s.set(item.getItemId(), ui.store, ui.host)) ui.toast(Setting.LOADING);
+                        fill();
+                        return true;
+                    }
+                });
+                pm.show();
+            }
+        });
+        return r;
+    }
+
+    // ------------------------------------------------------------------ TMDB key
+
+    private static final int KEY_EMPTY = 0, KEY_CHECKING = 1, KEY_OK = 2, KEY_BAD = 3, KEY_OFFLINE = 4, KEY_SAVED = 5;
+
+    private View keyRow() {
+        LinearLayout r = new LinearLayout(ctx());
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(16), dp(2), dp(8), dp(2));
+        keyField = new EditText(ctx());
+        keyField.setHint("TMDB API key");
+        keyField.setHintTextColor(PhoneKit.GRAY);
+        keyField.setTextColor(Color.WHITE);
+        keyField.setTextSize(17);
+        keyField.setSingleLine(true);
+        keyField.setBackground(null);
+        keyField.setPadding(0, dp(9), 0, dp(9));
+        keyField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        keyField.setTransformationMethod(PasswordTransformationMethod.getInstance());
+        String k = CastInfo.key();
+        if (k != null) keyField.setText(k);
+        keyField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                scheduleKeyCheck(false);
+            }
+        });
+        r.addView(keyField, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView paste = PhoneKit.link(ctx(), "Paste", Theme.RED);
+        paste.setPadding(dp(8), dp(8), dp(8), dp(8));
+        paste.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ClipboardManager cm = (ClipboardManager) ctx().getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
+                    CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(ctx());
+                    if (t != null) keyField.setText(t.toString().trim());
+                }
+            }
+        });
+        r.addView(paste);
+        return r;
+    }
+
+    private void showKeyStatus(int st, String why) {
+        if (keyStatus == null) return;
+        switch (st) {
+            case KEY_CHECKING:
+                keyStatus.setText("Checking the key…");
+                keyStatus.setTextColor(Theme.TEXT_DIM);
+                keyStatus.setOnClickListener(null);
+                break;
+            case KEY_OK:
+            case KEY_SAVED:
+                keyStatus.setText("✔  Key works. Cast photos are on.");
+                keyStatus.setTextColor(0xFF30D158);
+                keyStatus.setOnClickListener(null);
+                break;
+            case KEY_BAD:
+                keyStatus.setText("✖  " + why);
+                keyStatus.setTextColor(Theme.RED);
+                keyStatus.setOnClickListener(null);
+                break;
+            case KEY_OFFLINE:
+                keyStatus.setText("Couldn't reach TMDB to check it.  Retry");
+                keyStatus.setTextColor(0xFFFF9F0A);
+                keyStatus.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        scheduleKeyCheck(true);
+                    }
+                });
+                break;
+            default:
+                keyStatus.setText("No key yet");
+                keyStatus.setTextColor(Theme.TEXT_DIM);
+                keyStatus.setOnClickListener(null);
+                break;
+        }
+    }
+
+    private void scheduleKeyCheck(boolean now) {
+        final int id = ++keyCheck;
+        final String k = keyField.getText().toString().trim();
+        if (k.isEmpty()) {
+            CastInfo.saveKey(ui.host.prefs(), ui.store, "");
+            showKeyStatus(KEY_EMPTY, null);
+            return;
+        }
+        if (k.length() > 60) {
+            showKeyStatus(KEY_BAD, "That's the long Read Access Token. Paste the shorter API Key instead.");
+            return;
+        }
+        if (!CastInfo.looksLikeKey(k)) {
+            showKeyStatus(KEY_BAD, "That doesn't look like a TMDB API Key (32 letters and numbers).");
+            return;
+        }
+        showKeyStatus(KEY_CHECKING, null);
+        h.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (id != keyCheck) return;
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        int code = 0;
+                        try {
+                            java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL("https://api.themoviedb.org/3/configuration?api_key=" + k).openConnection();
+                            c.setConnectTimeout(8000);
+                            c.setReadTimeout(8000);
+                            code = c.getResponseCode();
+                            c.disconnect();
+                        } catch (Exception ignored) {
+                        }
+                        final int result = code == 200 ? KEY_OK : code == 401 ? KEY_BAD : KEY_OFFLINE;
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (id != keyCheck) return;
+                                if (result != KEY_BAD) CastInfo.saveKey(ui.host.prefs(), ui.store, k);
+                                showKeyStatus(result, "TMDB says this key isn't valid.");
+                            }
+                        });
+                    }
+                }, "codio-tmdb-check").start();
+            }
+        }, now ? 0 : 600);
+    }
+
+    // ------------------------------------------------------------------ dialogs
 
     /** A one-line text field for a dialog; variation is an InputType.TYPE_TEXT_VARIATION_* (or flag). */
     private EditText field(String hint, int variation) {
@@ -210,7 +409,7 @@ final class PhoneSettings extends PhoneUi.Page {
     private void signIn() {
         final EditText email = field("Email", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         final EditText pass = field("Password", InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        ui.dialog().setTitle("Sign in").setView(boxed(email, pass))
+        ui.dialog().setTitle("Sign in").setMessage("Your Stremio account (addons and library sync).").setView(boxed(email, pass))
                 .setPositiveButton("Sign in", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface d, int w) {
@@ -224,7 +423,7 @@ final class PhoneSettings extends PhoneUi.Page {
 
     // ------------------------------------------------------------------ addons
 
-    private void addAddons() {
+    private void addAddons(LinearLayout group) {
         JSONArray a = ui.store.addonDescriptors();
         for (int i = 0; i < a.length(); i++) {
             final JSONObject d = a.optJSONObject(i);
@@ -233,23 +432,45 @@ final class PhoneSettings extends PhoneUi.Page {
             final String name = m != null ? m.optString("name", "Addon") : "Addon";
             final boolean prot = AddonKit.isProtected(d);
             String desc = m != null ? m.optString("description", "") : "";
-            if (desc.length() > 120) desc = desc.substring(0, 117) + "…";
-            list.addView(row(name, prot ? "Built in" : "Remove", desc.isEmpty() ? null : desc, new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (prot) return;
-                    ui.dialog().setTitle("Remove " + name + "?")
-                            .setPositiveButton("Remove", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dd, int w) {
-                                    AddonKit.uninstall(ui.store, ui.host, d);
-                                    fill();
-                                }
-                            }).setNegativeButton("Cancel", null).show();
-                }
-            }));
+            LinearLayout r = new LinearLayout(ctx());
+            r.setGravity(Gravity.CENTER_VERTICAL);
+            r.setPadding(dp(16), dp(10), dp(16), dp(10));
+            LinearLayout t = new LinearLayout(ctx());
+            t.setOrientation(LinearLayout.VERTICAL);
+            t.addView(PhoneKit.text(ctx(), name, 17, Color.WHITE, PhoneKit.REGULAR));
+            if (!desc.isEmpty()) {
+                TextView dv = PhoneKit.text(ctx(), desc, 12, Theme.TEXT_DIM, PhoneKit.REGULAR);
+                dv.setMaxLines(2);
+                dv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                dv.setPadding(0, dp(2), 0, 0);
+                t.addView(dv);
+            }
+            r.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
+            if (prot) {
+                TextView b = PhoneKit.text(ctx(), "Built in", 12, Theme.TEXT_DIM, PhoneKit.REGULAR);
+                b.setPadding(dp(10), 0, 0, 0);
+                r.addView(b);
+            } else {
+                TextView rm = PhoneKit.link(ctx(), "Remove", PhoneKit.DESTRUCTIVE);
+                rm.setPadding(dp(10), dp(6), dp(2), dp(6));
+                rm.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        ui.dialog().setTitle("Remove " + name + "?")
+                                .setPositiveButton("Remove", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dd, int w) {
+                                        AddonKit.uninstall(ui.store, ui.host, d);
+                                        fill();
+                                    }
+                                }).setNegativeButton("Cancel", null).show();
+                    }
+                });
+                r.addView(rm);
+            }
+            add(group, r);
         }
-        list.addView(row("Add an addon", "+", "Paste the addon's link (it ends in manifest.json).", new View.OnClickListener() {
+        add(group, button("Add an addon", Theme.RED, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 addLink();
@@ -258,8 +479,8 @@ final class PhoneSettings extends PhoneUi.Page {
     }
 
     private void addLink() {
-        final EditText t = field("https://…/manifest.json", InputType.TYPE_TEXT_VARIATION_URI);
-        ui.dialog().setTitle("Addon link").setView(boxed(t))
+        final EditText t = field("Addon link", InputType.TYPE_TEXT_VARIATION_URI);
+        ui.dialog().setTitle("Add an addon").setMessage("Paste the addon's link (it ends in manifest.json).").setView(boxed(t))
                 .setPositiveButton("Install", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface d, int w) {

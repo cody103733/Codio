@@ -246,9 +246,9 @@ struct RateCard: View {
             HStack(alignment: .top, spacing: 12) {
                 RemoteImage(url: meta.poster).frame(width: 60, height: 90).clipShape(RoundedRectangle(cornerRadius: 4))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("How was it?").font(Theme.font(.headline)).foregroundColor(.white)
-                    Text(meta.name).font(Theme.font(.subheadline)).foregroundColor(Theme.dim).lineLimit(2)
-                    Text("Your stars tune Top Picks for You.").font(Theme.font(.caption)).foregroundColor(Theme.dim)
+                    Text("How was it?").font(.headline).foregroundColor(.white)
+                    Text(meta.name).font(.subheadline).foregroundColor(Theme.dim).lineLimit(2)
+                    Text("Your stars tune Top Picks for You.").font(.caption).foregroundColor(Theme.dim)
                 }
                 Spacer()
             }
@@ -263,7 +263,7 @@ struct RateCard: View {
                 }
             }
             Button("Not now") { engine.askRating = nil }
-                .font(Theme.font(.subheadline)).foregroundColor(Theme.dim)
+                .font(.subheadline).foregroundColor(Theme.dim)
         }
         .padding(18)
         .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card))

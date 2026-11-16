@@ -56,14 +56,14 @@ struct UpdateBanner: View {
     var body: some View {
         if let a = updater.available, !updater.dismissed {
             HStack(spacing: 10) {
-                Image(systemName: "arrow.down.app.fill").font(Theme.font(.title3))
+                Image(systemName: "arrow.down.app.fill").font(.title3)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Codio \(a.version) is out").font(Theme.font(.subheadline, .semibold))
-                    Text("Tap to update with SideStore").font(Theme.font(.caption)).opacity(0.85)
+                    Text("Codio \(a.version) is out").font(.subheadline.weight(.semibold))
+                    Text("Tap to update with SideStore").font(.caption).opacity(0.85)
                 }
                 Spacer()
                 Button { updater.dismissed = true } label: {
-                    Image(systemName: "xmark").font(Theme.font(.caption, .bold)).padding(8)
+                    Image(systemName: "xmark").font(.caption.weight(.bold)).padding(8)
                 }
             }
             .foregroundColor(.white)

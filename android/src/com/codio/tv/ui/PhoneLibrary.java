@@ -19,7 +19,7 @@ import java.util.Set;
 final class PhoneLibrary extends PhoneUi.Page {
     private static final String[] TABS = {"All", "Movies", "Shows", "Downloads"};
     private static int tabSel = 0;
-    private final TextView[] chips = new TextView[TABS.length];
+    private PhoneKit.Segmented tabs;
     private PhoneGrid grid;
     private ScrollView dlScroll;
     private LinearLayout dlList;
@@ -33,29 +33,18 @@ final class PhoneLibrary extends PhoneUi.Page {
     View build() {
         LinearLayout col = new LinearLayout(ctx());
         col.setOrientation(LinearLayout.VERTICAL);
-        TextView title = PhoneKit.text(ctx(), "Library", 24, Color.WHITE, true);
-        title.setPadding(dp(16), dp(14), dp(16), dp(6));
-        col.addView(PhoneUi.titleRow(ui, title));
-        HorizontalScrollView hs = new HorizontalScrollView(ctx());
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout strip = new LinearLayout(ctx());
-        strip.setPadding(dp(12), dp(4), dp(12), dp(10));
-        for (int i = 0; i < TABS.length; i++) {
-            final int t = i;
-            chips[i] = PhoneKit.chip(ctx(), TABS[i], i == tabSel);
-            chips[i].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    tabSel = t;
-                    fill();
-                }
-            });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-            lp.setMargins(dp(4), 0, dp(4), 0);
-            strip.addView(chips[i], lp);
-        }
-        hs.addView(strip);
-        col.addView(hs);
+        col.addView(ui.largeTitle("Library", false));
+        tabs = new PhoneKit.Segmented(ctx(), TABS, tabSel);
+        tabs.setListener(new PhoneKit.Segmented.Listener() {
+            @Override
+            public void picked(int index) {
+                tabSel = index;
+                fill();
+            }
+        });
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
+        tl.setMargins(dp(16), dp(4), dp(16), dp(14));
+        col.addView(tabs, tl);
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
@@ -64,9 +53,9 @@ final class PhoneLibrary extends PhoneUi.Page {
         dlList.setOrientation(LinearLayout.VERTICAL);
         dlScroll.addView(dlList);
         area.addView(dlScroll, new FrameLayout.LayoutParams(-1, -1));
-        empty = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
+        empty = PhoneKit.text(ctx(), "", 17, Theme.TEXT_DIM, PhoneKit.REGULAR);
         empty.setGravity(Gravity.CENTER);
-        empty.setPadding(dp(24), dp(48), dp(24), 0);
+        empty.setPadding(dp(24), dp(40), dp(24), 0);
         area.addView(empty, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         col.addView(area, new LinearLayout.LayoutParams(-1, 0, 1));
         fill();
@@ -91,13 +80,12 @@ final class PhoneLibrary extends PhoneUi.Page {
     private int countFor() {
         String type = tabSel == 1 ? "movie" : tabSel == 2 ? "series" : null;
         Set<String> seen = new HashSet<>();
-        for (Store.Meta m : ui.downloads.metas()) if (type == null || type.equals(m.type)) seen.add(m.id);
         for (Store.Meta m : ui.store.libraryItems(type)) seen.add(m.id);
         return seen.size();
     }
 
     private void fill() {
-        for (int i = 0; i < chips.length; i++) PhoneKit.styleChip(chips[i], i == tabSel);
+        tabs.select(tabSel);
         boolean dl = tabSel == 3;
         grid.setVisibility(dl ? View.GONE : View.VISIBLE);
         dlScroll.setVisibility(dl ? View.VISIBLE : View.GONE);
@@ -108,16 +96,11 @@ final class PhoneLibrary extends PhoneUi.Page {
         String type = tabSel == 1 ? "movie" : tabSel == 2 ? "series" : null;
         grid.items.clear();
         Set<String> seen = new HashSet<>();
-        // Downloads first: they're what works without internet.
-        for (Store.Meta m : ui.downloads.metas()) {
-            if (type != null && !type.equals(m.type)) continue;
-            if (seen.add(m.id)) grid.items.add(m);
-        }
         for (Store.Meta m : ui.store.libraryItems(type)) if (seen.add(m.id)) grid.items.add(m);
         grid.changed();
-        empty.setText(grid.items.isEmpty() ? (ui.store.profileLoaded || ui.downloads.any()
-                ? "Nothing here yet. Tap “+ Library” or “Download” on a movie or show."
-                : "Loading your library…") : "");
+        empty.setText(grid.items.isEmpty() ? (ui.store.profileLoaded
+                ? "Titles you add to your Library show up here."
+                : "Loading your library\u2026") : "");
     }
 
     private void fillDownloads() {
@@ -130,7 +113,7 @@ final class PhoneLibrary extends PhoneUi.Page {
         space.setPadding(dp(16), 0, dp(16), dp(8));
         dlList.addView(space);
         for (final Store.Meta m : metas) dlList.addView(row(m));
-        empty.setText(metas.isEmpty() ? "No downloads yet. Open a movie or show and tap Download to watch it without internet." : "");
+        empty.setText(metas.isEmpty() ? "Download movies and episodes from their page to watch them without internet." : "");
     }
 
     private View row(final Store.Meta m) {
