@@ -204,7 +204,7 @@ final class PhoneSettings extends PhoneUi.Page {
     private View choiceRow(final Setting s) {
         LinearLayout r = new LinearLayout(ctx());
         r.setOrientation(LinearLayout.VERTICAL);
-        r.setPadding(dp(16), dp(11), dp(16), dp(11));
+        r.setPadding(dp(16), dp(14), dp(16), dp(14));
         r.setBackground(PhoneKit.pressable(null, 0));
         LinearLayout line = new LinearLayout(ctx());
         line.setGravity(Gravity.CENTER_VERTICAL);
@@ -223,8 +223,8 @@ final class PhoneSettings extends PhoneUi.Page {
         line.addView(val, vl);
         r.addView(line);
         if (s.help != null) {
-            TextView hv = PhoneKit.text(ctx(), s.help, 12, Theme.TEXT_DIM, PhoneKit.REGULAR);
-            hv.setPadding(0, dp(4), 0, 0);
+            TextView hv = PhoneKit.text(ctx(), s.help, 13, Theme.TEXT_DIM, PhoneKit.REGULAR);
+            hv.setPadding(0, dp(8), 0, 0);
             r.addView(hv);
         }
         r.setClickable(true);
