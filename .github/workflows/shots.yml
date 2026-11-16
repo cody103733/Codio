@@ -125,7 +125,7 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null 2>&1
           npx http-server ../windows/.app/build -p 8091 -s >/dev/null 2>&1 &
           sleep 3
-          node ../.github/shots-windows.js
+          NODE_PATH="$PWD/node_modules" node ../.github/shots-windows.js
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -144,6 +144,7 @@ jobs:
           path: got
       - name: Commit the pictures
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil
           mkdir -p shots
           find got -name '*.png' -exec cp {} shots/ \;
           find got -name 'build.log' -exec sh -c 'grep -E "error:|BUILD (SUCCEEDED|FAILED)" "$1" | sort -u > shots/iphone-build.txt' _ {} \;
