@@ -82,7 +82,7 @@ final class PhoneKit {
         return t;
     }
 
-    /** Filter chip. */
+    /** Filter chip: red when chosen, grey otherwise. The same on every Codio app. */
     static TextView chip(Context c, String label, boolean selected) {
         TextView t = text(c, label, 14, Color.WHITE, true);
         t.setGravity(Gravity.CENTER);
@@ -95,10 +95,8 @@ final class PhoneKit {
 
     static void styleChip(TextView t, boolean selected) {
         float r = dp(t.getContext(), 18);
-        GradientDrawable g = round(selected ? Color.WHITE : 0x00000000, r);
-        if (!selected) g.setStroke(dp(t.getContext(), 1), 0x80FFFFFF);
-        t.setBackground(pressable(g, r));
-        t.setTextColor(selected ? Color.BLACK : Color.WHITE);
+        t.setBackground(pressable(round(selected ? Theme.RED : Theme.RAISED, r), r));
+        t.setTextColor(Color.WHITE);
     }
 
     static String size(long bytes) {

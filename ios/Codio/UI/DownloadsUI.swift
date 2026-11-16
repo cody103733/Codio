@@ -16,7 +16,7 @@ struct DownloadBadge: View {
         if let e = entry {
             switch e.state {
             case .done:
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.white, Theme.red).font(.title3)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.white, Theme.red).font(Theme.font(.title3))
             case .downloading:
                 ZStack {
                     Circle().stroke(Color.white.opacity(0.25), lineWidth: 3)
@@ -59,7 +59,7 @@ struct DownloadsListView: View {
             Text("Using " + ByteCountFormatter.string(fromByteCount: dl.usedBytes, countStyle: .file)
                  + (Downloads.freeBytes > 0 ? " · " + ByteCountFormatter.string(fromByteCount: Downloads.freeBytes, countStyle: .file) + " free" : "")
                  + (Downloads.wifiOnly ? " · Wi-Fi only" : ""))
-                .font(.caption).foregroundColor(Theme.dim).padding(.horizontal, 16)
+                .font(Theme.font(.caption)).foregroundColor(Theme.dim).padding(.horizontal, 16)
             if dl.titles.isEmpty {
                 Text("Download movies and episodes from their page to watch them without internet.")
                     .foregroundColor(Theme.dim).frame(maxWidth: .infinity).padding(.top, 30).padding(.horizontal, 24)
@@ -84,8 +84,8 @@ struct DownloadsListView: View {
         return HStack(spacing: 12) {
             RemoteImage(url: t.poster).frame(width: 64, height: 96).clipShape(RoundedRectangle(cornerRadius: 5))
             VStack(alignment: .leading, spacing: 4) {
-                Text(t.name).font(.headline).foregroundColor(.white).lineLimit(2)
-                Text(sub).font(.caption).foregroundColor(Theme.dim).lineLimit(2)
+                Text(t.name).font(Theme.font(.headline)).foregroundColor(.white).lineLimit(2)
+                Text(sub).font(Theme.font(.caption)).foregroundColor(Theme.dim).lineLimit(2)
             }
             Spacer()
             if t.isEpisode { Image(systemName: "chevron.right").foregroundColor(Theme.dim) } else { DownloadBadge(entry: t) }
@@ -130,7 +130,7 @@ struct DownloadedShowView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("S\(e.season) E\(e.episode)" + (e.episodeTitle.map { " · " + $0 } ?? "")).foregroundColor(.white)
-                            Text(downloadStatusText(e)).font(.caption).foregroundColor(Theme.dim)
+                            Text(downloadStatusText(e)).font(Theme.font(.caption)).foregroundColor(Theme.dim)
                         }
                         Spacer()
                         DownloadBadge(entry: e)

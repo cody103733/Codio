@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreText
 
 extension Color {
     /// 0xRRGGBB
@@ -11,8 +12,7 @@ extension Color {
 enum Theme {
     static let red = Color(hex: 0xE50914)
     static let redSoft = Color(hex: 0xFF5A5F)
-    /// Pages are true black on the iPhone (OLED), where the other apps use #0B0B0B.
-    static let bg = Color.black
+    static let bg = Color(hex: 0x0B0B0B)
     static let card = Color(hex: 0x161616)
     static let raised = Color(hex: 0x262626)
     static let line = Color(hex: 0x333333)
@@ -22,6 +22,123 @@ enum Theme {
     static let logoColors = [Color(hex: 0xFF4B2B), Color(hex: 0xC3001D)]
     static let gradient = LinearGradient(colors: logoColors, startPoint: .topLeading, endPoint: .bottomTrailing)
     static let profileColors = [Color(hex: 0xE60A14), Color(hex: 0x2178F2), Color(hex: 0xFABA1A), Color(hex: 0x29AD61), Color(hex: 0x8C4DD9), Color(hex: 0xF27326)]
+    /// Translucent white behind a button that sits on artwork (Info on Home).
+    static let glass = Color.white.opacity(0.2)
+
+    // MARK: Plus Jakarta Sans, the font every Codio app uses.
+
+    private static let fontReady: Bool = {
+        let url = Bundle.main.bundleURL.appendingPathComponent("web/fonts/PlusJakartaSans.ttf")
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        return UIFont(name: "PlusJakartaSans-Regular", size: 12) != nil
+    }()
+
+    private static func wght(_ w: Font.Weight) -> CGFloat {
+        switch w {
+        case .ultraLight, .thin: return 200
+        case .light: return 300
+        case .medium: return 500
+        case .semibold: return 600
+        case .bold: return 700
+        case .heavy, .black: return 800
+        default: return 400
+        }
+    }
+
+    static func uiFont(_ size: CGFloat, _ weight: Font.Weight = .regular) -> UIFont {
+        guard fontReady else { return UIFont.systemFont(ofSize: size, weight: wght(weight) >= 600 ? .bold : .regular) }
+        // 2003265652 is the font's "wght" axis.
+        let attrs: [UIFontDescriptor.AttributeName: Any] = [
+            .name: "PlusJakartaSans-Regular",
+            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [2003265652: wght(weight)],
+        ]
+        let d = UIFontDescriptor(fontAttributes: attrs)
+        return UIFont(descriptor: d, size: size)
+    }
+
+    static func font(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        Font(uiFont(size, weight) as CTFont)
+    }
+
+    /// The system text styles at their standard sizes, in the Codio font.
+    static func font(_ style: Font.TextStyle, _ weight: Font.Weight? = nil) -> Font {
+        let size: CGFloat
+        switch style {
+        case .largeTitle: size = 34
+        case .title: size = 28
+        case .title2: size = 22
+        case .title3: size = 20
+        case .headline, .body: size = 17
+        case .callout: size = 16
+        case .subheadline: size = 15
+        case .footnote: size = 13
+        case .caption: size = 12
+        case .caption2: size = 11
+        default: size = 17
+        }
+        return font(size, weight ?? (style == .headline ? .bold : .regular))
+    }
+}
+
+/// A filter chip: red when chosen, grey otherwise. The same on every Codio app.
+struct Chip: View {
+    let text: String
+    var selected = false
+    var body: some View {
+        Text(text)
+            .font(Theme.font(14, .bold)).foregroundColor(.white).lineLimit(1)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(Capsule().fill(selected ? Theme.red : Theme.raised))
+    }
+}
+
+/// A row of chips that scrolls sideways.
+struct ChipStrip<T: Hashable>: View {
+    let options: [(String, T)]
+    @Binding var selection: T
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(options.indices, id: \.self) { i in
+                    Button { selection = options[i].1 } label: { Chip(text: options[i].0, selected: options[i].1 == selection) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+}
+
+/// The title at the top of Library and Settings, with the round avatar on the right.
+struct PageTitle: View {
+    let text: String
+    var body: some View {
+        HStack {
+            Text(text).font(Theme.font(24, .bold)).foregroundColor(.white)
+            Spacer()
+            ProfileButton(size: 34)
+        }
+        .padding(.leading, 16).padding(.trailing, 14).padding(.top, 14).padding(.bottom, 6)
+    }
+}
+
+/// A heading inside a page: over a row of posters, a list, or a group of settings.
+struct SectionTitle: View {
+    let text: String
+    var body: some View {
+        Text(text).font(Theme.font(17, .bold)).foregroundColor(.white)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14).padding(.top, 18).padding(.bottom, 8)
+    }
+}
+
+/// The grey line of text a page shows when it has nothing to list.
+struct PageHint: View {
+    let text: String
+    var body: some View {
+        Text(text).font(Theme.font(14)).foregroundColor(Theme.dim).multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity).padding(.horizontal, 24).padding(.top, 48)
+    }
 }
 
 /// The Codio wordmark: the red C with the play button IS the C of "codio" (never a separate icon).
@@ -82,7 +199,7 @@ struct RemoteImage: View {
 struct NewEpisodeMark: View {
     var body: some View {
         Text("New episode")
-            .font(.system(size: 10, weight: .bold))
+            .font(Theme.font(10, .bold))
             .foregroundColor(.white)
             .lineLimit(1)
             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -93,7 +210,7 @@ struct NewEpisodeMark: View {
 struct PosterCard: View {
     @ObservedObject var meta: Meta
     @ObservedObject private var newEpisodes = NewEpisodes.shared
-    var width: CGFloat = 112
+    var width: CGFloat = 110
     var showProgress = false
 
     var body: some View {
@@ -104,7 +221,7 @@ struct PosterCard: View {
                     .clipped()
                 if meta.poster == nil {
                     Text(meta.name)
-                        .font(.caption.bold())
+                        .font(Theme.font(.caption, .bold))
                         .foregroundColor(.white)
                         .padding(6)
                         .frame(width: width, height: width * 1.5, alignment: .bottomLeading)
@@ -136,8 +253,8 @@ struct PosterRow: View {
     var showProgress = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline).foregroundColor(.white).padding(.horizontal, 16)
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle(text: title)
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 8) {
                     ForEach(items) { m in
@@ -145,8 +262,9 @@ struct PosterRow: View {
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 14)
             }
+            .frame(height: 165)
         }
     }
 }
@@ -154,16 +272,25 @@ struct PosterRow: View {
 struct PosterGrid: View {
     let items: [Meta]
     var showProgress = false
-    private let columns = [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 8)]
+    var onLast: (() -> Void)? = nil
+
+    /// Three posters across on a phone, more on wider screens, 6 apart: the same grid as Codio for Android.
+    static var cells: (count: Int, width: CGFloat) {
+        let w = UIScreen.main.bounds.width
+        let n = max(3, Int((w / 120).rounded()))
+        return (n, ((w - 6 * CGFloat(n + 1)) / CGFloat(n)).rounded(.down))
+    }
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        let c = PosterGrid.cells
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(c.width), spacing: 6), count: c.count), spacing: 6) {
             ForEach(items) { m in
-                NavigationLink(value: m) { PosterCard(meta: m, width: 108, showProgress: showProgress) }
+                NavigationLink(value: m) { PosterCard(meta: m, width: c.width, showProgress: showProgress) }
                     .buttonStyle(.plain)
+                    .onAppear { if m.id == items.last?.id { onLast?() } }
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 6)
     }
 }
 
@@ -171,7 +298,7 @@ struct RedButtonStyle: ButtonStyle {
     var filled = true
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(Theme.font(.headline))
             .foregroundColor(filled ? .black : .white)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
@@ -185,7 +312,7 @@ struct ToastView: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.subheadline.weight(.semibold))
+            .font(Theme.font(.subheadline, .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

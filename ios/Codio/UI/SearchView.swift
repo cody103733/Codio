@@ -6,49 +6,50 @@ struct SearchView: View {
     @State private var results: [Meta] = []
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
-    /// Movies / Shows / Both filter for search (and the titles shown before typing). Starts on Both.
+    /// Movies / Shows / Both filter for search. Starts on Both.
     @State private var kind = "both"
-    @State private var browse: [Meta] = []
     /// Recent searches (newest first), listed while nothing is typed. A search is kept once it found something.
     @State private var recent: [String] = UserDefaults.standard.stringArray(forKey: "recent_searches") ?? []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Picker("", selection: $kind) {
-                    Text("Both").tag("both")
-                    Text("Movies").tag("movie")
-                    Text("Shows").tag("series")
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    if !recent.isEmpty { recentList }
-                    PosterGrid(items: browse)
-                } else if searching && results.isEmpty {
-                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
-                } else if results.isEmpty {
-                    Text("Nothing found for \u{201C}\(query)\u{201D}").foregroundColor(Theme.dim).frame(maxWidth: .infinity).padding(.top, 40)
-                } else {
-                    PosterGrid(items: results)
-                }
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                TextField("", text: $query, prompt: Text("Movies, shows\u{2026}").foregroundColor(Theme.faint))
+                    .font(Theme.font(16)).foregroundColor(.white)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.raised))
+                ProfileButton(size: 34)
             }
-            .padding(.vertical, 10)
+            .padding(.leading, 16).padding(.trailing, 14).padding(.top, 12).padding(.bottom, 8)
+            ChipStrip(options: [("Both", "both"), ("Movies", "movie"), ("Shows", "series")], selection: $kind)
+                .padding(.bottom, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                        if recent.isEmpty { PageHint(text: "Search your addons for movies and shows.").padding(.top, -8) } else { recentList }
+                    } else if results.isEmpty {
+                        PageHint(text: searching ? "Searching\u{2026}" : "Nothing found.").padding(.top, -8)
+                    } else {
+                        PosterGrid(items: results)
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+            .scrollDismissesKeyboard(.immediately)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("Search")
-        .profileToolbar()
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Movies and shows")
-        .onSubmit(of: .search) { remember() }
+        .navigationBarHidden(true)
+        .onSubmit { remember() }
         .onDisappear { remember() }
         .onChange(of: query) { _ in scheduleSearch() }
         .onChange(of: kind) { _ in scheduleSearch(now: true) }
-        .task(id: kind + "\(store.generation)") { await loadBrowse() }
     }
 
     private var recentList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Recent searches").font(.headline).padding(.horizontal, 16).padding(.bottom, 6)
+            SectionTitle(text: "Recent searches")
             ForEach(recent, id: \.self) { q in
                 Button { query = q } label: { recentRow(q, .white) }
             }
@@ -57,9 +58,10 @@ struct SearchView: View {
     }
 
     private func recentRow(_ text: String, _ color: Color) -> some View {
-        Text(text).foregroundColor(color).lineLimit(1)
+        Text(text).font(Theme.font(15)).foregroundColor(color).lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16).padding(.vertical, 10)
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .contentShape(Rectangle())
     }
 
     private func saveRecent(_ list: [String]) {
@@ -75,21 +77,6 @@ struct SearchView: View {
 
     private func wanted(_ type: String) -> Bool { kind == "both" || type == kind }
 
-    private func loadBrowse() async {
-        let types = kind == "both" ? ["movie", "series"] : [kind]
-        var lists: [[Meta]] = []
-        for t in types {
-            guard let cat = store.discoverCatalogs(t).first else { continue }
-            lists.append(await store.load(cat))
-        }
-        // Both: alternate movies and series so neither fills the top.
-        var mixed: [Meta] = []
-        for i in 0..<(lists.map(\.count).max() ?? 0) {
-            for l in lists where i < l.count { mixed.append(l[i]) }
-        }
-        browse = mixed
-    }
-
     private func scheduleSearch(now: Bool = false) {
         searchTask?.cancel()
         let q = query.trimmingCharacters(in: .whitespaces)
@@ -97,6 +84,7 @@ struct SearchView: View {
             results = []
             return
         }
+        searching = true
         searchTask = Task {
             if !now { try? await Task.sleep(nanoseconds: 400_000_000) }
             if Task.isCancelled { return }
@@ -120,35 +108,30 @@ struct SearchView: View {
 
 struct LibraryView: View {
     @EnvironmentObject var store: Store
-    @State private var type: String? = nil
+    @State private var type = "all"
 
     var body: some View {
-        let items = store.libraryItems(type)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Picker("", selection: $type) {
-                    Text("All").tag(String?.none)
-                    Text("Movies").tag(String?.some("movie"))
-                    Text("Shows").tag(String?.some("series"))
-                    Text("Downloads").tag(String?.some("downloads"))
+        let items = store.libraryItems(type == "all" ? nil : type)
+        VStack(spacing: 0) {
+            PageTitle(text: "Library")
+            ChipStrip(options: [("All", "all"), ("Movies", "movie"), ("Shows", "series"), ("Downloads", "downloads")], selection: $type)
+                .padding(.top, 4).padding(.bottom, 10)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if type == "downloads" {
+                        DownloadsListView()
+                    } else if !store.profileLoaded {
+                        PageHint(text: "Loading your library\u{2026}")
+                    } else if items.isEmpty {
+                        PageHint(text: "Nothing here yet. Tap \u{201C}+ Library\u{201D} or \u{201C}Download\u{201D} on a movie or show.")
+                    } else {
+                        PosterGrid(items: items, showProgress: true)
+                    }
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                if type == "downloads" {
-                    DownloadsListView()
-                } else if !store.profileLoaded {
-                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 40)
-                } else if items.isEmpty {
-                    Text("Titles you add to your Library show up here.")
-                        .foregroundColor(Theme.dim).frame(maxWidth: .infinity).padding(.top, 40)
-                } else {
-                    PosterGrid(items: items, showProgress: true)
-                }
+                .padding(.bottom, 16)
             }
-            .padding(.vertical, 10)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("Library")
-        .profileToolbar()
+        .navigationBarHidden(true)
     }
 }

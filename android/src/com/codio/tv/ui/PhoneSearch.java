@@ -51,14 +51,14 @@ final class PhoneSearch extends PhoneUi.Page {
         box.setBackground(PhoneKit.round(Theme.RAISED, dp(8)));
         LinearLayout top = new LinearLayout(ctx());
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(12), dp(12), dp(12), dp(8));
+        top.setPadding(dp(16), dp(12), dp(14), dp(8));
         top.addView(box, new LinearLayout.LayoutParams(0, -2, 1));
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
         al.setMargins(dp(12), 0, 0, 0);
         top.addView(ui.profileButton(), al);
         col.addView(top, new LinearLayout.LayoutParams(-1, -2));
         kinds = new LinearLayout(ctx());
-        kinds.setPadding(dp(12), 0, dp(12), dp(8));
+        kinds.setPadding(dp(16), 0, dp(16), dp(8));
         for (int i = 0; i < Search.KIND_LABEL.length; i++) {
             final int k = i;
             TextView chip = PhoneKit.chip(ctx(), Search.KIND_LABEL[i], i == Search.kind);

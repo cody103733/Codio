@@ -234,6 +234,11 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     public void dataChanged(boolean addonsChanged) {
         for (Page p : stack) p.refresh();
         refreshAvatars();
+        if (!askedWho && store.profileLoaded) {
+            askedWho = true;
+            if ("on".equals(host.prefs().getString("ask_profile", "off")) && Profiles.email(store) != null
+                    && Profiles.list(host.prefs()).length() > 1) pickProfile();
+        }
     }
 
     @Override
@@ -450,6 +455,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     }
 
     private final ArrayList<java.lang.ref.WeakReference<Avatar>> avatars = new ArrayList<>();
+    /** "When Codio opens: ask who's watching" has had its turn for this run. */
+    private boolean askedWho = false;
 
     /** The account or profile list changed: every top-right avatar redraws. */
     private void refreshAvatars() {
@@ -657,6 +664,13 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
                     break;
             }
             c.drawText(label, cx, getHeight() * 0.86f, t);
+            if (isSelected()) {
+                // The red line that marks the current tab, as on the TV and Windows apps.
+                float w = PhoneKit.dp(getContext(), 14), h = PhoneKit.dp(getContext(), 2);
+                t.setColor(Theme.RED);
+                r.set(cx - w, 0, cx + w, h);
+                c.drawRoundRect(r, h / 2, h / 2, t);
+            }
         }
     }
 

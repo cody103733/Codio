@@ -314,6 +314,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         return BuildConfig.PHONE && tvUi instanceof com.codio.tv.ui.PhoneUi && ((com.codio.tv.ui.PhoneUi) tvUi).playerUp();
     }
 
+    /** Settings > Playback > Mini player. */
+    private boolean miniPlayerOn() {
+        return !"off".equals(getSharedPreferences("codio", MODE_PRIVATE).getString("pip_auto", "on"));
+    }
+
     private android.app.PictureInPictureParams pipParams() {
         float r = videoH > 0 ? (float) videoW / videoH : 16f / 9f;
         r = Math.max(1f / 2.3f, Math.min(2.3f, r));
@@ -322,7 +327,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 .setAspectRatio(new android.util.Rational(w, 1000));
         if (android.os.Build.VERSION.SDK_INT >= 31) {
             // Android 12+: swiping home while a video plays shrinks it into the mini player smoothly.
-            b.setAutoEnterEnabled(phonePlaying());
+            b.setAutoEnterEnabled(phonePlaying() && miniPlayerOn());
             b.setSeamlessResizeEnabled(false);
         }
         return b.build();
@@ -359,6 +364,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (!phonePlaying() || isInPictureInPictureMode()) return;
+        if (!miniPlayerOn()) return;
         // Asked for on every Android version: some phones don't do the automatic switch on their own.
         if (!pipAllowed()) {
             pipBlocked = true;

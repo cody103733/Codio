@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Home, Netflix style: logo bar with Shows / Movies pills, a big featured card, then rows
-/// (Continue Watching, a Top 10, and one per addon catalog).
+/// Home: the featured title with the top bar over it, Continue Watching, then a row per addon catalog.
+/// Laid out the same as Home on Codio for Android.
 private struct HomeRow: Identifiable {
     let catalog: Catalog
     var items: [Meta]
@@ -24,30 +24,24 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 26) {
-                header
-                UpdateBanner()
-                if let f = featured { FeaturedCard(meta: f, rank: filled.first.map { "#1 in " + typeLabel($0.catalog.type) + " Today" }).padding(.horizontal, 22) } else { Color.clear.frame(height: 420) }
+            VStack(alignment: .leading, spacing: 0) {
+                Hero(meta: featured).overlay(alignment: .top) { topBar }
+                UpdateBanner().padding(.top, 12)
                 // Shows with a new episode out come first (new episode alerts).
                 let continuing = newEpisodes.ordered(store.continueWatching, library: store.library)
                 if !continuing.isEmpty {
-                    ContinueRow(items: continuing, fresh: Set(newEpisodes.alerts.keys))
+                    PosterRow(title: "Continue Watching", items: continuing, showProgress: true)
                 }
                 ForEach(recommender.rows) { r in PosterRow(title: r.title, items: r.items) }
-                ForEach(Array(filled.enumerated()), id: \.element.id) { i, row in
-                    if i == 0 {
-                        TopTenRow(title: "Top 10 " + typeLabel(row.catalog.type) + " Today", items: Array(row.items.dropFirst().prefix(10)))
-                    } else {
-                        PosterRow(title: rowTitle(row.catalog), items: row.items)
-                    }
-                }
-                if rows.isEmpty || (filled.isEmpty && loading) {
-                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 20)
+                ForEach(filled) { row in PosterRow(title: rowTitle(row.catalog), items: row.items) }
+                if filled.isEmpty && store.continueWatching.isEmpty {
+                    PageHint(text: store.addonDescriptors.isEmpty && store.profileLoaded
+                             ? "No addons yet. Add some under Settings \u{2192} Addons." : "Loading\u{2026}")
+                        .padding(.top, -24)
                 }
             }
-            .padding(.bottom, 30)
+            .padding(.bottom, 16)
         }
-        .background(alignment: .top) { backdrop }
         .background(Color.black.ignoresSafeArea())
         .navigationBarHidden(true)
         .task(id: store.generation) { await load() }
@@ -68,38 +62,30 @@ struct HomeView: View {
         }
     }
 
+    /// "Popular" from a movie catalog reads "Popular Movies"; a name that already says its type stays as it is.
     private func rowTitle(_ c: Catalog) -> String {
-        let generic = ["Popular", "Top", "Featured", "New", "Trending"].contains { c.name.hasPrefix($0) }
-        return generic ? c.name + " " + typeLabel(c.type) : c.name
+        let type = typeLabel(c.type)
+        return type.isEmpty || c.name.lowercased().contains(type.lowercased()) ? c.name : c.name + " " + type
     }
 
-    /// The featured poster, blurred, tints the top of Home the way Netflix colors it from the artwork.
-    private var backdrop: some View {
-        ZStack {
-            if let f = featured {
-                Color.clear.overlay(RemoteImage(url: f.poster ?? f.background).blur(radius: 60).opacity(0.75))
-            }
-            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+    /// The wordmark, Movies and Shows, and who's watching, over the top of the featured picture.
+    private var topBar: some View {
+        HStack(spacing: 0) {
+            BrandWordmark(height: 26)
+            Spacer()
+            NavigationLink(value: DiscoverTarget(type: "movie")) { topLink("Movies") }
+            NavigationLink(value: DiscoverTarget(type: "series")) { topLink("Shows") }
+            ProfileButton(size: 34).padding(.leading, 8).padding(.trailing, 6)
         }
-        .frame(height: 620)
-        .clipped()
-        .ignoresSafeArea()
+        .buttonStyle(.plain)
+        .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 12)
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                BrandWordmark(height: 26)
-                Spacer()
-                ProfileButton(size: 32)
-            }
-            HStack(spacing: 8) {
-                NavigationLink(value: DiscoverTarget(type: "series")) { Pill(text: "Shows") }
-                NavigationLink(value: DiscoverTarget(type: "movie")) { Pill(text: "Movies") }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+    private func topLink(_ text: String) -> some View {
+        Text(text).font(Theme.font(15, .bold)).foregroundColor(.white)
+            .shadow(color: .black, radius: 4)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .contentShape(Rectangle())
     }
 
     private func load() async {
@@ -132,188 +118,78 @@ struct HomeView: View {
     }
 }
 
-struct Pill: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(.subheadline.weight(.medium))
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
-            .overlay(Capsule().stroke(Color.white.opacity(0.6), lineWidth: 1))
-    }
-}
-
-/// The big rounded featured card with Play and Library.
-private struct FeaturedCard: View {
+/// The featured title: its poster edge to edge, fading to black, with its logo, genres, Play and Info.
+private struct Hero: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
-    @ObservedObject var meta: Meta
-    var rank: String?
-
-    private var playLabel: some View {
-        Label("Play", systemImage: "play.fill").font(.headline).foregroundColor(.black)
-            .frame(maxWidth: .infinity).padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white))
-    }
+    let meta: Meta?
 
     var body: some View {
+        let w = UIScreen.main.bounds.width
+        let h = (min(w, 600) * 1.2).rounded()
         ZStack(alignment: .bottom) {
-            NavigationLink(value: meta) {
-                RemoteImage(url: meta.poster ?? meta.background)
-                    .aspectRatio(2 / 3, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
+            if let m = meta {
+                HeroArt(meta: m).frame(width: w, height: h).clipped()
+            } else {
+                Color.black
+            }
+            LinearGradient(stops: [.init(color: .black.opacity(0.67), location: 0), .init(color: .clear, location: 0.33),
+                                   .init(color: .clear, location: 0.66), .init(color: .black, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .allowsHitTesting(false)
+            if let m = meta { HeroInfo(meta: m) }
+        }
+        .frame(width: w, height: h)
+    }
+}
+
+private struct HeroArt: View {
+    @EnvironmentObject var store: Store
+    @ObservedObject var meta: Meta
+    var body: some View {
+        // Portrait phones: the poster fills the banner better than the wide background.
+        NavigationLink(value: meta) { RemoteImage(url: meta.poster ?? meta.background) }
+            .buttonStyle(.plain)
+            .task(id: meta.id) { if !meta.full { await store.loadMeta(meta) } }
+    }
+}
+
+private struct HeroInfo: View {
+    @EnvironmentObject var engine: Engine
+    @ObservedObject var meta: Meta
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let logo = meta.logo {
+                RemoteImage(url: logo, contentMode: .fit).frame(width: 240, height: 80)
+            } else {
+                Text(meta.name).font(Theme.font(28, .bold)).foregroundColor(.white)
+                    .multilineTextAlignment(.center).lineLimit(2)
+            }
+            Text(meta.genres.joined(separator: "  \u{00B7}  "))
+                .font(Theme.font(13)).foregroundColor(Theme.body).lineLimit(1)
+                .padding(.top, 6).padding(.bottom, 10)
+            HStack(spacing: 12) {
+                if meta.type == "movie" {
+                    Button { engine.play(meta, nil) } label: { heroButton("Play", "play.fill", primary: true) }
+                } else {
+                    NavigationLink(value: meta) { heroButton("Play", "play.fill", primary: true) }
+                }
+                NavigationLink(value: meta) { heroButton("Info", "info.circle", primary: false) }
             }
             .buttonStyle(.plain)
-            LinearGradient(colors: [.clear, .clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
-                .allowsHitTesting(false)
-            VStack(spacing: 12) {
-                if let logo = meta.logo {
-                    RemoteImage(url: logo, contentMode: .fit).frame(maxWidth: 220, maxHeight: 70)
-                }
-                if let r = rank {
-                    HStack(spacing: 6) {
-                        Top10Badge()
-                        Text(r).font(.subheadline.weight(.bold)).foregroundColor(.white)
-                    }
-                }
-                if !meta.genres.isEmpty {
-                    Text(meta.genres.prefix(3).joined(separator: " • ")).font(.footnote.weight(.medium)).foregroundColor(.white)
-                }
-                HStack(spacing: 10) {
-                    if meta.type == "movie" {
-                        Button { engine.play(meta, nil) } label: { playLabel }
-                    } else {
-                        NavigationLink(value: meta) { playLabel }
-                    }
-                    Button {
-                        let inLib = store.inLibrary(meta.id)
-                        if inLib { engine.ctx("RemoveFromLibrary", meta.id) } else { engine.ctx("AddToLibrary", Store.preview(meta)) }
-                        store.markInLibrary(meta, !inLib)
-                        engine.show(toast: inLib ? "Removed from Library" : "Added to Library")
-                    } label: {
-                        Label("Library", systemImage: store.inLibrary(meta.id) ? "checkmark" : "plus").font(.headline).foregroundColor(.white)
-                            .frame(maxWidth: .infinity).padding(.vertical, 10)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Theme.raised.opacity(0.9)))
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(14)
+            .padding(.horizontal, 6)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.12), lineWidth: 1))
-        .shadow(color: .black.opacity(0.6), radius: 18, y: 8)
-        .task { if !meta.full { await store.loadMeta(meta) } }
-    }
-}
-
-/// Continue Watching: posters with a red progress bar and a play overlay that resumes straight away.
-private struct ContinueRow: View {
-    @EnvironmentObject var engine: Engine
-    let items: [Meta]
-    /// Shows with a new episode out: their card opens the show's page instead of resuming.
-    var fresh: Set<String> = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Continue Watching").font(.headline.weight(.bold)).foregroundColor(.white).padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    ForEach(items) { m in
-                        VStack(spacing: 0) {
-                            if fresh.contains(m.id) {
-                                NavigationLink(value: m) {
-                                    RemoteImage(url: m.poster).frame(width: 110, height: 160).clipped()
-                                        .overlay(alignment: .topLeading) { NewEpisodeMark().padding(5) }
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                Button { engine.play(m, m.lastVideoId) } label: {
-                                    ZStack {
-                                        RemoteImage(url: m.poster).frame(width: 110, height: 160).clipped()
-                                        Image(systemName: "play.circle").font(.system(size: 40, weight: .light)).foregroundColor(.white)
-                                            .shadow(radius: 4)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            GeometryReader { g in
-                                ZStack(alignment: .leading) {
-                                    Rectangle().fill(Theme.line)
-                                    Rectangle().fill(Theme.red).frame(width: g.size.width * m.progress)
-                                }
-                            }
-                            .frame(width: 110, height: 3)
-                            HStack {
-                                NavigationLink(value: m) { Image(systemName: "info.circle") }
-                                Spacer()
-                                Text(m.lastVideoId.flatMap(episodeTag) ?? "").font(.caption2)
-                            }
-                            .foregroundColor(Theme.dim)
-                            .padding(.horizontal, 8)
-                            .frame(width: 110, height: 30)
-                            .background(Theme.card)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
+        .padding(.horizontal, 16).padding(.bottom, 4)
     }
 
-    private func episodeTag(_ vid: String) -> String? {
-        let p = vid.split(separator: ":")
-        guard p.count >= 3, let s = Int(p[p.count - 2]), let e = Int(p[p.count - 1]) else { return nil }
-        return "S\(s):E\(e)"
-    }
-}
-
-/// Top 10 with the big outlined numbers next to each poster.
-private struct TopTenRow: View {
-    let title: String
-    let items: [Meta]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline.weight(.bold)).foregroundColor(.white).padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 4) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { i, m in
-                        NavigationLink(value: m) {
-                            HStack(alignment: .bottom, spacing: -14) {
-                                Text("\(i + 1)")
-                                    .font(.system(size: 120, weight: .black))
-                                    .foregroundColor(.black)
-                                    .shadow(color: Color(white: 0.75), radius: 0, x: 1.5, y: 1.5)
-                                    .shadow(color: Color(white: 0.75), radius: 0, x: -1.5, y: -1.5)
-                                    .shadow(color: Color(white: 0.75), radius: 0, x: 1.5, y: -1.5)
-                                    .shadow(color: Color(white: 0.75), radius: 0, x: -1.5, y: 1.5)
-                                    .offset(y: 22)
-                                PosterCard(meta: m, width: 100)
-                                    .overlay(alignment: .topTrailing) { Top10Badge(small: true) }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
+    private func heroButton(_ text: String, _ icon: String, primary: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 14, weight: .bold))
+            Text(text).font(Theme.font(15, .bold))
         }
-    }
-}
-
-/// Netflix's little red TOP 10 square.
-struct Top10Badge: View {
-    var small = false
-    var body: some View {
-        VStack(spacing: -2) {
-            Text("TOP").font(.system(size: small ? 6 : 8, weight: .heavy))
-            Text("10").font(.system(size: small ? 11 : 15, weight: .black))
-        }
-        .foregroundColor(.white)
-        .frame(width: small ? 18 : 26, height: small ? 22 : 30)
-        .background(Rectangle().fill(Theme.red))
+        .foregroundColor(primary ? .black : .white)
+        .frame(maxWidth: .infinity).padding(.vertical, 11)
+        .background(RoundedRectangle(cornerRadius: 6).fill(primary ? Color.white : Theme.glass))
     }
 }

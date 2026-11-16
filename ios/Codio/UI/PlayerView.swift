@@ -12,14 +12,14 @@ struct LoadingView: View {
             }
             VStack(spacing: 18) {
                 if let m = engine.playMeta, !m.name.isEmpty {
-                    Text(m.name).font(.title2.bold()).foregroundColor(.white).multilineTextAlignment(.center)
+                    Text(m.name).font(Theme.font(.title2, .bold)).foregroundColor(.white).multilineTextAlignment(.center)
                 } else {
                     BrandWordmark(height: 32)
                 }
                 ProgressView().tint(Theme.red).scaleEffect(1.3)
-                Text(engine.loadingText).font(.subheadline).foregroundColor(Theme.body).multilineTextAlignment(.center)
+                Text(engine.loadingText).font(Theme.font(.subheadline)).foregroundColor(Theme.body).multilineTextAlignment(.center)
                 Button("Cancel") { engine.cancelPlay() }
-                    .font(.headline).foregroundColor(.white)
+                    .font(Theme.font(.headline)).foregroundColor(.white)
                     .padding(.horizontal, 26).padding(.vertical, 10)
                     .background(Capsule().fill(Theme.raised))
             }
@@ -104,12 +104,12 @@ struct PlayerView: View {
         VStack {
             HStack(spacing: 14) {
                 Button { engine.stopPlayer() } label: {
-                    Image(systemName: "xmark").font(.title2.weight(.semibold)).frame(width: 52, height: 52).contentShape(Rectangle())
+                    Image(systemName: "xmark").font(Theme.font(.title2, .semibold)).frame(width: 52, height: 52).contentShape(Rectangle())
                 }
-                Text(title).font(.headline).lineLimit(1)
+                Text(title).font(Theme.font(.headline)).lineLimit(1)
                 Spacer()
                 Button { showCast = true; hideTask?.cancel() } label: {
-                    Image(systemName: "person.2").font(.title3).frame(width: 44, height: 44).contentShape(Rectangle())
+                    Image(systemName: "person.2").font(Theme.font(.title3)).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 trackMenu
             }
@@ -179,7 +179,7 @@ struct PlayerView: View {
                 }
             }
         } label: {
-            Image(systemName: "captions.bubble").font(.title2).frame(width: 44, height: 44)
+            Image(systemName: "captions.bubble").font(Theme.font(.title2)).frame(width: 44, height: 44)
         }
     }
 
@@ -214,7 +214,7 @@ struct PlayerView: View {
                         }
                     } label: {
                         Text(kind == .intro ? "Skip Intro" : kind == .recap ? "Skip Recap" : "Skip Credits")
-                            .font(.headline).foregroundColor(.black)
+                            .font(Theme.font(.headline)).foregroundColor(.black)
                             .padding(.horizontal, 20).padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
                     }
@@ -286,19 +286,19 @@ struct PlayerView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(c.counting ? "Up Next in \(Int(max(1, c.left.rounded(.up))))" : "Up Next")
-                                .font(.footnote.weight(.bold)).foregroundColor(.white).monospacedDigit()
+                                .font(Theme.font(.footnote, .bold)).foregroundColor(.white).monospacedDigit()
                             Text("S\(n.season) E\(n.episode)" + (n.title.isEmpty ? "" : "  ·  " + n.title))
-                                .font(.footnote).foregroundColor(Theme.body).lineLimit(1)
+                                .font(Theme.font(.footnote)).foregroundColor(Theme.body).lineLimit(1)
                             HStack(spacing: 8) {
                                 Button { playNext(n) } label: {
                                     Label("Play now", systemImage: "play.fill")
-                                        .font(.footnote.weight(.bold)).foregroundColor(.black)
+                                        .font(Theme.font(.footnote, .bold)).foregroundColor(.black)
                                         .padding(.horizontal, 12).padding(.vertical, 7)
                                         .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
                                 }
                                 Button { upNextDismissed = true } label: {
                                     Text("Watch credits")
-                                        .font(.footnote.weight(.bold)).foregroundColor(.white)
+                                        .font(Theme.font(.footnote, .bold)).foregroundColor(.white)
                                         .padding(.horizontal, 12).padding(.vertical, 7)
                                         .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.2)))
                                 }
@@ -453,19 +453,19 @@ struct SourcesView: View {
     private func row(_ s: Source) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(spacing: 4) {
-                Text(s.qualityLabel ?? "?").font(.caption.bold()).foregroundColor(.white)
+                Text(s.qualityLabel ?? "?").font(Theme.font(.caption, .bold)).foregroundColor(.white)
                     .padding(.horizontal, 6).padding(.vertical, 3)
                     .background(RoundedRectangle(cornerRadius: 4).fill(s.rank == 0 ? Theme.red : Theme.raised))
-                if s.cached { Image(systemName: "bolt.fill").font(.caption).foregroundColor(.yellow) }
+                if s.cached { Image(systemName: "bolt.fill").font(Theme.font(.caption)).foregroundColor(.yellow) }
             }
             .frame(width: 48)
             VStack(alignment: .leading, spacing: 3) {
                 Text((s.name ?? s.addon ?? "Source").replacingOccurrences(of: "\n", with: " "))
-                    .font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(2)
+                    .font(Theme.font(.subheadline, .semibold)).foregroundColor(.white).lineLimit(2)
                 if let d = s.description {
-                    Text(d).font(.caption).foregroundColor(Theme.dim).lineLimit(4)
+                    Text(d).font(Theme.font(.caption)).foregroundColor(Theme.dim).lineLimit(4)
                 }
-                if let a = s.addon { Text(a).font(.caption2).foregroundColor(Theme.faint) }
+                if let a = s.addon { Text(a).font(Theme.font(.caption2)).foregroundColor(Theme.faint) }
             }
         }
         .padding(.vertical, 4)

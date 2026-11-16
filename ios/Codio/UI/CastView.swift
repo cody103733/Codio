@@ -55,7 +55,7 @@ struct CastRow: View {
         Group {
             if !people.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Cast").font(.headline).foregroundColor(.white).padding(.horizontal, 16)
+                    Text("Cast").font(Theme.font(.headline)).foregroundColor(.white).padding(.horizontal, 16)
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 12) {
                             ForEach(people) { p in PersonCard(person: p) }
@@ -63,7 +63,7 @@ struct CastRow: View {
                         .padding(.horizontal, 16)
                     }
                     Text("This product uses the TMDB API but is not endorsed or certified by TMDB.")
-                        .font(.caption2).foregroundColor(Theme.dim).padding(.horizontal, 16)
+                        .font(Theme.font(.caption2)).foregroundColor(Theme.dim).padding(.horizontal, 16)
                 }
             }
         }
@@ -76,9 +76,9 @@ private struct PersonCard: View {
     var body: some View {
         VStack(spacing: 4) {
             RemoteImage(url: person.photo).frame(width: 76, height: 76).clipShape(Circle())
-            Text(person.name).font(.caption.weight(.semibold)).foregroundColor(.white).lineLimit(2).multilineTextAlignment(.center)
+            Text(person.name).font(Theme.font(.caption, .semibold)).foregroundColor(.white).lineLimit(2).multilineTextAlignment(.center)
             if !person.character.isEmpty {
-                Text(person.character).font(.caption2).foregroundColor(Theme.dim).lineLimit(2).multilineTextAlignment(.center)
+                Text(person.character).font(Theme.font(.caption2)).foregroundColor(Theme.dim).lineLimit(2).multilineTextAlignment(.center)
             }
         }
         .frame(width: 86)
@@ -105,7 +105,7 @@ struct CastSheet: View {
                                 RemoteImage(url: person.photo).frame(width: 52, height: 52).clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(person.name).foregroundColor(.white)
-                                    if !person.character.isEmpty { Text(person.character).font(.caption).foregroundColor(Theme.dim) }
+                                    if !person.character.isEmpty { Text(person.character).font(Theme.font(.caption)).foregroundColor(Theme.dim) }
                                 }
                             }
                             .listRowBackground(Theme.card)
