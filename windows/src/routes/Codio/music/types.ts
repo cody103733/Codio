@@ -11,6 +11,8 @@ export type MusicTrack = {
     isrc?: string | null,
     // MusicBrainz recording id, when known.
     mbid?: string | null,
+    // MusicBrainz id of the (first) artist, when known; discovery uses it.
+    artistMbid?: string | null,
     // The addon (its base link) this track came from. Playing asks that addon first.
     addon?: string | null,
     // A direct audio link the addon gave with the track.

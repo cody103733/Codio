@@ -1,1 +1,1 @@
-New Music tab: search artists, albums and songs, and play them through music addons you add by link.
+Music opens faster and has discovery rows: because you played, popular and new releases. Covers load once and stay.

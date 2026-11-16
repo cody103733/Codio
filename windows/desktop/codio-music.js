@@ -1,7 +1,9 @@
 // Music for Codio: the part that needs a real network client.
 //
 //   GET /api/music/mb?p=/ws/2/...[&base=https://mirror]   MusicBrainz (or a mirror), one request a second, cached on disk
-//   GET /api/music/lb?p=/1/popularity/...                  ListenBrainz popularity (top tracks of an artist), cached
+//   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
+//   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
+//   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
 //
 // Every call needs the header X-Codio: 1. Addon addresses (they can contain a personal token) are never logged or cached.
@@ -17,10 +19,12 @@ const crypto = require('crypto');
 
 const USER_AGENT = 'Codio/1.7 ( https://github.com/cody103733/Codio )';
 const DEFAULT_MB = 'https://musicbrainz.org';
-const LB = 'https://api.listenbrainz.org';
+// (CODIO_TEST_LB points both ListenBrainz hosts at a stand-in server, for testing without the internet.)
+const LB = process.env.CODIO_TEST_LB || 'https://api.listenbrainz.org';
+const LABS = process.env.CODIO_TEST_LB || 'https://labs.api.listenbrainz.org';
 const CACHE_DIR = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'Codio', 'music-cache');
 const DAY = 24 * 3600 * 1000;
-const GAP_MS = 1100;
+const GAP_MS = 1000;
 
 // Gets url (following up to 3 redirects). Resolves { status, headers, body } and rejects on network errors.
 const fetchUrl = (url, { headers = {}, timeout = 15000, redirects = 3 } = {}) => new Promise((resolve, reject) => {
@@ -59,14 +63,13 @@ const fetchUrl = (url, { headers = {}, timeout = 15000, redirects = 3 } = {}) =>
     req.on('error', reject);
 });
 
-// One request at a time per server, at least GAP_MS apart (MusicBrainz asks for no more than one a second).
-const queues = new Map();
-const spaced = (origin, job) => {
-    const last = queues.get(origin) || Promise.resolve();
-    const run = last.then(job, job);
-    queues.set(origin, run.then(() => new Promise((r) => setTimeout(r, GAP_MS)), () => new Promise((r) => setTimeout(r, GAP_MS))));
-    return run;
-};
+// Calls to one server start at least GAP_MS apart (MusicBrainz asks for no more than one a second); they may overlap.
+const nextStart = new Map();
+const spaced = (origin, job) => new Promise((resolve, reject) => {
+    const at = Math.max(Date.now(), nextStart.get(origin) || 0);
+    nextStart.set(origin, at + GAP_MS);
+    setTimeout(() => job().then(resolve, reject), at - Date.now());
+});
 
 const cacheFile = (url) => path.join(CACHE_DIR, crypto.createHash('sha1').update(url).digest('hex') + '.json');
 const readCache = (url, ttl) => {
@@ -107,6 +110,8 @@ const metadata = async (response, origin, p, ttl) => {
         if (res.status === 200) {
             writeCache(url, res.body);
             send(response, 200, res.body);
+        } else if (res.status === 204) {
+            send(response, 204, '');
         } else if (res.status === 503 || res.status === 429) {
             send(response, 503, JSON.stringify({ error: 'The music database is busy, try again in a moment' }), { 'Retry-After': '5' });
         } else {
@@ -114,6 +119,52 @@ const metadata = async (response, origin, p, ttl) => {
         }
     } catch (e) {
         fail(response, 502, 'Couldn\'t reach the music database');
+    }
+};
+
+// Cover art: fetched once, kept on disk (a miss is remembered for a day), so every later look is instant.
+const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org)$/;
+const image = async (response, target) => {
+    let u;
+    try {
+        u = new URL(target);
+    } catch (_e) {
+        response.writeHead(400).end();
+        return;
+    }
+    if (u.protocol !== 'https:' || !IMAGE_HOSTS.test(u.hostname)) {
+        response.writeHead(400).end();
+        return;
+    }
+    const base = path.join(CACHE_DIR, 'img-' + crypto.createHash('sha1').update(target).digest('hex'));
+    try {
+        const stat = fs.statSync(base + '.none');
+        if (Date.now() - stat.mtimeMs < DAY) {
+            response.writeHead(404, { 'Cache-Control': 'max-age=3600' }).end();
+            return;
+        }
+    } catch (_e) { /* no miss on file */ }
+    try {
+        const body = fs.readFileSync(base + '.img');
+        const type = fs.readFileSync(base + '.type', 'utf8');
+        response.writeHead(200, { 'Content-Type': type, 'Content-Length': body.length, 'Cache-Control': 'max-age=604800' });
+        response.end(body);
+        return;
+    } catch (_e) { /* not kept yet */ }
+    try {
+        const res = await fetchUrl(target, { headers: { Accept: 'image/*' }, timeout: 20000 });
+        fs.mkdirSync(CACHE_DIR, { recursive: true });
+        if (res.status === 200 && String(res.headers['content-type'] || '').startsWith('image/')) {
+            fs.writeFileSync(base + '.img', res.body);
+            fs.writeFileSync(base + '.type', String(res.headers['content-type']));
+            response.writeHead(200, { 'Content-Type': res.headers['content-type'], 'Content-Length': res.body.length, 'Cache-Control': 'max-age=604800' });
+            response.end(res.body);
+        } else {
+            if (res.status === 404) fs.writeFileSync(base + '.none', '');
+            response.writeHead(res.status === 404 ? 404 : 502).end();
+        }
+    } catch (_e) {
+        response.writeHead(502).end();
     }
 };
 
@@ -129,7 +180,8 @@ const validBase = (text) => {
 const handle = (request, response, pathname) => {
     if (!pathname.startsWith('/api/music/')) return false;
     const url = new URL(request.url, 'http://127.0.0.1');
-    if (request.method !== 'GET' || request.headers['x-codio'] !== '1') {
+    // Pictures are loaded by <img>, which can't send the header; they only come from the cover art hosts.
+    if (request.method !== 'GET' || (request.headers['x-codio'] !== '1' && pathname !== '/api/music/img')) {
         response.writeHead(400).end();
         return true;
     }
@@ -147,11 +199,25 @@ const handle = (request, response, pathname) => {
     }
     if (pathname === '/api/music/lb') {
         const p = url.searchParams.get('p') || '';
-        if (!p.startsWith('/1/popularity/')) {
+        if (!/^\/1\/(popularity|stats\/sitewide|explore\/fresh-releases)\//.test(p)) {
             response.writeHead(400).end();
             return true;
         }
-        metadata(response, LB, p, DAY);
+        // Charts and new releases change by the day; an artist's top tracks hardly at all.
+        metadata(response, LB, p, p.startsWith('/1/popularity/') ? DAY : 6 * 3600 * 1000);
+        return true;
+    }
+    if (pathname === '/api/music/labs') {
+        const p = url.searchParams.get('p') || '';
+        if (!p.startsWith('/similar-artists/')) {
+            response.writeHead(400).end();
+            return true;
+        }
+        metadata(response, LABS, p, 7 * DAY);
+        return true;
+    }
+    if (pathname === '/api/music/img') {
+        image(response, url.searchParams.get('u') || '');
         return true;
     }
     if (pathname === '/api/music/addon') {

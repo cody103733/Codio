@@ -7,6 +7,7 @@ import { NavBar, Chip, CodioButton, Spinner, Strip, styles } from '../components
 import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
+import { moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
 import { playQueue, recentTracks, usePlayer } from './player';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
 
@@ -18,6 +19,25 @@ export const albumHref = (album: { id: string, addon?: string | null }, addons: 
 export const artistHref = (artist: { id: string, addon?: string | null }, addons: MusicAddon[]) => {
     const owner = artist.addon ? addons.find((a) => a.url === artist.addon) : null;
     return `/music/artist/${encodeURIComponent(artist.id)}${owner ? `?addon=${encodeURIComponent(owner.manifest.id)}` : ''}`;
+};
+
+// Opening an album or artist from a tile hands over what the tile knows, so the page shows its heading at once.
+export const openAlbum = (navigate: (to: string, o?: any) => void, album: MusicAlbum, addons: MusicAddon[]) =>
+    navigate(albumHref(album, addons), { state: { title: album.title, artist: album.artist, art: album.artworkURL, year: album.year } });
+export const openArtist = (navigate: (to: string, o?: any) => void, artist: MusicArtist, addons: MusicAddon[]) =>
+    navigate(artistHref(artist, addons), { state: { name: artist.name } });
+
+// A row that loads by itself and keeps its answer for the rest of the run.
+const rowCache = new Map<string, unknown>();
+const useRow = <T,>(key: string, load: () => Promise<T[]>): T[] | null => {
+    const [rows, setRows] = useState<T[] | null>(() => (rowCache.get(key) as T[] | undefined) ?? null);
+    useEffect(() => {
+        if (rowCache.has(key)) { setRows(rowCache.get(key) as T[]); return; }
+        let cancelled = false;
+        load().then((r) => { rowCache.set(key, r); if (!cancelled) setRows(r); }, () => { if (!cancelled) setRows([]); });
+        return () => { cancelled = true; };
+    }, [key]);
+    return rows;
 };
 
 export const useMusicAddons = () => {
@@ -123,7 +143,7 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
                     <>
                         <div className={m['section-title']}>Artists</div>
                         <Strip className={m['row-strip']}>
-                            {results.artists.map((a: MusicArtist) => <Tile key={`${a.addon}/${a.id}`} round title={a.name} sub={a.detail} art={a.artworkURL} onClick={() => navigate(artistHref(a, addons))} />)}
+                            {results.artists.map((a: MusicArtist) => <Tile key={`${a.addon}/${a.id}`} round title={a.name} sub={a.detail} art={a.artworkURL} onClick={() => openArtist(navigate, a, addons)} />)}
                         </Strip>
                     </>
                     : null
@@ -133,7 +153,7 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
                     <>
                         <div className={m['section-title']}>Albums</div>
                         <Strip className={m['row-strip']}>
-                            {results.albums.map((a: MusicAlbum) => <Tile key={`${a.addon}/${a.id}`} title={a.title} sub={[a.artist, a.year].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => navigate(albumHref(a, addons))} />)}
+                            {results.albums.map((a: MusicAlbum) => <Tile key={`${a.addon}/${a.id}`} title={a.title} sub={[a.artist, a.year].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => openAlbum(navigate, a, addons)} />)}
                         </Strip>
                     </>
                     : null
@@ -149,6 +169,74 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
                     : null
             }
         </div>
+    );
+};
+
+// The discovery rows of the Music home: made for you from what you played, then what is popular and new.
+const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack[] }) => {
+    const navigate = useNavigate();
+    // Artists you played lately (most recent first), as MusicBrainz knows them.
+    const seeds = useMemo(() => {
+        const out: { id: string, name: string }[] = [];
+        recent.forEach((t) => { if (t.artistMbid && !out.some((o) => o.id === t.artistMbid)) out.push({ id: t.artistMbid, name: t.artist }); });
+        return out.slice(0, 2);
+    }, [recent]);
+    const like0 = useRow(`similar-${seeds[0]?.id ?? ''}`, () => seeds[0] ? similarArtists(seeds[0].id) : Promise.resolve([]));
+    const like1 = useRow(`similar-${seeds[1]?.id ?? ''}`, () => seeds[1] ? similarArtists(seeds[1].id) : Promise.resolve([]));
+    const more = useRow(`more-${seeds[0]?.id ?? ''}`, () => seeds[0] ? moreFrom(seeds[0].id) : Promise.resolve([]));
+    const albums = useRow('popular-albums', popularAlbums);
+    const fresh = useRow('new-releases', newReleases);
+    const songs = useRow('popular-songs', popularSongs);
+    const artists = useRow('popular-artists', popularArtists);
+    const loading = [albums, fresh, songs, artists].every((r) => r === null);
+    const player = usePlayer();
+    const current = player.queue[player.index]?.id ?? null;
+
+    const artistRow = (title: string, list: MusicArtist[] | null) => list && list.length > 0 ? (
+        <div key={title}>
+            <div className={m['section-title']}>{title}</div>
+            <Strip className={m['row-strip']}>
+                {list.map((a) => <Tile key={a.id} round title={a.name} sub={a.detail} art={a.artworkURL} onClick={() => openArtist(navigate, a, addons)} />)}
+            </Strip>
+        </div>
+    ) : null;
+    const albumRow = (title: string, list: MusicAlbum[] | null) => list && list.length > 0 ? (
+        <div key={title}>
+            <div className={m['section-title']}>{title}</div>
+            <Strip className={m['row-strip']}>
+                {list.map((a) => <Tile key={a.id} title={a.title} sub={[a.artist, a.year].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => openAlbum(navigate, a, addons)} />)}
+            </Strip>
+        </div>
+    ) : null;
+
+    return (
+        <>
+            {recent.length > 0 ? (
+                <>
+                    <div className={m['section-title']}>Recently played</div>
+                    <Strip className={m['row-strip']}>
+                        {recent.map((t) => <Tile key={`${t.addon}/${t.id}`} title={t.title} sub={t.artist} art={t.artworkURL} onClick={() => playQueue(recent, recent.indexOf(t))} />)}
+                    </Strip>
+                </>
+            ) : null}
+            {artistRow(seeds[0] ? `Because you played ${seeds[0].name}` : '', like0)}
+            {albumRow(seeds[0] ? `More from ${seeds[0].name}` : '', more)}
+            {artistRow(seeds[1] ? `Because you played ${seeds[1].name}` : '', like1)}
+            {albumRow('Popular right now', albums)}
+            {albumRow('New releases', fresh)}
+            {songs && songs.length > 0 ? (
+                <>
+                    <div className={m['section-title']}>Songs people are playing</div>
+                    <div className={m['tracks']}>
+                        {songs.slice(0, 10).map((t, i) => <TrackRow key={t.id} track={t} number={i + 1} current={current === t.id} onPlay={() => playQueue(songs, i)} />)}
+                    </div>
+                </>
+            ) : null}
+            {artistRow('Popular artists', artists)}
+            {loading ? <div className={m['center']}><Spinner /></div> : null}
+            {!loading && [albums, fresh, songs, artists].every((r) => r !== null && r.length === 0) && recent.length === 0 ?
+                <div className={m['note']}>Couldn't load ideas right now (no connection?). Search for an artist, an album or a song to start.</div> : null}
+        </>
     );
 };
 
@@ -183,26 +271,30 @@ const Music = () => {
                 return;
             }
             setSearching(true);
-            Promise.all([
-                searchMusicBrainz(q).catch((): SearchResults => ({ artists: [], albums: [], tracks: [] })),
-                ...addons.filter((a) => has(a, 'search')).map((a) => searchAddon(a, q).catch((): SearchResults => ({ artists: [], albums: [], tracks: [] }))),
-            ]).then((all) => {
+            // Results show as each source answers: addons (fast) and MusicBrainz (artists, albums, songs in turn).
+            const none = (): SearchResults => ({ artists: [], albums: [], tracks: [] });
+            let mb = none();
+            const fromAddons: SearchResults[] = [];
+            const show = () => {
                 if (id !== request.current) return;
-                const [mb, ...fromAddons] = all;
                 setResults({
                     artists: [...mb.artists, ...fromAddons.flatMap((r) => r.artists)],
                     albums: [...mb.albums, ...fromAddons.flatMap((r) => r.albums)],
                     // Songs from MusicBrainz play through any addon; an addon's own songs play from that addon first.
                     tracks: [...mb.tracks, ...fromAddons.flatMap((r) => r.tracks)],
                 });
-                setSearching(false);
-            });
-        }, 500);
+            };
+            Promise.all([
+                searchMusicBrainz(q, (partial) => { mb = partial; show(); }).catch(none),
+                ...addons.filter((a) => has(a, 'search')).map((a) => searchAddon(a, q).catch(none).then((r) => { fromAddons.push(r); show(); })),
+            ]).then(() => { if (id === request.current) setSearching(false); });
+        }, 350);
         return () => clearTimeout(timer);
     }, [query, addons]);
 
     const current = player.queue[player.index]?.id ?? null;
-    const empty = results !== null && results.artists.length + results.albums.length + results.tracks.length === 0;
+    const none = results !== null && !searching && results.artists.length + results.albums.length + results.tracks.length === 0;
+    const hasResults = results !== null && results.artists.length + results.albums.length + results.tracks.length > 0;
 
     return (
         <div className={classnames(styles['codio'], styles['flat'])}>
@@ -230,35 +322,25 @@ const Music = () => {
                                         <span className={classnames(m['link'])} onClick={() => setView('addons')}>{' Add one'}</span>.
                                     </div>
                                     : null}
-                                {searching && !results ? <div className={m['center']}><Spinner /></div> : null}
-                                {empty ? <div className={m['note']}>{`Nothing found for “${query.trim()}”.`}</div> : null}
+                                {searching && !hasResults ? <div className={m['center']}><Spinner /></div> : null}
+                                {none ? <div className={m['note']}>{`Nothing found for “${query.trim()}”.`}</div> : null}
                                 {results ? <Results results={results} addons={addons} current={current} onPlay={(tracks, i) => playQueue(tracks, i)} /> : null}
                                 {
                                     !results ?
                                         <>
-                                            {
-                                                recent.length > 0 ?
-                                                    <>
-                                                        <div className={m['section-title']}>Recently played</div>
-                                                        <Strip className={m['row-strip']}>
-                                                            {recent.map((t) => <Tile key={`${t.addon}/${t.id}`} title={t.title} sub={t.artist} art={t.artworkURL} onClick={() => playQueue(recent, recent.indexOf(t))} />)}
-                                                        </Strip>
-                                                    </>
-                                                    : null
-                                            }
+                                            <Discover addons={addons} recent={recent} />
                                             {rows.map((row) => (
                                                 <div key={`${row.addon.url}/${row.id}`}>
                                                     <div className={m['section-title']}>{row.name}</div>
                                                     <Strip className={m['row-strip']}>
                                                         {row.items.map((item: any) => row.type === 'album' ?
-                                                            <Tile key={item.id} title={item.title} sub={item.artist} art={item.artworkURL} onClick={() => navigate(albumHref(item, addons))} />
+                                                            <Tile key={item.id} title={item.title} sub={item.artist} art={item.artworkURL} onClick={() => openAlbum(navigate, item, addons)} />
                                                             : row.type === 'artist' ?
-                                                                <Tile key={item.id} round title={item.name} sub={item.detail} art={item.artworkURL} onClick={() => navigate(artistHref(item, addons))} />
+                                                                <Tile key={item.id} round title={item.name} sub={item.detail} art={item.artworkURL} onClick={() => openArtist(navigate, item, addons)} />
                                                                 : <Tile key={item.id} title={item.title} sub={item.artist} art={item.artworkURL} onClick={() => playQueue(row.items as MusicTrack[], row.items.indexOf(item))} />)}
                                                     </Strip>
                                                 </div>
                                             ))}
-                                            {recent.length === 0 && rows.length === 0 ? <div className={m['note']}>Search for an artist, an album or a song to start.</div> : null}
                                         </>
                                         : null
                                 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import classnames from 'classnames';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useSearchParams } from 'react-router-dom';
 import { NavBar, CodioButton, Spinner, styles } from '../components';
 import { musicStyles as m, Cover, TrackRow } from './parts';
@@ -19,6 +19,7 @@ const Album = () => {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const player = usePlayer();
+    const preview = (useLocation().state ?? null) as { title?: string, artist?: string, art?: string | null, year?: string | null } | null;
     const [page, setPage] = useState<Page | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +45,16 @@ const Album = () => {
             <div className={styles['page-scroll']}>
                 <div className={m['music']}>
                     {error ? <div className={m['error']}>{error}</div> : null}
+                    {!page && !error && preview?.title ? (
+                        <div className={m['hero']}>
+                            <Cover src={preview.art} label={preview.title} />
+                            <div>
+                                <div className={m['hero-kind']}>Album</div>
+                                <div className={m['hero-title']}>{preview.title}</div>
+                                <div className={m['hero-sub']}>{[preview.artist, preview.year].filter(Boolean).join(' · ')}</div>
+                            </div>
+                        </div>
+                    ) : null}
                     {!page && !error ? <div className={m['center']}><Spinner /></div> : null}
                     {page ? (
                         <>
@@ -54,7 +65,7 @@ const Album = () => {
                                     <div className={m['hero-title']}>{page.title}</div>
                                     <div className={m['hero-sub']}>
                                         {page.artistId ?
-                                            <span className={m['link']} onClick={() => navigate(artistHref({ id: page.artistId as string }, []))}>{page.artist}</span>
+                                            <span className={m['link']} onClick={() => navigate(artistHref({ id: page.artistId as string }, []), { state: { name: page.artist } })}>{page.artist}</span>
                                             : page.artist}
                                         {page.year ? ` · ${page.year}` : ''}{` · ${page.tracks.length} songs`}
                                     </div>

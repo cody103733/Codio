@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import classnames from 'classnames';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useSearchParams } from 'react-router-dom';
 import { NavBar, CodioButton, Spinner, Strip, styles } from '../components';
 import { musicStyles as m, Cover, Tile, TrackRow } from './parts';
 import { artistDetail, loadAddons } from './addons';
 import { getArtist, getTopTracks } from './musicbrainz';
 import { playQueue, usePlayer } from './player';
-import { albumHref } from './Music';
+import { openAlbum } from './Music';
 import type { MusicAlbum, MusicTrack } from './types';
 
 type Page = { name: string, detail: string | null, artworkURL: string | null, addon: string | null, top: MusicTrack[], groups: { title: string, albums: MusicAlbum[] }[] };
@@ -19,6 +19,7 @@ const Artist = () => {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const player = usePlayer();
+    const preview = (useLocation().state ?? null) as { name?: string } | null;
     const [page, setPage] = useState<Page | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +36,7 @@ const Artist = () => {
                 setPage({ name: d.name, detail: d.bio, artworkURL: d.artworkURL, addon: addon.url, top: d.topTracks, groups: [{ title: 'Albums', albums: d.albums }] });
             }, () => { if (!cancelled) setError('Couldn\'t load this artist'); });
         } else {
-            getArtist(id).then((a) => {
+            getArtist(id, preview?.name).then((a) => {
                 if (cancelled) return;
                 const cover = a.albums[0]?.artworkURL ?? a.singles[0]?.artworkURL ?? null;
                 setPage({
@@ -54,6 +55,15 @@ const Artist = () => {
             <div className={styles['page-scroll']}>
                 <div className={m['music']}>
                     {error ? <div className={m['error']}>{error}</div> : null}
+                    {!page && !error && preview?.name ? (
+                        <div className={classnames(m['hero'], m['round'])}>
+                            <Cover src={null} label={preview.name} />
+                            <div>
+                                <div className={m['hero-kind']}>Artist</div>
+                                <div className={m['hero-title']}>{preview.name}</div>
+                            </div>
+                        </div>
+                    ) : null}
                     {!page && !error ? <div className={m['center']}><Spinner /></div> : null}
                     {page ? (
                         <>
@@ -85,7 +95,7 @@ const Artist = () => {
                                 <div key={g.title}>
                                     <div className={m['section-title']}>{g.title}</div>
                                     <Strip className={m['row-strip']}>
-                                        {g.albums.map((a) => <Tile key={a.id} title={a.title} sub={[a.year, a.kind?.replace(/^Album · ?/, '')].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => navigate(albumHref({ id: a.id, addon: page.addon }, loadAddons()))} />)}
+                                        {g.albums.map((a) => <Tile key={a.id} title={a.title} sub={[a.year, a.kind?.replace(/^Album · ?/, '')].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => openAlbum(navigate, { ...a, addon: page.addon }, loadAddons())} />)}
                                     </Strip>
                                 </div>
                             ))}

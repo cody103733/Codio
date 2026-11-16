@@ -25,25 +25,35 @@ export const saveMusicSettings = (settings: MusicSettings) => {
 
 const enc = encodeURIComponent;
 
-const mb = async (path: string): Promise<any> => {
+// What was asked this run is kept, so going back to a page costs nothing (Codio's server keeps it for days besides).
+const asked = new Map<string, Promise<any>>();
+
+const mb = (path: string): Promise<any> => {
     const base = loadMusicSettings().mbBase;
     const url = `/api/music/mb?p=${enc(path)}${base ? `&base=${enc(base)}` : ''}`;
-    for (let attempt = 0; attempt < 3; attempt++) {
-        const response = await fetch(url, { headers: { 'X-Codio': '1' } });
-        if (response.status === 503 && attempt < 2) {
-            await new Promise((r) => setTimeout(r, 3000));
-            continue;
+    const known = asked.get(url);
+    if (known) return known;
+    const job = (async () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const response = await fetch(url, { headers: { 'X-Codio': '1' } });
+            if (response.status === 503 && attempt < 2) {
+                await new Promise((r) => setTimeout(r, 3000));
+                continue;
+            }
+            if (!response.ok) throw new Error(`MusicBrainz ${response.status}`);
+            return response.json();
         }
-        if (!response.ok) throw new Error(`MusicBrainz ${response.status}`);
-        return response.json();
-    }
-    throw new Error('MusicBrainz is busy');
+        throw new Error('MusicBrainz is busy');
+    })();
+    asked.set(url, job);
+    job.catch(() => asked.delete(url));
+    return job;
 };
 
 // Lucene special characters in a search must be escaped.
 const lucene = (text: string) => text.replace(/([+\-&|!(){}[\]^"~*?:\\/])/g, '\\$1').trim();
 
-const credit = (list: any): { name: string, id: string | null } => {
+export const credit = (list: any): { name: string, id: string | null } => {
     if (!Array.isArray(list) || list.length === 0) return { name: '', id: null };
     const name = list.map((c: any) => `${c?.name ?? c?.artist?.name ?? ''}${c?.joinphrase ?? ''}`).join('').trim();
     return { name, id: list[0]?.artist?.id ?? null };
@@ -51,7 +61,10 @@ const credit = (list: any): { name: string, id: string | null } => {
 
 const year = (date: unknown) => typeof date === 'string' && /^\d{4}/.test(date) ? date.slice(0, 4) : null;
 
-export const coverUrl = (releaseGroupId: string, size: 250 | 500 | 1200 = 250) => `https://coverartarchive.org/release-group/${releaseGroupId}/front-${size}`;
+// Cover art goes through Codio's server, which keeps each picture on disk after the first time.
+export const artUrl = (url: string) => `/api/music/img?u=${enc(url)}`;
+export const coverUrl = (releaseGroupId: string, size: 250 | 500 | 1200 = 250) => artUrl(`https://coverartarchive.org/release-group/${releaseGroupId}/front-${size}`);
+export const releaseCoverUrl = (releaseId: string, size: 250 | 500 = 250) => artUrl(`https://coverartarchive.org/release/${releaseId}/front-${size}`);
 
 const toAlbum = (g: any): MusicAlbum => {
     const secondary: string[] = Array.isArray(g['secondary-types']) ? g['secondary-types'] : [];
@@ -73,6 +86,7 @@ const toTrack = (recording: any, album?: { title: string, artworkURL: string | n
         mbid: String(recording.id),
         title: String(recording.title ?? ''),
         artist: credit(recording['artist-credit']).name || artistFallback,
+        artistMbid: credit(recording['artist-credit']).id,
         album: album?.title ?? null,
         artworkURL: album?.artworkURL ?? null,
         durationMs: typeof recording.length === 'number' ? recording.length : null,
@@ -80,24 +94,33 @@ const toTrack = (recording: any, album?: { title: string, artworkURL: string | n
     };
 };
 
-export const searchMusicBrainz = async (query: string): Promise<SearchResults> => {
+// Artists, then albums, then songs: each is handed over as soon as it arrives (the server spaces its calls one second
+// apart), so the first results show after a second instead of after all three.
+export const searchMusicBrainz = async (query: string, onPart?: (partial: SearchResults) => void): Promise<SearchResults> => {
     const q = lucene(query);
-    const [artists, groups, recordings] = await Promise.all([
-        mb(`/ws/2/artist?query=${enc(q)}&limit=8`).catch(() => ({})),
-        mb(`/ws/2/release-group?query=${enc(q)}&limit=12`).catch(() => ({})),
-        mb(`/ws/2/recording?query=${enc(q)}&limit=20`).catch(() => ({})),
+    const out: SearchResults = { artists: [], albums: [], tracks: [] };
+    const part = () => onPart && onPart({ artists: out.artists, albums: out.albums, tracks: out.tracks });
+    await Promise.all([
+        mb(`/ws/2/artist?query=${enc(q)}&limit=8`).catch(() => ({})).then((artists) => {
+            out.artists = (Array.isArray(artists.artists) ? artists.artists : []).map((a: any): MusicArtist => ({
+                id: String(a.id), name: String(a.name ?? ''), detail: [a.disambiguation, a.type].filter(Boolean).join(' · ') || null,
+            }));
+            part();
+        }),
+        mb(`/ws/2/release-group?query=${enc(q)}&limit=12`).catch(() => ({})).then((groups) => {
+            out.albums = (Array.isArray(groups['release-groups']) ? groups['release-groups'] : []).map(toAlbum);
+            part();
+        }),
+        mb(`/ws/2/recording?query=${enc(q)}&limit=20`).catch(() => ({})).then((recordings) => {
+            out.tracks = (Array.isArray(recordings.recordings) ? recordings.recordings : []).map((r: any) => {
+                const release = Array.isArray(r.releases) && r.releases.length > 0 ? r.releases[0] : null;
+                const groupId = release?.['release-group']?.id;
+                return toTrack(r, release ? { title: String(release.title ?? ''), artworkURL: groupId ? coverUrl(String(groupId)) : null } : undefined);
+            }).filter(Boolean) as MusicTrack[];
+            part();
+        }),
     ]);
-    return {
-        artists: (Array.isArray(artists.artists) ? artists.artists : []).map((a: any): MusicArtist => ({
-            id: String(a.id), name: String(a.name ?? ''), detail: [a.disambiguation, a.type].filter(Boolean).join(' · ') || null,
-        })),
-        albums: (Array.isArray(groups['release-groups']) ? groups['release-groups'] : []).map(toAlbum),
-        tracks: (Array.isArray(recordings.recordings) ? recordings.recordings : []).map((r: any) => {
-            const release = Array.isArray(r.releases) && r.releases.length > 0 ? r.releases[0] : null;
-            const groupId = release?.['release-group']?.id;
-            return toTrack(r, release ? { title: String(release.title ?? ''), artworkURL: groupId ? coverUrl(String(groupId)) : null } : undefined);
-        }).filter(Boolean) as MusicTrack[],
-    };
+    return out;
 };
 
 export type ArtistPage = {
@@ -111,9 +134,9 @@ export type ArtistPage = {
 
 const newestFirst = (a: MusicAlbum, b: MusicAlbum) => (b.year ?? '0').localeCompare(a.year ?? '0');
 
-export const getArtist = async (id: string): Promise<ArtistPage> => {
+export const getArtist = async (id: string, knownName?: string | null): Promise<ArtistPage> => {
     const [artist, groups] = await Promise.all([
-        mb(`/ws/2/artist/${id}`),
+        knownName ? Promise.resolve({ name: knownName }) : mb(`/ws/2/artist/${id}`),
         mb(`/ws/2/release-group?artist=${id}&type=album|ep|single&limit=100`).catch(() => ({})),
     ]);
     const albums: MusicAlbum[] = [], singles: MusicAlbum[] = [], other: MusicAlbum[] = [];
@@ -145,29 +168,31 @@ export type AlbumPage = {
 };
 
 // An album page: the earliest official release of the release group, with its tracks and their ISRC codes.
+// Two requests: which releases there are, then the earliest one in full (it carries the album's own details too).
 export const getAlbum = async (groupId: string): Promise<AlbumPage> => {
-    const group = await mb(`/ws/2/release-group/${groupId}?inc=artist-credits`);
     const list = await mb(`/ws/2/release?release-group=${groupId}&status=official&limit=100`);
     const releases: any[] = Array.isArray(list.releases) ? list.releases : [];
     releases.sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')));
     if (releases.length === 0) throw new Error('No release found for this album');
-    const release = await mb(`/ws/2/release/${releases[0].id}?inc=recordings+isrcs+artist-credits`);
+    const release = await mb(`/ws/2/release/${releases[0].id}?inc=recordings+isrcs+artist-credits+release-groups`);
+    const group = release['release-group'] ?? {};
     const art = coverUrl(groupId);
-    const artist = credit(group['artist-credit']);
+    const artist = credit(release['artist-credit']);
+    const title = String(group.title ?? release.title ?? '');
     const tracks: MusicTrack[] = [];
     (Array.isArray(release.media) ? release.media : []).forEach((medium: any) => {
         (Array.isArray(medium.tracks) ? medium.tracks : []).forEach((t: any) => {
             const recording = t.recording ?? {};
-            const track = toTrack({ ...recording, title: recording.title ?? t.title, length: recording.length ?? t.length }, { title: String(group.title ?? ''), artworkURL: art }, artist.name);
+            const track = toTrack({ ...recording, title: recording.title ?? t.title, length: recording.length ?? t.length }, { title, artworkURL: art }, artist.name);
             if (track) tracks.push(track);
         });
     });
     return {
         id: groupId,
-        title: String(group.title ?? release.title ?? ''),
+        title,
         artist: artist.name,
         artistId: artist.id,
-        year: year(group['first-release-date']),
+        year: year(group['first-release-date'] ?? release.date),
         artworkURL: art,
         tracks,
     };
