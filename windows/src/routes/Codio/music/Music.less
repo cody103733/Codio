@@ -1,0 +1,528 @@
+// Music screens. Sized in the same 1920x1080 design grid as the other Codio screens (see ../Codio.less).
+
+@u: var(--u);
+@red: #E50914;
+@bg: #0B0B0B;
+@card: #161616;
+@raised: #262626;
+@line: #333;
+@body: #D6D6D6;
+@dim: #B3B3B3;
+@faint: #8C8C8C;
+
+.music {
+    padding: calc(@u * 150) calc(@u * 96) calc(@u * 180) calc(@u * 96);
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+.head {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 28);
+    margin-bottom: calc(@u * 28);
+}
+
+.title {
+    font-size: calc(@u * 56);
+    font-weight: 800;
+    margin-right: calc(@u * 12);
+}
+
+.search-input {
+    flex: 1;
+    max-width: calc(@u * 760);
+    height: calc(@u * 64);
+    padding: 0 calc(@u * 28);
+    border-radius: calc(@u * 12);
+    border: none;
+    outline: none;
+    background: @raised;
+    color: #fff;
+    font: inherit;
+    font-size: calc(@u * 28);
+
+    &::placeholder {
+        color: @faint;
+    }
+
+    &:focus {
+        box-shadow: 0 0 0 calc(@u * 3) #fff;
+    }
+}
+
+.section-title {
+    font-size: calc(@u * 34);
+    font-weight: 800;
+    margin: calc(@u * 36) 0 calc(@u * 16);
+}
+
+.note {
+    color: @body;
+    font-size: calc(@u * 26);
+    line-height: 1.45;
+    max-width: calc(@u * 1100);
+    margin: calc(@u * 12) 0;
+}
+
+.error {
+    color: #FF5A5F;
+    font-size: calc(@u * 26);
+    margin: calc(@u * 12) 0;
+}
+
+.center {
+    display: flex;
+    justify-content: center;
+    padding: calc(@u * 80) 0;
+}
+
+// Tiles in a row: albums, artists, tracks.
+.tile {
+    flex: none;
+    width: calc(@u * 220);
+    margin-right: calc(@u * 28);
+    text-align: left;
+    cursor: pointer;
+
+    .cover {
+        width: calc(@u * 220);
+        height: calc(@u * 220);
+        border-radius: calc(@u * 12);
+    }
+
+    &.round .cover {
+        border-radius: 50%;
+    }
+
+    .tile-title {
+        margin-top: calc(@u * 12);
+        font-size: calc(@u * 25);
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tile-sub {
+        font-size: calc(@u * 22);
+        color: @dim;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &:hover .cover, &:focus-visible .cover {
+        box-shadow: 0 0 0 calc(@u * 4) #fff;
+    }
+}
+
+.cover {
+    display: block;
+    background: @card;
+    object-fit: cover;
+    overflow: hidden;
+    flex: none;
+}
+
+.cover-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: @faint;
+    font-size: calc(@u * 60);
+    font-weight: 800;
+    background: @card;
+}
+
+.row-strip {
+    // The strip pads itself by 96, like the page does.
+    margin: 0 calc(@u * -96) calc(@u * 8);
+}
+
+// A list of songs.
+.tracks {
+    display: flex;
+    flex-direction: column;
+    max-width: calc(@u * 1500);
+}
+
+.track {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 20);
+    height: calc(@u * 84);
+    padding: 0 calc(@u * 20);
+    border-radius: calc(@u * 10);
+    cursor: pointer;
+    text-align: left;
+
+    .track-number {
+        width: calc(@u * 40);
+        text-align: right;
+        color: @faint;
+        font-size: calc(@u * 24);
+        flex: none;
+    }
+
+    .cover {
+        width: calc(@u * 60);
+        height: calc(@u * 60);
+        border-radius: calc(@u * 8);
+    }
+
+    .track-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .track-title {
+        font-size: calc(@u * 27);
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .track-sub {
+        font-size: calc(@u * 22);
+        color: @dim;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .track-time {
+        color: @dim;
+        font-size: calc(@u * 24);
+        flex: none;
+    }
+
+    .track-actions {
+        display: none;
+        gap: calc(@u * 10);
+        flex: none;
+    }
+
+    &.current .track-title {
+        color: @red;
+    }
+
+    &:hover, &:focus-visible {
+        background: #fff;
+        color: #111;
+
+        .track-sub, .track-time, .track-number {
+            color: #444;
+        }
+
+        .track-actions {
+            display: flex;
+        }
+    }
+}
+
+.mini-button {
+    height: calc(@u * 44);
+    padding: 0 calc(@u * 18);
+    border-radius: calc(@u * 22);
+    font-size: calc(@u * 21);
+    font-weight: 700;
+    background: @raised;
+    color: #fff;
+    cursor: pointer;
+
+    &:hover {
+        background: @red;
+    }
+}
+
+// Artist and album headers.
+.hero {
+    display: flex;
+    align-items: flex-end;
+    gap: calc(@u * 44);
+    margin-bottom: calc(@u * 28);
+
+    .cover {
+        width: calc(@u * 300);
+        height: calc(@u * 300);
+        border-radius: calc(@u * 14);
+    }
+
+    &.round .cover {
+        border-radius: 50%;
+    }
+
+    .hero-kind {
+        font-size: calc(@u * 24);
+        color: @dim;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .hero-title {
+        font-size: calc(@u * 68);
+        font-weight: 800;
+        line-height: 1.05;
+        margin: calc(@u * 6) 0;
+    }
+
+    .hero-sub {
+        font-size: calc(@u * 27);
+        color: @body;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: calc(@u * 16);
+        margin-top: calc(@u * 24);
+    }
+}
+
+.link {
+    cursor: pointer;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+// Addons panel.
+.addon-box {
+    display: flex;
+    gap: calc(@u * 16);
+    max-width: calc(@u * 1100);
+    margin-bottom: calc(@u * 20);
+
+    .search-input {
+        max-width: none;
+    }
+}
+
+.addon-item {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 20);
+    padding: calc(@u * 18) calc(@u * 24);
+    margin-bottom: calc(@u * 12);
+    max-width: calc(@u * 1100);
+    border-radius: calc(@u * 12);
+    background: @card;
+
+    .addon-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .addon-name {
+        font-size: calc(@u * 28);
+        font-weight: 700;
+    }
+
+    .addon-meta {
+        font-size: calc(@u * 22);
+        color: @dim;
+    }
+}
+
+// The mini player along the bottom, over every page.
+.mini-root {
+    --u: min(calc(100vw / 1920), calc(100vh / 1080));
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: calc(@u * 24);
+    color: #fff;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+
+    button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        outline: none;
+    }
+}
+
+.mini {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 24);
+    height: calc(@u * 104);
+    padding: 0 calc(@u * 40);
+    background: rgba(24, 24, 24, 0.97);
+    border-top: 1px solid #333;
+
+    .mini-progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(@u * -6);
+        height: calc(@u * 12);
+        cursor: pointer;
+
+        .mini-progress-bar {
+            position: absolute;
+            left: 0;
+            top: calc(@u * 4);
+            height: calc(@u * 4);
+            background: @red;
+        }
+
+        &:hover .mini-progress-bar {
+            top: calc(@u * 2);
+            height: calc(@u * 8);
+        }
+    }
+
+    .mini-now {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 18);
+        width: calc(@u * 560);
+        min-width: 0;
+        cursor: pointer;
+    }
+
+    .cover {
+        width: calc(@u * 68);
+        height: calc(@u * 68);
+        border-radius: calc(@u * 8);
+    }
+
+    .mini-text {
+        min-width: 0;
+    }
+
+    .mini-title {
+        font-size: calc(@u * 26);
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mini-sub {
+        font-size: calc(@u * 21);
+        color: @dim;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mini-controls {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(@u * 18);
+    }
+
+    .mini-time {
+        font-size: calc(@u * 21);
+        color: @dim;
+        width: calc(@u * 130);
+        text-align: right;
+    }
+
+    .round {
+        width: calc(@u * 56);
+        height: calc(@u * 56);
+        border-radius: 50%;
+        font-size: calc(@u * 28);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+            background: #fff;
+            color: #111;
+        }
+
+        &.active {
+            color: @red;
+        }
+
+        &.big {
+            width: calc(@u * 72);
+            height: calc(@u * 72);
+            background: #fff;
+            color: #111;
+            font-size: calc(@u * 32);
+        }
+    }
+
+    .mini-message {
+        position: absolute;
+        left: 50%;
+        bottom: calc(@u * 120);
+        transform: translateX(-50%);
+        max-width: calc(@u * 1100);
+        padding: calc(@u * 14) calc(@u * 28);
+        border-radius: calc(@u * 12);
+        background: @raised;
+        font-size: calc(@u * 24);
+        box-shadow: 0 calc(@u * 8) calc(@u * 30) rgba(0, 0, 0, 0.6);
+    }
+}
+
+.queue {
+    position: absolute;
+    right: calc(@u * 24);
+    bottom: calc(@u * 116);
+    width: calc(@u * 640);
+    max-height: calc(@u * 640);
+    overflow-y: auto;
+    padding: calc(@u * 12);
+    border-radius: calc(@u * 14);
+    background: #1C1C1E;
+    box-shadow: 0 calc(@u * 12) calc(@u * 40) rgba(0, 0, 0, 0.7);
+    scrollbar-width: thin;
+    scrollbar-color: @line transparent;
+
+    .queue-title {
+        padding: calc(@u * 10) calc(@u * 14);
+        font-size: calc(@u * 24);
+        font-weight: 800;
+        color: @dim;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .queue-row {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 14);
+        width: 100%;
+        padding: calc(@u * 10) calc(@u * 14);
+        border-radius: calc(@u * 8);
+        text-align: left;
+
+        .queue-text {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        &.current .queue-text {
+            color: @red;
+            font-weight: 700;
+        }
+
+        &:hover {
+            background: #fff;
+            color: #111;
+        }
+    }
+}

@@ -141,7 +141,7 @@ const Search = () => {
                         : null
                 }
             </div>
-            <NavBar current={3} />
+            <NavBar current={4} />
         </div>
     );
 };

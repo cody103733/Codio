@@ -115,6 +115,7 @@ Section "Codio" SecMain
   File "${SRC}\codio-web.js"
   File "${SRC}\codio-downloads.js"
   File "${SRC}\codio-update.js"
+  File "${SRC}\codio-music.js"
   ; ffmpeg was only used by the streaming server (gone since 1.6.1).
   Delete "$INSTDIR\ffmpeg.exe"
   Delete "$INSTDIR\ffprobe.exe"

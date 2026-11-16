@@ -15,6 +15,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}/`;
 const WEB_DIR = path.resolve(__dirname, 'web');
 const downloads = require('./codio-downloads.js');
 const updates = require('./codio-update.js');
+const music = require('./codio-music.js');
 
 const MIME = {
     '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -73,6 +74,7 @@ const serve = (request, response) => {
             return;
         }
         if (updates.handle(request, response, url.pathname)) return;
+        if (music.handle(request, response, url.pathname)) return;
         if (downloads.handle(request, response, url.pathname)) return;
         pathname = decodeURIComponent(new URL(request.url, BASE_URL).pathname);
     } catch (_e) {

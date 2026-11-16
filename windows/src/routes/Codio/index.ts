@@ -6,5 +6,6 @@ import Settings from './Settings';
 import Library from './Library';
 import Addons from './Addons';
 import Intro from './Intro';
+import { Music, Artist as MusicArtist, Album as MusicAlbum } from './music';
 
-export default { Home, Discover, Movies, Series, Search, Detail, Settings, Library, Addons, Intro };
+export default { Home, Discover, Movies, Series, Search, Detail, Settings, Library, Addons, Intro, Music, MusicArtist, MusicAlbum };

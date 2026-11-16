@@ -1,1 +1,1 @@
-New look, taken from the iPhone app: the system font, the current page in red, outlined chips, and Settings as a grouped list with values in red.
+New Music tab: search artists, albums and songs, and play them through music addons you add by link.

@@ -21,6 +21,21 @@ export default [
         element: <routes.Codio.Movies />,
     },
     {
+        path: '/music',
+        view: 1,
+        element: <routes.Codio.Music />,
+    },
+    {
+        path: '/music/artist/:id',
+        view: 1,
+        element: <routes.Codio.MusicArtist />,
+    },
+    {
+        path: '/music/album/:id',
+        view: 1,
+        element: <routes.Codio.MusicAlbum />,
+    },
+    {
         path: '/series',
         view: 1,
         element: <routes.Codio.Series />,

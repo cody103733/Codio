@@ -177,7 +177,7 @@ const Addons = () => {
                     }
                 </div>
             </div>
-            <NavBar current={5} solid />
+            <NavBar current={6} solid />
         </div>
     );
 };

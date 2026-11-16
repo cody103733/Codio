@@ -18,6 +18,7 @@ const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
 const { default: useInterfaceScale } = require('./useInterfaceScale');
 const { DownloadWorker } = require('stremio/routes/Codio/downloads');
+const { MiniPlayer } = require('stremio/routes/Codio/music');
 const styles = require('./styles');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
@@ -180,6 +181,7 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <ShellOpenHandler />
                                     <DownloadWorker />
+                                    <MiniPlayer />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
                                 </DiscordProvider>

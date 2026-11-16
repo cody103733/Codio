@@ -16,6 +16,7 @@ export const NAV_ITEMS: { label: string, path: string }[] = [
     { label: 'Home', path: '/' },
     { label: 'Movies', path: '/movies' },
     { label: 'Shows', path: '/series' },
+    { label: 'Music', path: '/music' },
     { label: 'Search', path: '/search' },
     { label: 'Library', path: '/library' },
     { label: 'Addons', path: '/addons' },

@@ -1,0 +1,14 @@
+{
+  "note": "Cases for the strict 'is this the same recording' check (match.ts isSameRecording). wanted vs candidate -> same?",
+  "cases": [
+    { "name": "same ISRC wins even with different titles", "wanted": { "title": "Song", "artist": "A", "isrc": "ZZ1" }, "candidate": { "title": "Other", "artist": "B", "isrc": "zz1" }, "same": true },
+    { "name": "different ISRC loses even with same title", "wanted": { "title": "Song", "artist": "A", "isrc": "ZZ1" }, "candidate": { "title": "Song", "artist": "A", "isrc": "ZZ2" }, "same": false },
+    { "name": "same title and artist, lengths 2 s apart", "wanted": { "title": "Song", "artist": "A", "durationMs": 200000 }, "candidate": { "title": "Song", "artist": "A", "durationMs": 202000 }, "same": true },
+    { "name": "same title and artist, lengths 10 s apart", "wanted": { "title": "Song", "artist": "A", "durationMs": 200000 }, "candidate": { "title": "Song", "artist": "A", "durationMs": 210000 }, "same": false },
+    { "name": "length unknown on one side", "wanted": { "title": "Song", "artist": "A" }, "candidate": { "title": "Song", "artist": "A", "durationMs": 210000 }, "same": true },
+    { "name": "remaster tail and accents are ignored", "wanted": { "title": "Café (Remastered 2011)", "artist": "The Band" }, "candidate": { "title": "Cafe", "artist": "Band" }, "same": true },
+    { "name": "different song", "wanted": { "title": "Song", "artist": "A" }, "candidate": { "title": "Song Two", "artist": "A" }, "same": false },
+    { "name": "different artist", "wanted": { "title": "Song", "artist": "A" }, "candidate": { "title": "Song", "artist": "Zed" }, "same": false },
+    { "name": "cover with feat. credit", "wanted": { "title": "Song", "artist": "A feat. B" }, "candidate": { "title": "Song", "artist": "A" }, "same": true }
+  ]
+}

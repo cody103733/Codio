@@ -257,7 +257,7 @@ const Library = () => {
                         : null
                 }
             </div>
-            <NavBar current={4} solid={scrolled} />
+            <NavBar current={5} solid={scrolled} />
         </div>
     );
 };
