@@ -12,10 +12,10 @@
     "notes": "Codio for Android now looks exactly like Codio for iPhone: the featured card with Top 10, a Top 10 row, Search and Library with a segmented filter, Settings as a grouped list, and the iPhone's tab bar."
   },
   "windows": {
-    "version": "1.6.11",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.11/CodioSetup-1.6.11.exe",
-    "size": 66053861,
-    "sha256": "1614c6c574864fbb9ee3fd3f3cb3b690b9ccff891bf94602df753a04e305942e",
-    "notes": "One look on every device: Settings headings, Library labels and text now match the TV and phone apps."
+    "version": "1.6.12",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.6.12/CodioSetup-1.6.12.exe",
+    "size": 66063805,
+    "sha256": "cf5130b7150111ce1e46110b0b3eee6120099901206c3774567af4dad40a41c3",
+    "notes": "New look, taken from the iPhone app: the system font, the current page in red, outlined chips, and Settings as a grouped list with values in red."
   }
 }
