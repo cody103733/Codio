@@ -40,12 +40,9 @@ final class NavBar {
             if (focused && i == focus) {
                 tv.drawChip(c, x, Y, s, true, false);
             } else {
-                tv.tNav.setColor(i == current ? Color.WHITE : Theme.TEXT_DIM);
+                // Like the iPhone's tab bar: the current page in red, the rest grey.
+                tv.tNav.setColor(i == current ? Theme.RED : PhoneKit.GRAY);
                 c.drawText(s, x + 26, Y + 37, tv.tNav);
-                if (i == current) {
-                    tv.fill.setColor(Theme.RED);
-                    c.drawRect(x + 26, Y + 50, x + w - 26, Y + 54, tv.fill);
-                }
                 tv.tNav.setColor(Theme.TEXT_DIM);
             }
             x += w + 8;

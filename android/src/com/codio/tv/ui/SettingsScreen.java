@@ -216,29 +216,48 @@ final class SettingsScreen extends Screen {
         float sy = step(scroll, dt);
         c.save();
         c.clipRect(0, LIST_Y - 20, TvView.W, TvView.H);
+        // Grouped like the iPhone's Settings: grey capitals over each section, its rows on one dark rounded card with
+        // thin lines between them, the values in red. The focused row turns white.
         for (int i = 0; i < rows.size(); i++) {
             float y = LIST_Y + tops[i] - sy;
-            if (y > TvView.H || y + HEAD_H < LIST_Y - 20) continue;
             Object o = rows.get(i);
             if (!(o instanceof Item)) {
-                c.drawText((String) o, LIST_X, y + 58, tv.tTitle);
+                int j = i + 1;
+                while (j < rows.size() && rows.get(j) instanceof Item) j++;
+                float gy = LIST_Y + tops[Math.min(i + 1, rows.size() - 1)] - sy, gb = LIST_Y + tops[j - 1] - sy + ROW_H;
+                if (gb < LIST_Y - 20 || y > TvView.H) continue;
+                tv.tSmall.setColor(PhoneKit.SECONDARY);
+                c.drawText(((String) o).toUpperCase(java.util.Locale.ROOT), LIST_X + 30, gy - 16, tv.tSmall);
+                tv.tSmall.setColor(Theme.TEXT_DIM);
+                if (j > i + 1) {
+                    r.set(LIST_X, gy, LIST_X + LIST_W, gb);
+                    tv.fill.setColor(PhoneKit.GROUPED);
+                    c.drawRoundRect(r, 14, 14, tv.fill);
+                }
                 continue;
             }
+            if (y > TvView.H || y + ROW_H < LIST_Y - 20) continue;
             Item it = (Item) o;
             boolean f = !navFocused && i == focus;
-            r.set(LIST_X, y, LIST_X + LIST_W, y + ROW_H - 10);
-            tv.fill.setColor(f ? Theme.FOCUS : Theme.CARD);
-            c.drawRoundRect(r, 10, 10, tv.fill);
+            if (i > 0 && rows.get(i - 1) instanceof Item) {
+                tv.fill.setColor(PhoneKit.SEPARATOR);
+                c.drawRect(LIST_X + 30, y, LIST_X + LIST_W, y + 1.5f, tv.fill);
+            }
+            if (f) {
+                r.set(LIST_X, y, LIST_X + LIST_W, y + ROW_H);
+                tv.fill.setColor(Theme.FOCUS);
+                c.drawRoundRect(r, 14, 14, tv.fill);
+            }
             tv.tLabel.setColor(f ? Theme.ON_FOCUS : Theme.TEXT);
-            c.drawText(it.label, LIST_X + 30, y + 44, tv.tLabel);
+            c.drawText(it.label, LIST_X + 30, y + 49, tv.tLabel);
             String v = it.value();
-            tv.tNav.setColor(f ? Theme.ON_FOCUS_DIM : Theme.TEXT_DIM);
+            tv.tNav.setColor(f ? Theme.ON_FOCUS_DIM : Theme.RED);
             float vw = tv.tNav.measureText(v);
             float vx = LIST_X + LIST_W - 30 - vw - (f && it.cycles() ? 30 : 0);
-            c.drawText(v, vx, y + 44, tv.tNav);
+            c.drawText(v, vx, y + 49, tv.tNav);
             if (f && it.cycles()) {
-                c.drawText("‹", vx - 30, y + 44, tv.tNav);
-                c.drawText("›", LIST_X + LIST_W - 40, y + 44, tv.tNav);
+                c.drawText("\u2039", vx - 30, y + 49, tv.tNav);
+                c.drawText("\u203A", LIST_X + LIST_W - 40, y + 49, tv.tNav);
             }
         }
         c.restore();

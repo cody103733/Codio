@@ -137,14 +137,9 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         setFocusable(true);
         setFocusableInTouchMode(true);
         setBackgroundColor(Color.BLACK);
-        Typeface tf;
-        try {
-            tf = Typeface.createFromAsset(ctx.getAssets(), "web/fonts/PlusJakartaSans.ttf");
-        } catch (Throwable t) {
-            tf = Typeface.SANS_SERIF;
-        }
-        regular = tf;
-        bold = Theme.boldFont(ctx, tf);
+        // The system font, like the iPhone (the standard design).
+        regular = Typeface.create("sans-serif", Typeface.NORMAL);
+        bold = Typeface.create("sans-serif", Typeface.BOLD);
         tHero = text(64, Color.WHITE, true);
         tTitle = text(34, Color.WHITE, true);
         tBody = text(27, Theme.TEXT_BODY, false);
@@ -626,8 +621,16 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         float h = 56, pad = 26;
         float w = pad * 2 + tNav.measureText(label);
         r.set(x, y, x + w, y + h);
-        fill.setColor(focused ? Color.WHITE : selected ? Theme.RED : Theme.GLASS);
-        c.drawRoundRect(r, h / 2, h / 2, fill);
+        // Like the iPhone's pills: red when chosen, white when focused, otherwise a thin outline.
+        if (focused || selected) {
+            fill.setColor(focused ? Color.WHITE : Theme.RED);
+            c.drawRoundRect(r, h / 2, h / 2, fill);
+        } else {
+            r.inset(1.5f, 1.5f);
+            stroke.setColor(0x80FFFFFF);
+            stroke.setStrokeWidth(3);
+            c.drawRoundRect(r, h / 2, h / 2, stroke);
+        }
         tNav.setColor(focused ? Color.BLACK : Color.WHITE);
         c.drawText(label, x + pad, y + h / 2 + 9, tNav);
         tNav.setColor(Theme.TEXT_DIM);
