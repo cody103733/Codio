@@ -214,6 +214,7 @@ struct ProfileButton: View {
                 Text("?").font(Theme.font(size * 0.45, .bold)).foregroundColor(Theme.dim)
                     .frame(width: size, height: size)
                     .background(Circle().fill(Theme.raised))
+                    .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Who's watching")
