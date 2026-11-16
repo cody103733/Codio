@@ -12,10 +12,10 @@
     "notes": "Codio for Android now looks exactly like Codio for iPhone: the featured card with Top 10, a Top 10 row, Search and Library with a segmented filter, Settings as a grouped list, and the iPhone's tab bar."
   },
   "windows": {
-    "version": "1.7.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.7.0/CodioSetup-1.7.0.exe",
-    "size": 66089649,
-    "sha256": "eb1c6fe85976fd1866e4b6e87f404858cbaebe743ae97aa5fd2e25a6ef1d03a9",
-    "notes": "New Music tab: search artists, albums and songs, and play them through music addons you add by link."
+    "version": "1.7.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.7.1/CodioSetup-1.7.1.exe",
+    "size": 66117572,
+    "sha256": "0940a89bd9cb1ff48124a1c78e9fe05d6da50002d63b57cf4aec7eb97287dd69",
+    "notes": "Music opens faster and has discovery rows: because you played, popular and new releases. Covers load once and stay."
   }
 }
