@@ -1,0 +1,164 @@
+name: Pictures of every Codio app
+
+# Builds each app, opens its main screens and saves pictures of them into shots/ on this branch, so the apps can be
+# compared side by side. Only runs on the working branch.
+
+on:
+  push:
+    branches: ['claude/project-thread-kl6ro1']
+    paths-ignore: ['shots/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iphone:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for the simulator
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          pod install --repo-update
+          set -o pipefail
+          xcodebuild -workspace Codio.xcworkspace -scheme Codio -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES ARCHS=arm64 build > build.log 2>&1 || true
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
+          test -d build/Build/Products/Debug-iphonesimulator/Codio.app
+      - name: Pictures
+        run: |
+          mkdir -p out
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 16 Pro \(" | head -1 | grep -oE "[0-9A-F-]{36}")
+          echo "device $DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" ios/build/Build/Products/Debug-iphonesimulator/Codio.app
+          names=(home search library settings)
+          for i in 0 1 2 3; do
+            xcrun simctl launch "$DEVICE" com.codio.ios -start_tab $i
+            if [ $i = 0 ]; then sleep 75; else sleep 25; fi
+            xcrun simctl io "$DEVICE" screenshot "out/iphone-${names[$i]}.png"
+            xcrun simctl terminate "$DEVICE" com.codio.ios || true
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iphone
+          path: |
+            out
+            ios/build.log
+          if-no-files-found: ignore
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the phone and TV apps for the emulator
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq aapt apksigner dalvik-exchange android-sdk-build-tools rsync zipalign unzip python3-pil
+          M=https://repo1.maven.org/maven2
+          mkdir -p deps web out
+          curl -sSfL -o deps/libmpv.aar $M/dev/jdtech/mpv/libmpv/1.0.0/libmpv-1.0.0.aar
+          curl -sSfL -o deps/libvlc.aar $M/org/videolan/android/libvlc-all/3.7.7/libvlc-all-3.7.7.aar
+          curl -sSfL -o deps/android.jar $M/org/robolectric/android-all/14-robolectric-10818077/android-all-14-robolectric-10818077.jar
+          (cd web && unzip -q -o ../builds/Codio-AndroidTV-armv7.apk 'assets/web/*')
+          export WEB_BUILD=$PWD/web/assets/web LIBMPV_AAR=$PWD/deps/libmpv.aar LIBVLC_AAR=$PWD/deps/libvlc.aar VLC_SRC=$PWD/android/vlc-src
+          export KEYSTORE=$PWD/deps/test.keystore KS_PASS=testtest ANDROID_JAR=$PWD/deps/android.jar OUT=$PWD/apk ABIS=x86_64
+          export PATH=/usr/lib/android-sdk/build-tools/debian:$PATH JAVA_HOME=$JAVA_HOME_17_X64
+          export PATH=$JAVA_HOME/bin:$PATH
+          (cd android && VERSION=0.0.1 bash ./build.sh | tail -3 && PHONE=1 VERSION=0.0.1 bash ./build.sh | tail -3)
+          ls -la apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Pictures
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash .github/shots-android.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android
+          path: out
+          if-no-files-found: ignore
+
+  windows:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - name: Build
+        run: |
+          node windows/assemble.js
+          cd windows/.app
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Pictures
+        run: |
+          mkdir -p out shots-tool && cd shots-tool
+          npm init -y >/dev/null && npm install playwright http-server >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+          npx http-server ../windows/.app/build -p 8091 -s >/dev/null 2>&1 &
+          sleep 3
+          node ../.github/shots-windows.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows
+          path: out
+          if-no-files-found: ignore
+
+  save:
+    needs: [iphone, android, windows]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: got
+      - name: Commit the pictures
+        run: |
+          mkdir -p shots
+          find got -name '*.png' -exec cp {} shots/ \;
+          find got -name 'build.log' -exec sh -c 'grep -E "error:|BUILD (SUCCEEDED|FAILED)" "$1" | sort -u > shots/iphone-build.txt' _ {} \;
+          for f in shots/*.png; do [ -f "$f" ] || continue; python3 - "$f" <<'PY'
+          import sys
+          from PIL import Image
+          p = sys.argv[1]
+          im = Image.open(p).convert('RGB')
+          if max(im.size) > 1400:
+              im.thumbnail((1400, 1400))
+          im.save(p[:-4] + '.jpg', quality=82)
+          PY
+          rm -f "$f"; done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add shots
+          git commit -q -m "Pictures of the apps [skip ci]" || exit 0
+          git pull -q --rebase origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}"

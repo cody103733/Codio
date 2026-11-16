@@ -3,7 +3,8 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
-    @State private var tab = 0
+    /// Launching with "-start_tab 3" opens that tab first (used to take pictures of the screens).
+    @State private var tab = UserDefaults.standard.integer(forKey: "start_tab")
     @ObservedObject private var profiles = Profiles.shared
     @ObservedObject private var newEpisodes = NewEpisodes.shared
     @State private var homePath = NavigationPath()
