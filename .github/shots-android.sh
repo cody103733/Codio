@@ -7,7 +7,9 @@ size=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1)
 W=${size%x*}; H=${size#*x}
 echo "screen $W x $H"
 
-adb install -r apk/Codio-Phone-0.0.1.apk
+adb shell settings put global hide_error_dialogs 1
+adb shell settings put secure immersive_mode_confirmations confirmed
+adb install -r apk/Codio-Phone-9.9.9.apk
 adb shell pm grant com.codio.phone android.permission.POST_NOTIFICATIONS || true
 adb shell am start -n com.codio.phone/com.codio.tv.MainActivity
 shot android-phone-home 75
@@ -26,7 +28,7 @@ adb shell input swipe $((W/2)) $((H*7/10)) $((W/2)) $((H*2/10)) 400
 shot android-phone-settings-3 4
 adb shell am force-stop com.codio.phone
 
-adb install -r apk/Codio-AndroidTV-0.0.1.apk
+adb install -r apk/Codio-AndroidTV-9.9.9.apk
 adb shell am start -n com.codio.tv/.MainActivity
 shot android-tv-home 75
 key() { adb shell input keyevent "$1"; sleep 1; }

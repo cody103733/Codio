@@ -77,7 +77,7 @@ jobs:
           export KEYSTORE=$PWD/deps/test.keystore KS_PASS=testtest ANDROID_JAR=$PWD/deps/android.jar OUT=$PWD/apk ABIS=x86_64
           export PATH=/usr/lib/android-sdk/build-tools/debian:$PATH JAVA_HOME=$JAVA_HOME_17_X64
           export PATH=$JAVA_HOME/bin:$PATH
-          (cd android && VERSION=0.0.1 bash ./build.sh | tail -3 && PHONE=1 VERSION=0.0.1 bash ./build.sh | tail -3)
+          (cd android && VERSION=9.9.9 bash ./build.sh | tail -3 && PHONE=1 VERSION=9.9.9 bash ./build.sh | tail -3)
           ls -la apk
       - name: Enable KVM
         run: |
