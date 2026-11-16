@@ -102,7 +102,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         col.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         tabs = new LinearLayout(act);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
-        tabs.setBackgroundColor(Theme.BG);
+        tabs.setBackgroundColor(Color.BLACK);
         String[] labels = {"Home", "Search", "Library", "Settings"};
         for (int i = 0; i < 4; i++) {
             final int t = i;
@@ -114,7 +114,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
                 }
             });
             tabButtons[i] = b;
-            tabs.addView(b, new LinearLayout.LayoutParams(0, PhoneKit.dp(act, 58), 1));
+            tabs.addView(b, new LinearLayout.LayoutParams(0, PhoneKit.dp(act, 50), 1));
         }
         col.addView(tabs, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -442,7 +442,11 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
     /** A round avatar for the profile being watched; tap it to pick who's watching. Sits in the top right of each tab. */
     View profileButton() {
-        final Avatar a = new Avatar(getContext(), null, 34);
+        return profileButton(34);
+    }
+
+    View profileButton(int size) {
+        final Avatar a = new Avatar(getContext(), null, size);
         a.setContentDescription("Who's watching");
         a.setOnClickListener(new OnClickListener() {
             @Override
@@ -451,6 +455,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             }
         });
         avatars.add(new java.lang.ref.WeakReference<>(a));
+        // As on the iPhone, there's no avatar until someone is signed in.
+        a.setVisibility(Profiles.email(store) != null ? VISIBLE : GONE);
         return a;
     }
 
@@ -463,7 +469,10 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         for (int i = avatars.size() - 1; i >= 0; i--) {
             Avatar a = avatars.get(i).get();
             if (a == null) avatars.remove(i);
-            else a.invalidate();
+            else {
+                a.setVisibility(Profiles.email(store) != null ? VISIBLE : GONE);
+                a.invalidate();
+            }
         }
     }
 
@@ -597,6 +606,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
     // ------------------------------------------------------------------ bottom tab bar
 
+    /** One tab of the bar along the bottom, drawn like the iPhone's: a filled icon over a small label, red when chosen. */
     private static final class TabButton extends View {
         private final int icon;
         private final String label;
@@ -609,10 +619,9 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             super(c);
             this.icon = icon;
             this.label = label;
-            t.setTextSize(PhoneKit.dp(c, 11));
+            t.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 10, c.getResources().getDisplayMetrics()));
             t.setTextAlign(Paint.Align.CENTER);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(PhoneKit.dp(c, 2));
+            t.setTypeface(PhoneKit.face(PhoneKit.SEMIBOLD));
             p.setStrokeCap(Paint.Cap.ROUND);
             p.setStrokeJoin(Paint.Join.ROUND);
             setClickable(true);
@@ -628,50 +637,98 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
         @Override
         protected void onDraw(Canvas c) {
-            int col = isSelected() ? Color.WHITE : Theme.TEXT_FAINT;
+            int col = isSelected() ? Theme.RED : PhoneKit.GRAY;
             p.setColor(col);
             t.setColor(col);
-            float cx = getWidth() / 2f, cy = getHeight() * 0.38f, s = PhoneKit.dp(getContext(), 10);
+            float d = getResources().getDisplayMetrics().density;
+            float cx = getWidth() / 2f, cy = 18 * d, s = 11 * d;
             path.reset();
+            p.setStyle(Paint.Style.FILL);
             switch (icon) {
                 case TAB_HOME:
-                    path.moveTo(cx - s, cy);
+                    // house.fill: roof and walls, the door cut out.
+                    path.moveTo(cx - s * 1.05f, cy - s * 0.02f);
                     path.lineTo(cx, cy - s);
-                    path.lineTo(cx + s, cy);
-                    path.moveTo(cx - s * 0.75f, cy - s * 0.2f);
-                    path.lineTo(cx - s * 0.75f, cy + s);
-                    path.lineTo(cx + s * 0.75f, cy + s);
-                    path.lineTo(cx + s * 0.75f, cy - s * 0.2f);
+                    path.lineTo(cx + s * 1.05f, cy - s * 0.02f);
+                    path.close();
                     c.drawPath(path, p);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(1.8f * d);
+                    c.drawPath(path, p);
+                    p.setStyle(Paint.Style.FILL);
+                    r.set(cx - s * 0.75f, cy - s * 0.35f, cx + s * 0.75f, cy + s);
+                    c.drawRoundRect(r, s * 0.12f, s * 0.12f, p);
+                    p.setColor(Color.BLACK);
+                    r.set(cx - s * 0.22f, cy + s * 0.3f, cx + s * 0.22f, cy + s + 1);
+                    c.drawRoundRect(r, s * 0.08f, s * 0.08f, p);
                     break;
                 case TAB_SEARCH:
-                    c.drawCircle(cx - s * 0.2f, cy - s * 0.2f, s * 0.65f, p);
-                    c.drawLine(cx + s * 0.28f, cy + s * 0.28f, cx + s * 0.9f, cy + s * 0.9f, p);
+                    p.setStyle(Paint.Style.STROKE);
+                    p.setStrokeWidth(2.3f * d);
+                    c.drawCircle(cx - s * 0.18f, cy - s * 0.18f, s * 0.66f, p);
+                    p.setStrokeWidth(2.8f * d);
+                    c.drawLine(cx + s * 0.32f, cy + s * 0.32f, cx + s * 0.9f, cy + s * 0.9f, p);
                     break;
                 case TAB_LIBRARY:
-                    r.set(cx - s, cy - s * 0.55f, cx + s * 0.55f, cy + s);
+                    // rectangle.stack.fill
+                    r.set(cx - s, cy - s * 0.32f, cx + s, cy + s);
                     c.drawRoundRect(r, s * 0.2f, s * 0.2f, p);
-                    c.drawLine(cx - s * 0.55f, cy - s, cx + s, cy - s, p);
-                    c.drawLine(cx + s, cy - s, cx + s, cy + s * 0.55f, p);
+                    r.set(cx - s * 0.82f, cy - s * 0.62f, cx + s * 0.82f, cy - s * 0.47f);
+                    c.drawRoundRect(r, s * 0.08f, s * 0.08f, p);
+                    r.set(cx - s * 0.62f, cy - s * 0.9f, cx + s * 0.62f, cy - s * 0.76f);
+                    c.drawRoundRect(r, s * 0.08f, s * 0.08f, p);
                     break;
                 default:
-                    c.drawCircle(cx, cy, s * 0.35f, p);
+                    // gearshape.fill
+                    c.drawCircle(cx, cy, s * 0.74f, p);
                     for (int i = 0; i < 8; i++) {
-                        double a = Math.PI * i / 4;
-                        c.drawLine(cx + (float) Math.cos(a) * s * 0.65f, cy + (float) Math.sin(a) * s * 0.65f,
-                                cx + (float) Math.cos(a) * s, cy + (float) Math.sin(a) * s, p);
+                        c.save();
+                        c.rotate(45 * i, cx, cy);
+                        r.set(cx - s * 0.19f, cy - s, cx + s * 0.19f, cy - s * 0.5f);
+                        c.drawRoundRect(r, s * 0.08f, s * 0.08f, p);
+                        c.restore();
                     }
+                    p.setColor(Color.BLACK);
+                    c.drawCircle(cx, cy, s * 0.3f, p);
                     break;
             }
-            c.drawText(label, cx, getHeight() * 0.86f, t);
-            if (isSelected()) {
-                // The red line that marks the current tab, as on the TV and Windows apps.
-                float w = PhoneKit.dp(getContext(), 14), h = PhoneKit.dp(getContext(), 2);
-                t.setColor(Theme.RED);
-                r.set(cx - w, 0, cx + w, h);
-                c.drawRoundRect(r, h / 2, h / 2, t);
-            }
+            c.drawText(label, cx, 42 * d, t);
         }
+    }
+
+    /**
+     * The top of a page, the way the iPhone draws it: a bar with the round avatar on the right (and "‹ Back" on the
+     * left on a pushed page), then the page's title in large bold type.
+     */
+    LinearLayout largeTitle(String title, boolean withBack) {
+        Context c = getContext();
+        LinearLayout col = new LinearLayout(c);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout bar = new LinearLayout(c);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(PhoneKit.dp(c, 8), 0, PhoneKit.dp(c, 16), 0);
+        if (withBack) {
+            TextView back = PhoneKit.text(c, "\u2039 Back", 17, Theme.RED, PhoneKit.REGULAR);
+            back.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17);
+            back.setPadding(PhoneKit.dp(c, 6), PhoneKit.dp(c, 4), PhoneKit.dp(c, 10), PhoneKit.dp(c, 4));
+            back.setBackground(PhoneKit.pressable(null, PhoneKit.dp(c, 8)));
+            back.setContentDescription("Back");
+            back.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    back();
+                }
+            });
+            bar.addView(back);
+        }
+        bar.addView(new View(c), new LinearLayout.LayoutParams(0, 1, 1));
+        bar.addView(profileButton(28));
+        col.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, PhoneKit.dp(c, 44)));
+        TextView t = PhoneKit.text(c, title, 34, Color.WHITE, PhoneKit.BOLD);
+        t.setSingleLine(true);
+        t.setPadding(PhoneKit.dp(c, 16), 0, PhoneKit.dp(c, 16), PhoneKit.dp(c, 8));
+        col.addView(t);
+        return col;
     }
 
     /** The top of a pushed page: a back arrow and the page's title (which takes the spare width). */

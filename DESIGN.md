@@ -33,13 +33,16 @@ Profile colours, in order: `#E60A14`, `#2178F2`, `#FABA1A`, `#29AD61`, `#8C4DD9`
 
 ## Type and shape
 
-- Font: Plus Jakarta Sans on every app (`Theme.font` on the iPhone, which loads the same file the other apps use).
+- The iPhone app is the standard look. The other apps copy it, adapted to a remote (TV) or a mouse (Windows).
+- Font: the system font (San Francisco on iPhone, Roboto on Android, Segoe UI on Windows).
 - Focus is shown by turning the row or button white with dark text, never by an outline alone.
 - Corners: 8 to 10 on rows, keys and buttons, fully round on chips and avatars.
-- Chips (Both / Movies / Shows, the Library and genre filters): red with white text when chosen, raised grey with white
-  text otherwise. Never white, never outlined.
-- Settings rows are cards (`card`, corner 10): the name in bold white on the left, what it's set to in `dim` on the right.
-  Section headings are bold white and written as "Playback", not in capitals.
+- Chips and pills: red with white text when chosen, a thin white outline (50%) with no fill otherwise. Search and Library
+  filters on phones are a segmented control with the chosen part red.
+- The current page in the tab bar or top bar is red; the others are grey `#8E8E93`.
+- Settings are an inset grouped list: small grey (`#8D8D93`) upper-case section headings, rows `#1C1C1E` joined into one
+  rounded card per section with thin `#38383A` lines between them, the name in white on the left and what it's set to in
+  red on the right.
 
 ## The wordmark
 
@@ -69,12 +72,12 @@ Sections, in order, with the same labels and help text everywhere a setting exis
 
 1. **Playback**: Smart auto-play, Preferred quality, If that quality isn't available, Skip sources above, Prefer instant
    sources, Source list (TV, Windows), Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts,
-   Mini player (phones), Skip forward and back (TV)
+   Who's watching? and Mini player (phones), Skip forward and back (TV)
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
    Hardware decoding, Surround sound on Windows)
 3. **Downloads** (phones)
 4. **Languages & subtitles**: Audio language, Subtitles, Subtitle size
-5. **Account**: sign in or out, Who's watching, When Codio opens (phones), Cast photos (TMDB key)
+5. **Account**: sign in or out, Who's watching, Cast photos (TMDB key)
 6. **Addons**
 7. **About**: Updates, and the version as "Codio 1.2.3 for Android TV / Android / iPhone / Windows"
 
@@ -84,21 +87,21 @@ Choices read as plain values ("On", "Off", "Plays automatically", "4 seconds (ba
 ## Phones
 
 Codio for iPhone and Codio for Android are the same screens, drawn to the same numbers (points on one are dp on the other).
-`android/src/com/codio/tv/ui/Phone*.java` is the reference; `ios/Codio/UI` follows it. A change to one is made to both.
+`ios/Codio/UI` is the reference; `android/src/com/codio/tv/ui/Phone*.java` follows it. A change to one is made to both.
 
-- **Tab bar**: Home, Search, Library, Settings. 58 high on `bg`, line-drawn icons (2 thick) over an 11 label; white with a
-  short red line on top when chosen, `faint` otherwise.
-- **Home**: the featured title's poster edge to edge (1.2 times as tall as the screen is wide), shaded dark at the top and
-  to black at the bottom. Over its top: the wordmark, "Movies", "Shows", and the round avatar (34). At its bottom, centred:
-  the title's logo (or its name, 28 bold), the genres on one line (13, `body`), then Play (white) and Info (glass) side by
-  side. Below: Continue Watching, then a row per catalog. Rows are a 17 bold heading over posters 110 by 165, 8 apart,
-  corner 6. A poster opens the title's page.
-- **Search**: a `raised` field (corner 8, "Movies, shows…") with the avatar beside it, the Both / Movies / Shows chips,
-  then "Recent searches" or the results three across (6 apart).
-- **Library**: "Library" (24 bold) with the avatar, the chips All / Movies / Shows / Downloads, then the grid.
-- **Movies / Shows** (from Home): a row of catalog chips, a row of genre chips, the grid.
-- **Settings**: "Settings" (24 bold) with the avatar, then the sections below as card rows with a line of help (12, `dim`)
-  inside each. Tapping a row offers its choices.
+- **Tab bar**: Home, Search, Library, Settings on black, filled icons over a 10 label; red when chosen, `#8E8E93`
+  otherwise.
+- **Home**: the featured poster blurred behind the top of the page. The wordmark and the avatar (32), the outlined pills
+  "Shows" and "Movies", then a rounded featured card (2:3, corner 10) with the logo, "TOP 10 · #1 in Movies Today", the
+  genres joined with " • ", Play (white) and "+ Library". Below: Continue Watching (110 by 160 cards with a play circle,
+  progress and an ⓘ / S1:E2 bar), "Top 10 Movies Today" with big outlined numbers, then a row per catalog (posters 112 by
+  168).
+- **Search, Library, Settings**: a large title (34 bold) with the avatar (28) above it on the right.
+- **Search**: the field ("Movies and shows"), Both / Movies / Shows, then "Recent searches" and popular titles, or the
+  results (cells at least 104 wide, 8 apart).
+- **Library**: All / Movies / Shows / Downloads, then the grid.
+- **Movies / Shows** (from Home): outlined menu pills (catalog, genre) with a ⌄, then the grid.
+- **Settings**: the grouped list above, help text under each section, red buttons, and the version at the bottom.
 
 ## Up Next
 

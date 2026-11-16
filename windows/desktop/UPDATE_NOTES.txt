@@ -1,1 +1,1 @@
-One look on every device: Settings headings, Library labels and text now match the TV and phone apps.
+New look, taken from the iPhone app: the system font, the current page in red, outlined chips, and Settings as a grouped list with values in red.

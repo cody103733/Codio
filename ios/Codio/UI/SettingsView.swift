@@ -57,6 +57,8 @@ struct SettingsView: View {
                    options: [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000].map { ($0 == 0 ? "Don't show" : "\($0 / 1000) seconds before the end", $0 as Any) }),
             Choice(kind: .app, label: "New episode alerts", help: "Marks shows you're watching when a new episode is out, and sends a notification.",
                    key: NewEpisodes.pref, dflt: true, options: [("On", true), ("Off", false)]),
+            Choice(kind: .app, label: "Who's watching?", help: "Codio opens in the profile you used last. Turn this on to be asked who's watching every time it opens.",
+                   key: "ask_profile", dflt: false, options: [("Ask when Codio opens", true), ("Open the last profile", false)]),
             Choice(kind: .app, label: "Mini player", help: "When you leave Codio during a video, it keeps playing in a small window over your other apps.",
                    key: "pip_auto", dflt: true, options: [("On", true), ("Off", false)]),
         ]
@@ -64,7 +66,7 @@ struct SettingsView: View {
 
     private var languages: [Choice] {
         [
-            Choice(kind: .app, label: "Subtitles", help: "Off: subtitles only appear when you turn them on in the player. Automatic: picked by your subtitle language.",
+            Choice(kind: .app, label: "Subtitles", help: "Off: subtitles only appear when you turn them on in the player.",
                    key: "subs_auto", dflt: false, options: [("Off until I turn them on", false), ("Automatic", true)]),
             Choice(kind: .profile, label: "Audio language", help: "Auto-play and the player prefer an audio track in this language.",
                    key: "audioLanguage", dflt: "eng", options: Array(zip(langNames, langCodes)).map { ($0.0, $0.1 as Any) }),
@@ -75,57 +77,67 @@ struct SettingsView: View {
         ]
     }
 
-    private let askProfile = Choice(kind: .app, label: "When Codio opens", help: "Codio opens in the profile you used last, or asks who's watching every time.",
-                                    key: "ask_profile", dflt: false, options: [("Open the last profile", false), ("Ask who's watching", true)])
-    private let downloadOver = Choice(kind: .app, label: "Download over",
-                                      help: "Big video files can use a lot of mobile data. With Wi-Fi only, downloads wait until you're on Wi-Fi.",
-                                      key: "dl_wifi_only", dflt: true, options: [("Wi-Fi only", true), ("Wi-Fi and mobile data", false)])
-    @State private var confirmSignOut = false
-    @State private var showKey = false
-    @State private var keyDraft = ""
-    @State private var removing: RemoveAsk?
-
-    private struct RemoveAsk: Identifiable {
-        let id: String
-        let name: String
-        let descriptor: JSON
-    }
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                PageTitle(text: "Settings")
-                SectionTitle(text: "Playback")
-                ForEach(playback) { choiceRow($0) }
-                SectionTitle(text: "Downloads")
-                choiceRow(downloadOver)
-                SectionTitle(text: "Languages & subtitles")
-                ForEach(languages) { choiceRow($0) }
-                SectionTitle(text: "Account")
-                account
-                SectionTitle(text: "Addons")
-                ForEach(Array(store.addonDescriptors.enumerated()), id: \.offset) { _, d in addonRow(d) }
-                Button { showAddAddon = true } label: {
-                    SettingRow(label: "Add an addon", value: "+", help: "Paste the addon's link (it ends in manifest.json).")
+        Form {
+            Section("Playback") { ForEach(playback) { row($0) } }
+            Section("Downloads") {
+                ForEach([Choice(kind: .app, label: "Download over",
+                                help: "Big video files can use a lot of mobile data. With Wi-Fi only, downloads wait until you're on Wi-Fi.",
+                                key: "dl_wifi_only", dflt: true, options: [("Wi-Fi only", true), ("Wi-Fi and mobile data", false)])]) { row($0) }
+            }
+            Section("Languages & subtitles") { ForEach(languages) { row($0) } }
+            Section {
+                HStack {
+                    SecureField("TMDB API key", text: $tmdbKey)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button("Paste") { if let v = UIPasteboard.general.string { tmdbKey = v } }
+                        .buttonStyle(.borderless)
                 }
-                SectionTitle(text: "About")
-                Button {
+                .onChange(of: tmdbKey) { _ in scheduleKeyCheck() }
+                keyStatusRow
+            } header: {
+                Text("Cast, actors & Top Picks")
+            } footer: {
+                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away, and saves it with your Stremio account so your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
+            }
+            Section {
+                Button("Check for updates") {
                     Task {
                         Updater.shared.dismissed = false
                         await Updater.shared.forceCheck()
                         if Updater.shared.available != nil { Updater.shared.install() } else { engine.show(toast: "Codio is up to date") }
                     }
-                } label: {
-                    SettingRow(label: "Updates", value: "Check now", help: "Codio checks for a newer version when it starts and offers to install it.")
                 }
-                Text("Codio \(Engine.version) for iPhone").font(Theme.font(12)).foregroundColor(Theme.faint)
-                    .frame(maxWidth: .infinity).padding(.top, 24)
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("New versions install through SideStore and keep your data.")
             }
-            .buttonStyle(.plain)
-            .padding(.bottom, 24)
+            Section("Account") {
+                if let e = store.signedInEmail {
+                    Text(e).foregroundColor(.white)
+                    Button("Profiles") { Profiles.shared.showPicker = true }
+                    Button("Sign out", role: .destructive) { engine.ctx("Logout") }
+                } else {
+                    Text("Not signed in").foregroundColor(Theme.dim)
+                    Button("Sign in") { showSignIn = true }
+                }
+            }
+            Section {
+                ForEach(Array(store.addonDescriptors.enumerated()), id: \.offset) { _, d in
+                    addonRow(d)
+                }
+                Button("Add an addon") { showAddAddon = true }
+            } header: {
+                Text("Addons")
+            } footer: {
+                Text("Codio \(Engine.version) for iPhone").frame(maxWidth: .infinity).padding(.top, 20)
+            }
         }
-        .background(Color.black.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .scrollContentBackground(.hidden)
+        .background(Theme.bg.ignoresSafeArea())
+        .navigationTitle("Settings")
+        .profileToolbar()
         .onAppear { if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) } }
         .alert("Sign in", isPresented: $showSignIn) {
             TextField("Email", text: $email).textInputAutocapitalization(.never).keyboardType(.emailAddress)
@@ -135,73 +147,43 @@ struct SettingsView: View {
                 guard !em.isEmpty, !password.isEmpty else { return }
                 engine.ctx("Authenticate", ["type": "Login", "email": em, "password": password] as JSON)
                 password = ""
-                engine.show(toast: "Signing in\u{2026}")
+                engine.show(toast: "Signing in…")
             }
-            Button("Cancel", role: .cancel) {}
-        }
-        .alert("Sign out?", isPresented: $confirmSignOut) {
-            Button("Sign out", role: .destructive) { engine.ctx("Logout") }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your downloads stay on this phone.")
+            Text("Your Stremio account (addons and library sync).")
         }
-        .alert("TMDB API key", isPresented: $showKey) {
-            TextField("32 letters and numbers", text: $keyDraft).textInputAutocapitalization(.never).autocorrectionDisabled()
-            Button("Save") {
-                tmdbKey = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                scheduleKeyCheck(now: true)
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .alert("Addon link", isPresented: $showAddAddon) {
-            TextField("https://\u{2026}/manifest.json", text: $addonLink).textInputAutocapitalization(.never).keyboardType(.URL)
+        .alert("Add an addon", isPresented: $showAddAddon) {
+            TextField("Addon link", text: $addonLink).textInputAutocapitalization(.never).keyboardType(.URL)
             Button("Install") { Task { await installAddon() } }
             Button("Cancel", role: .cancel) {}
-        }
-        .alert(item: $removing) { r in
-            Alert(title: Text("Remove \(r.name)?"),
-                  primaryButton: .destructive(Text("Remove")) { engine.ctx("UninstallAddon", r.descriptor) },
-                  secondaryButton: .cancel())
-        }
-    }
-
-    @ViewBuilder private var account: some View {
-        let e = store.signedInEmail
-        Button {
-            if e == nil { showSignIn = true } else { confirmSignOut = true }
-        } label: {
-            SettingRow(label: e ?? "Not signed in", value: e == nil ? "Sign in" : "Sign out",
-                       help: "Signed in, your library, addons and settings are kept in your account and synced to your other devices.")
-        }
-        Button {
-            if e == nil { engine.show(toast: "Sign in first, in Settings.") } else { Profiles.shared.showPicker = true }
-        } label: {
-            SettingRow(label: "Who's watching", value: Profiles.shared.current?.name ?? "Sign in first",
-                       help: "Each profile has its own library, Continue Watching and addons.")
-        }
-        choiceRow(askProfile)
-        Button {
-            keyDraft = tmdbKey
-            showKey = true
-        } label: {
-            SettingRow(label: "Cast photos (TMDB key)", value: keyLabel,
-                       help: "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). It's saved with your account, so your other devices get it. Without a key, the cast shows names only.")
-        }
-    }
-
-    private var keyLabel: String {
-        switch keyStatus {
-        case .empty: return "Add key"
-        case .checking: return "Checking\u{2026}"
-        case .ok: return "Key saved"
-        case .bad: return "Key not valid"
-        case .offline: return tmdbKey.isEmpty ? "Add key" : "Key saved"
+        } message: {
+            Text("Paste the addon's link (it ends in manifest.json).")
         }
     }
 
     // MARK: - TMDB key check
 
     enum KeyStatus: Equatable { case empty, checking, ok, bad(String), offline }
+
+    @ViewBuilder private var keyStatusRow: some View {
+        switch keyStatus {
+        case .empty:
+            Label("No key yet", systemImage: "key").foregroundColor(Theme.dim)
+        case .checking:
+            HStack(spacing: 8) { ProgressView().tint(Theme.red); Text("Checking the key…").foregroundColor(Theme.dim) }
+        case .ok:
+            Label("Key works. Cast photos and Top Picks are on.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+        case .bad(let why):
+            Label(why, systemImage: "xmark.circle.fill").foregroundColor(Theme.red)
+        case .offline:
+            HStack {
+                Label("Couldn't reach TMDB to check it", systemImage: "wifi.exclamationmark").foregroundColor(.orange)
+                Spacer()
+                Button("Retry") { scheduleKeyCheck(now: true) }.buttonStyle(.borderless)
+            }
+        }
+    }
 
     private func scheduleKeyCheck(now: Bool = false) {
         keyTask?.cancel()
@@ -223,12 +205,8 @@ struct SettingsView: View {
                 if let auth = jstr(store.profile["auth"] as? JSON, "key") { await KeySync.push(k, authKey: auth) }
                 Recommender.shared.invalidate()
                 await Recommender.shared.refresh(store)
-            } else if case .bad(let why) = result {
+            } else if case .bad = result {
                 UserDefaults.standard.removeObject(forKey: "tmdb_key")
-                engine.show(toast: why)
-            } else if result == .offline {
-                // Can't check right now: keep the key, it's tried again next time Settings opens.
-                UserDefaults.standard.set(k, forKey: "tmdb_key")
             }
         }
     }
@@ -277,29 +255,36 @@ struct SettingsView: View {
         }
     }
 
-    /// A setting with a fixed list of values: tap it to pick one.
-    private func choiceRow(_ c: Choice) -> some View {
+    private func row(_ c: Choice) -> some View {
         let cur = current(c)
         let index = c.options.firstIndex { same($0.1, cur) } ?? 0
-        return Menu {
+        return VStack(alignment: .leading, spacing: 4) {
             Picker(c.label, selection: Binding(get: { index }, set: { set(c, c.options[$0].1) })) {
                 ForEach(c.options.indices, id: \.self) { i in Text(c.options[i].0).tag(i) }
             }
-        } label: {
-            SettingRow(label: c.label, value: c.options[index].0, help: c.help)
+            .pickerStyle(.menu)
+            Text(c.help).font(.caption).foregroundColor(Theme.dim)
         }
     }
 
     private func addonRow(_ d: JSON) -> some View {
         let manifest = d["manifest"] as? JSON
-        let protected = jbool(d["flags"] as? JSON, "protected") ?? false
-        let name = jstr(manifest, "name") ?? "Addon"
-        var desc = jstr(manifest, "description") ?? ""
-        if desc.count > 120 { desc = String(desc.prefix(117)) + "\u{2026}" }
-        return Button {
-            if !protected { removing = RemoveAsk(id: jstr(d, "transportUrl") ?? name, name: name, descriptor: d) }
-        } label: {
-            SettingRow(label: name, value: protected ? "Built in" : "Remove", help: desc.isEmpty ? nil : desc)
+        let flags = d["flags"] as? JSON
+        let protected = jbool(flags, "protected") ?? false
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(jstr(manifest, "name") ?? "Addon").foregroundColor(.white)
+                if let desc = jstr(manifest, "description") {
+                    Text(desc).font(.caption).foregroundColor(Theme.dim).lineLimit(2)
+                }
+            }
+            Spacer()
+            if protected {
+                Text("Built in").font(.caption).foregroundColor(Theme.dim)
+            } else {
+                Button("Remove", role: .destructive) { engine.ctx("UninstallAddon", d) }
+                    .buttonStyle(.borderless)
+            }
         }
     }
 
@@ -322,32 +307,5 @@ struct SettingsView: View {
             return
         }
         engine.ctx("InstallAddon", ["transportUrl": link, "manifest": manifest, "flags": ["official": false, "protected": false]] as JSON)
-    }
-}
-
-/// One row of Settings: its name, what it's set to on the right, and a line of help underneath.
-/// The same card row as on Codio for Android.
-struct SettingRow: View {
-    let label: String
-    let value: String
-    var help: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(label).font(Theme.font(15, .bold)).foregroundColor(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(value).font(Theme.font(14, .bold)).foregroundColor(Theme.dim).multilineTextAlignment(.trailing)
-            }
-            if let h = help {
-                Text(h).font(Theme.font(12)).foregroundColor(Theme.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .multilineTextAlignment(.leading)
-        .padding(.horizontal, 14).padding(.vertical, 11)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
-        .padding(.horizontal, 12).padding(.vertical, 3)
-        .contentShape(Rectangle())
     }
 }

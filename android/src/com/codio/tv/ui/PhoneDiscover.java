@@ -1,6 +1,11 @@
 package com.codio.tv.ui;
 
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
+import android.view.MenuItem;
+import android.widget.PopupMenu;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -17,7 +22,7 @@ final class PhoneDiscover extends PhoneUi.Page {
     private List<Store.Catalog> catalogs = new ArrayList<>();
     private int cat = 0, genre = -1;
     private PhoneGrid grid;
-    private LinearLayout catStrip, genreStrip;
+    private LinearLayout chips;
     private TextView empty;
     private boolean loading, done;
     private int request = 0;
@@ -31,9 +36,10 @@ final class PhoneDiscover extends PhoneUi.Page {
     View build() {
         LinearLayout col = new LinearLayout(ctx());
         col.setOrientation(LinearLayout.VERTICAL);
-        col.addView(ui.backHeader("movie".equals(type) ? "Movies" : "Shows", 22));
-        catStrip = strip(col);
-        genreStrip = strip(col);
+        col.addView(ui.largeTitle("movie".equals(type) ? "Movies" : "Shows", true));
+        chips = new LinearLayout(ctx());
+        chips.setPadding(dp(16), 0, dp(16), dp(12));
+        col.addView(chips, new LinearLayout.LayoutParams(-1, -2));
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         grid.onNearEnd = new Runnable() {
@@ -43,81 +49,84 @@ final class PhoneDiscover extends PhoneUi.Page {
             }
         };
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
-        empty = PhoneKit.text(ctx(), "", 14, Theme.TEXT_DIM, false);
+        empty = PhoneKit.text(ctx(), "", 17, Theme.TEXT_DIM, PhoneKit.REGULAR);
         empty.setGravity(Gravity.CENTER);
-        empty.setPadding(dp(24), dp(48), dp(24), 0);
+        empty.setPadding(dp(24), dp(40), dp(24), 0);
         area.addView(empty, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
         col.addView(area, new LinearLayout.LayoutParams(-1, 0, 1));
         catalogs = ui.store.discoverCatalogs(type);
-        for (int i = 0; i < catalogs.size(); i++) {
-            final int idx = i;
-            Store.Catalog c = catalogs.get(i);
-            TextView chip = PhoneKit.chip(ctx(), c.name, i == 0);
-            chip.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    cat = idx;
-                    genre = -1;
-                    reload();
-                }
-            });
-            catStrip.addView(chip, chipLp());
-        }
         reload();
         return col;
     }
 
-    private LinearLayout strip(LinearLayout col) {
-        HorizontalScrollView hs = new HorizontalScrollView(ctx());
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout s = new LinearLayout(ctx());
-        s.setPadding(dp(12), dp(4), dp(12), dp(6));
-        hs.addView(s);
-        col.addView(hs);
-        return s;
+    /** The iPhone's menu chip: an outlined capsule with the choice and a small chevron; tap for the list. */
+    private TextView menuChip(String label, final String[] options, final int current, final Picked picked) {
+        TextView t = PhoneKit.text(ctx(), label + "  \u2304", 15, Color.WHITE, PhoneKit.SEMIBOLD);
+        t.setSingleLine(true);
+        t.setPadding(dp(14), dp(8), dp(14), dp(8));
+        GradientDrawable g = PhoneKit.round(0, dp(20));
+        g.setStroke(dp(1), 0x80FFFFFF);
+        t.setBackground(PhoneKit.pressable(g, dp(20)));
+        t.setClickable(true);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PopupMenu pm = new PopupMenu(new ContextThemeWrapper(ctx(), android.R.style.Theme_DeviceDefault), v);
+                for (int i = 0; i < options.length; i++) pm.getMenu().add(0, i, i, options[i]).setCheckable(true).setChecked(i == current);
+                pm.getMenu().setGroupCheckable(0, true, true);
+                pm.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        picked.picked(item.getItemId());
+                        return true;
+                    }
+                });
+                pm.show();
+            }
+        });
+        return t;
     }
 
-    private LinearLayout.LayoutParams chipLp() {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-        lp.setMargins(dp(4), 0, dp(4), 0);
-        return lp;
+    private interface Picked {
+        void picked(int index);
     }
 
     private void reload() {
-        for (int i = 0; i < catStrip.getChildCount(); i++) PhoneKit.styleChip((TextView) catStrip.getChildAt(i), i == cat);
-        genreStrip.removeAllViews();
+        chips.removeAllViews();
         if (catalogs.isEmpty()) {
             empty.setText("No addon has a catalog for this.");
             return;
         }
         final Store.Catalog c = catalogs.get(cat);
         if (c.genreRequired && genre < 0 && !c.genres.isEmpty()) genre = 0;
-        if (!c.genres.isEmpty()) {
-            if (!c.genreRequired) {
-                TextView all = PhoneKit.chip(ctx(), "All genres", genre < 0);
-                all.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        genre = -1;
-                        reload();
-                    }
-                });
-                genreStrip.addView(all, chipLp());
-            }
-            for (int i = 0; i < c.genres.size(); i++) {
-                final int g = i;
-                TextView chip = PhoneKit.chip(ctx(), c.genres.get(i), i == genre);
-                chip.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        genre = g;
-                        reload();
-                    }
-                });
-                genreStrip.addView(chip, chipLp());
-            }
+        if (catalogs.size() > 1) {
+            String[] names = new String[catalogs.size()];
+            for (int i = 0; i < names.length; i++) names[i] = catalogs.get(i).name;
+            chips.addView(menuChip(c.name, names, cat, new Picked() {
+                @Override
+                public void picked(int index) {
+                    cat = index;
+                    genre = -1;
+                    reload();
+                }
+            }));
         }
-        ((View) genreStrip.getParent()).setVisibility(c.genres.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!c.genres.isEmpty()) {
+            final int off = c.genreRequired ? 0 : 1;
+            String[] names = new String[c.genres.size() + off];
+            if (off == 1) names[0] = "All genres";
+            for (int i = 0; i < c.genres.size(); i++) names[i + off] = c.genres.get(i);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+            if (chips.getChildCount() > 0) lp.leftMargin = dp(8);
+            chips.addView(menuChip(genre >= 0 ? c.genres.get(genre) : "All genres", names, genre + off, new Picked() {
+                @Override
+                public void picked(int index) {
+                    genre = index - off;
+                    reload();
+                }
+            }), lp);
+        }
+        chips.setVisibility(chips.getChildCount() > 0 ? View.VISIBLE : View.GONE);
         grid.items.clear();
         grid.changed();
         done = false;
@@ -131,7 +140,7 @@ final class PhoneDiscover extends PhoneUi.Page {
         final Store.Catalog c = catalogs.get(cat);
         final int id = request;
         loading = true;
-        empty.setText(grid.items.isEmpty() ? "Loading…" : "");
+        empty.setText("");
         ui.store.loadCatalog(c, genre >= 0 && genre < c.genres.size() ? c.genres.get(genre) : null, grid.items.size(), null, new Store.Callback<List<Store.Meta>>() {
             @Override
             public void done(List<Store.Meta> result, Exception error) {
