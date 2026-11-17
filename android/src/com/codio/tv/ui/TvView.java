@@ -214,6 +214,9 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
             case NavBar.SERIES:
                 openSection(new DiscoverScreen(this, item == NavBar.MOVIES ? "movie" : "series"));
                 break;
+            case NavBar.MUSIC:
+                openSection(new MusicScreen(this));
+                break;
             case NavBar.SEARCH:
                 openSection(new SearchScreen(this));
                 break;
@@ -251,6 +254,7 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
 
     /** The video is playing: Codio's controls over it (this view turns see-through). */
     public void showPlayer(Store.Meta m, String videoId) {
+        pauseMusic();
         if (playerShown()) {
             ((PlayerScreen) top()).setVideo(videoId);
             return;
@@ -306,10 +310,19 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
 
     /** The "finding your stream" screen over the web movie page while auto-play works. */
     public void showLoading(Store.Meta m, String videoId) {
+        pauseMusic();
         hidePlayer();
         String q = store.autoPlay.optString("preferredQuality", null);
         if ("2160p".equals(q)) q = "4K";
         push(new LoadingScreen(this, m, videoId, q));
+    }
+
+    /** A video is starting: the music stops for it. */
+    private void pauseMusic() {
+        try {
+            if (com.codio.tv.music.MusicPlayer.hasQueue() && com.codio.tv.music.MusicPlayer.playing()) com.codio.tv.music.MusicPlayer.pause();
+        } catch (Throwable ignored) {
+        }
     }
 
     public boolean loadingShown() {
@@ -485,10 +498,35 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
 
     public static final int UP = 1, DOWN = 2, LEFT = 3, RIGHT = 4, OK = 5, PLAY = 6, FF = 7, RW = 8, OTHER = 0;
 
+    // OK on a screen that holdsOk() acts on release; held down, it asks for the options instead.
+    private boolean okDown, okLong;
+
+    @Override
+    public boolean onKeyUp(int code, KeyEvent e) {
+        if (map(code) == OK && okDown) {
+            okDown = false;
+            if (!okLong && !stack.isEmpty() && top().key(OK, e)) kick();
+            return true;
+        }
+        return super.onKeyUp(code, e);
+    }
+
     @Override
     public boolean onKeyDown(int code, KeyEvent e) {
         if (stack.isEmpty()) return false;
         int k = map(code);
+        if (k == OK && (okDown || top().holdsOk())) {
+            if (e.getRepeatCount() == 0) {
+                okDown = true;
+                okLong = false;
+            } else if (okDown && !okLong) {
+                okLong = true;
+                top().longOk();
+                kick();
+            }
+            return true;
+        }
+        okDown = false;
         boolean handled = top().key(k, e);
         if (handled) kick();
         return handled || k != OTHER || super.onKeyDown(code, e);

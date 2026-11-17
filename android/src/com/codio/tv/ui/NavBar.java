@@ -5,8 +5,8 @@ import android.graphics.Color;
 
 /** The top bar: logo and sections, with the round Who's watching avatar on the right. */
 final class NavBar {
-    static final int HOME = 0, MOVIES = 1, SERIES = 2, SEARCH = 3, LIBRARY = 4, ADDONS = 5, SETTINGS = 6;
-    static final String[] ITEMS = {"Home", "Movies", "Shows", "Search", "Library", "Addons", "Settings"};
+    static final int HOME = 0, MOVIES = 1, SERIES = 2, MUSIC = 3, SEARCH = 4, LIBRARY = 5, ADDONS = 6, SETTINGS = 7;
+    static final String[] ITEMS = {"Home", "Movies", "Shows", "Music", "Search", "Library", "Addons", "Settings"};
     /** Focus index of the profile avatar (right of the last section). */
     static final int PROFILE = ITEMS.length;
     static final float Y = 44, HEIGHT = 120, AVATAR_R = 30;

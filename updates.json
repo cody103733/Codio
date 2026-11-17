@@ -1,9 +1,9 @@
 {
   "androidtv": {
-    "version": "1.4.37",
-    "versionCode": 61,
+    "version": "1.5.0",
+    "versionCode": 62,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "New look, taken from the iPhone app: the system font, the current page in red, outlined chips, and Settings as a grouped list with values in red."
+    "notes": "New Music tab: search artists, albums and songs, rows made from what you play and heart, a Now playing screen with queue, shuffle and repeat, and ListenBrainz sign-in. Hold OK on a song for more options. Add a music addon in Music > Addons to play songs."
   },
   "phone": {
     "version": "1.1.0",

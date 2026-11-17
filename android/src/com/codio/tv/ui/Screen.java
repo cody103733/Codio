@@ -20,6 +20,14 @@ abstract class Screen {
         return false;
     }
 
+    /** True when OK should act on release, so that holding it can mean something else (longOk). */
+    boolean holdsOk() {
+        return false;
+    }
+
+    /** OK was held down (only asked when holdsOk()). */
+    void longOk() {}
+
     void onShow() {}
 
     void onHide() {}
