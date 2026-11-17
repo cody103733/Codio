@@ -87,6 +87,17 @@ struct SettingsView: View {
             }
             Section("Languages & subtitles") { ForEach(languages) { row($0) } }
             Section {
+                NavigationLink { MusicSettingsView() } label: {
+                    HStack {
+                        Text("Music addons, account and taste")
+                        Spacer()
+                        Text("\(MusicAddons.shared.list.count)").foregroundColor(Theme.red)
+                    }
+                }
+            } header: {
+                Text("Music")
+            }
+            Section {
                 HStack {
                     SecureField("TMDB API key", text: $tmdbKey)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()

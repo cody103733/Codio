@@ -6,6 +6,7 @@ Since 0.2.0 every screen is native SwiftUI (`ios/Codio/UI/`): Home, Detail (epis
 - The engine shim is the Android one, `android/assets/codio-android.js`, bundled as is (there is no iPhone copy). `Engine.swift` adds a `window.CodioNative` bridge in front of it, so the native screens drive the engine through the same hooks (`__codioNativeGo`, `__codioDispatch`, `__codioStreams`, ...).
 - `ios/Codio/LocalServer.swift` serves the engine on `http://127.0.0.1:11471/` and puts the shim into index.html.
 - `ios/Codio/Player/VlcShell.swift` plays video with VLC (MobileVLCKit) and speaks the protocol of Stremio's Windows shell, so the hidden web player drives it and keeps saving progress.
+- `ios/Codio/Music/` is the Music tab (0.8.0+), native and separate from the video engine: MusicBrainz and ListenBrainz for songs, albums, artists and the rows; music addons (Eclipse Music's protocol, see `music/`) for the audio, played with AVPlayer; hearts, Not interested and the optional ListenBrainz sign-in. It follows the Windows Music tab rule for rule.
 - `ios/Codio/Store/` reads addons and the library from the engine's storage and loads catalogs and details straight from the addons.
 
 ## Building

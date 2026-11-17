@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct RootView: View {
@@ -8,6 +9,8 @@ struct RootView: View {
     @ObservedObject private var profiles = Profiles.shared
     @ObservedObject private var newEpisodes = NewEpisodes.shared
     @State private var homePath = NavigationPath()
+    @ObservedObject private var musicNav = MusicNav.shared
+    @ObservedObject private var music = MusicPlayer.shared
 
     var body: some View {
         ZStack {
@@ -17,6 +20,8 @@ struct RootView: View {
                         .tabItem { Label("Home", systemImage: "house.fill") }.tag(0)
                     NavigationStack { SearchView().withDetail() }
                         .tabItem { Label("Search", systemImage: "magnifyingglass") }.tag(1)
+                    NavigationStack(path: $musicNav.path) { MusicView().musicDestinations().blackTabBar() }
+                        .tabItem { Label("Music", systemImage: "music.note") }.tag(4)
                     NavigationStack { LibraryView().withDetail() }
                         .tabItem { Label("Library", systemImage: "rectangle.stack.fill") }.tag(2)
                     NavigationStack { SettingsView().blackTabBar() }
@@ -24,6 +29,10 @@ struct RootView: View {
                 }
                 .tint(Theme.red)
                 .transition(.opacity)
+            }
+            if engine.overlay == .none, music.current != nil {
+                VStack { Spacer(); MiniPlayerBar().padding(.bottom, 54) }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if engine.overlay == .loading {
                 LoadingView().transition(.opacity)
@@ -52,7 +61,17 @@ struct RootView: View {
         // A tapped "New episode" notification opens the show's page on Home.
         .onChange(of: newEpisodes.openShow) { _ in openNotifiedShow() }
         .onChange(of: store.profileLoaded) { _ in openNotifiedShow() }
-        .onAppear { openNotifiedShow() }
+        .onAppear {
+            openNotifiedShow()
+            MusicAccount.shared.start()
+        }
+        // A video starting pauses the music, and gives the sound back to the movie settings.
+        .onChange(of: engine.overlay) { o in
+            guard o != .none else { return }
+            if music.playing { music.pause() }
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        }
+        .onChange(of: musicNav.showTab) { _ in tab = 4 }
         .sheet(item: $engine.sourcesRequest) { r in
             SourcesView(meta: r.meta, videoId: r.videoId)
                 .environmentObject(engine)

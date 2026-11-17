@@ -62,7 +62,7 @@ the full word.
 | New episode (the red mark on a poster) | New, Unwatched |
 | Who's watching | Switch user |
 
-Tabs, in order: Home, Movies, Shows, Music, Search, Library, Addons, Settings (phones fold some of these into Home and Settings; Music is so far on Windows only).
+Tabs, in order: Home, Movies, Shows, Music, Search, Library, Addons, Settings (phones fold some of these into Home and Settings; Music is on Windows and iPhone so far).
 
 Music: songs, albums and artists come from MusicBrainz; the audio comes from "music addons" (Eclipse Music's addon protocol, see `music/`), kept on the device and added by pasting a link. Words: Music, Songs, Albums, Artists, Recently played, Play next, Add to queue, Up next (the queue), Music addons, "No source available". Hearts and "Not interested" on songs, albums and artists shape the rows (Daily mix, Because you played, Similar to your favorites); it stays on the device.
 
