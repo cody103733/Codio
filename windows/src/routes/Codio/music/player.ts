@@ -6,6 +6,7 @@ import type { MusicTrack } from './types';
 import { loadAddons, onNotice } from './addons';
 import { findAudio } from './match';
 import { getRecordingIsrc } from './musicbrainz';
+import { recordPlay } from './taste';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -126,6 +127,7 @@ const load = async (index: number) => {
     a.src = found.url;
     set({ loading: false, quality: found.quality ?? found.format, source: found.addon.manifest?.name ?? null });
     remember(t);
+    recordPlay(t);
     try {
         await a.play();
     } catch (_e) {

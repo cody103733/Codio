@@ -78,6 +78,64 @@
 }
 
 // Tiles in a row: albums, artists, tracks.
+.tile-wrap {
+    position: relative;
+    flex: none;
+    margin-right: calc(@u * 28);
+
+    .tile {
+        margin-right: 0;
+    }
+
+    .tile-actions {
+        position: absolute;
+        top: calc(@u * 10);
+        right: calc(@u * 10);
+        display: none;
+        gap: calc(@u * 8);
+
+        &.always {
+            display: flex;
+        }
+    }
+
+    &:hover .tile-actions, &:focus-within .tile-actions {
+        display: flex;
+    }
+}
+
+.heart {
+    width: calc(@u * 48);
+    height: calc(@u * 48);
+    border-radius: 50%;
+    font-size: calc(@u * 26);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    cursor: pointer;
+    flex: none;
+
+    &.on {
+        color: @red;
+    }
+
+    &:hover {
+        background: #fff;
+        color: #111;
+
+        &.on {
+            color: @red;
+        }
+    }
+
+    &.row-heart {
+        background: none;
+    }
+}
+
 .tile {
     flex: none;
     width: calc(@u * 220);
@@ -211,6 +269,10 @@
     &:hover, &:focus-visible {
         background: #fff;
         color: #111;
+
+        .row-heart:not(.on) {
+            color: #111;
+        }
 
         .track-sub, .track-time, .track-number {
             color: #444;
@@ -524,5 +586,57 @@
             background: #fff;
             color: #111;
         }
+    }
+}
+
+.section-head {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 24);
+
+    .section-title {
+        margin-right: 0;
+    }
+
+    .mini-button {
+        margin-top: calc(@u * 20);
+    }
+}
+
+.hero-actions .toggle {
+    height: calc(@u * 72);
+    padding: 0 calc(@u * 28);
+    border-radius: calc(@u * 12);
+    font-size: calc(@u * 27);
+    font-weight: 700;
+    background: @raised;
+    color: #fff;
+    cursor: pointer;
+
+    &.on {
+        color: @red;
+    }
+
+    &:hover {
+        background: #fff;
+        color: #111;
+    }
+}
+
+.taste-line {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 16);
+    max-width: calc(@u * 1100);
+    padding: calc(@u * 12) 0;
+    font-size: calc(@u * 24);
+    color: @body;
+
+    .taste-name {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

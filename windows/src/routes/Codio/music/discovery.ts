@@ -24,7 +24,7 @@ const first = (x: unknown): string | null => Array.isArray(x) && typeof x[0] ===
 export const popularAlbums = async (): Promise<MusicAlbum[]> => {
     const j = await lb('/1/stats/sitewide/release-groups?range=week&count=25');
     return list(j?.payload?.release_groups).filter((g) => g.release_group_mbid).map((g): MusicAlbum => ({
-        id: String(g.release_group_mbid), title: String(g.release_group_name ?? ''), artist: String(g.artist_name ?? ''), artworkURL: coverUrl(String(g.release_group_mbid)),
+        id: String(g.release_group_mbid), title: String(g.release_group_name ?? ''), artist: String(g.artist_name ?? ''), artworkURL: coverUrl(String(g.release_group_mbid)), artistMbid: first(g.artist_mbids),
     }));
 };
 
@@ -37,8 +37,9 @@ export const newReleases = async (): Promise<MusicAlbum[]> => {
         .filter((r) => r && r.release_group_mbid && (r.release_group_primary_type === 'Album' || r.release_group_primary_type === 'EP' || !r.release_group_primary_type))
         .sort((a, b) => String(b.release_date ?? '').localeCompare(String(a.release_date ?? '')))
         .filter((r) => !seen.has(r.release_group_mbid) && seen.add(r.release_group_mbid))
-        .slice(0, 30)
+        .slice(0, 300)
         .map((r): MusicAlbum => ({
+            artistMbid: first(r.artist_mbids),
             id: String(r.release_group_mbid), title: String(r.release_name ?? ''), artist: String(r.artist_credit_name ?? ''), year: typeof r.release_date === 'string' ? r.release_date.slice(0, 4) : null,
             kind: r.release_group_primary_type ?? null, artworkURL: coverUrl(String(r.release_group_mbid)),
         }));

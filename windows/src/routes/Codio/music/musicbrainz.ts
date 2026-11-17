@@ -75,6 +75,7 @@ const toAlbum = (g: any): MusicAlbum => {
         year: year(g['first-release-date']),
         kind: [g['primary-type'], ...secondary].filter(Boolean).join(' · ') || null,
         artworkURL: coverUrl(String(g.id)),
+        artistMbid: credit(g['artist-credit']).id,
     };
 };
 
@@ -204,6 +205,8 @@ export const getRecordingIsrc = async (mbid: string): Promise<string | null> => 
     return Array.isArray(recording.isrcs) && recording.isrcs.length > 0 ? String(recording.isrcs[0]) : null;
 };
 
+const first0 = (x: unknown): string | null => Array.isArray(x) && typeof x[0] === 'string' ? x[0] : null;
+
 // The artist's most listened-to tracks (ListenBrainz; MusicBrainz itself has no popularity). Empty if unavailable.
 export const getTopTracks = async (artistId: string, artistName: string): Promise<MusicTrack[]> => {
     try {
@@ -216,7 +219,8 @@ export const getTopTracks = async (artistId: string, artistName: string): Promis
             title: String(r.recording_name ?? ''),
             artist: String(r.artist_name ?? artistName),
             album: r.release_name ?? null,
-            artworkURL: null,
+            artworkURL: r.release_mbid ? releaseCoverUrl(String(r.release_mbid)) : null,
+            artistMbid: first0(r.artist_mbids) ?? artistId,
             durationMs: typeof r.length === 'number' ? r.length : null,
             isrc: null,
         } : null).filter(Boolean) as MusicTrack[];

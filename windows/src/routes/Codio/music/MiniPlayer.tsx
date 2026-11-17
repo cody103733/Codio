@@ -5,12 +5,14 @@ import React, { useEffect, useState } from 'react';
 import classnames from 'classnames';
 import { useLocation, useNavigate } from 'react-router';
 import styles from './Music.less';
-import { Cover } from './parts';
+import { Cover, HeartButton } from './parts';
+import { isLikedTrack, toggleLikeTrack, useTaste } from './taste';
 import { cycleRepeat, next, pause, playIndex, previous, removeFromQueue, seek, stop, toggle, toggleShuffle, usePlayer } from './player';
 import { formatTime } from './types';
 
 const MiniPlayer = () => {
     const player = usePlayer();
+    const taste = useTaste();
     const location = useLocation();
     const navigate = useNavigate();
     const [queueOpen, setQueueOpen] = useState(false);
@@ -73,6 +75,7 @@ const MiniPlayer = () => {
                         </div>
                     </div>
                 </div>
+                {track ? <HeartButton liked={isLikedTrack(taste, track)} onClick={() => toggleLikeTrack(track)} /> : null}
                 <div className={styles['mini-controls']}>
                     <button className={classnames(styles['round'], { [styles['active']]: player.shuffle })} onClick={toggleShuffle} title={'Shuffle'}>⇄</button>
                     <button className={styles['round']} onClick={previous} title={'Previous'}>⏮</button>

@@ -35,6 +35,8 @@ export type MusicAlbum = {
     kind?: string | null,
     artworkURL?: string | null,
     addon?: string | null,
+    // MusicBrainz id of the (first) artist, when known.
+    artistMbid?: string | null,
 };
 
 export type MusicAddon = {

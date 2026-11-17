@@ -8,7 +8,10 @@ import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
+import { clearAll, clearHistory, dayShuffle, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
+import { getTopTracks } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
+import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
 
 export const albumHref = (album: { id: string, addon?: string | null }, addons: MusicAddon[]) => {
@@ -26,6 +29,25 @@ export const openAlbum = (navigate: (to: string, o?: any) => void, album: MusicA
     navigate(albumHref(album, addons), { state: { title: album.title, artist: album.artist, art: album.artworkURL, year: album.year } });
 export const openArtist = (navigate: (to: string, o?: any) => void, artist: MusicArtist, addons: MusicAddon[]) =>
     navigate(artistHref(artist, addons), { state: { name: artist.name } });
+
+// Tiles that carry the heart and "not interested" buttons.
+const AlbumTile = ({ album, addons, taste }: { album: MusicAlbum, addons: MusicAddon[], taste: ReturnType<typeof useTaste> }) => {
+    const navigate = useNavigate();
+    return <Tile
+        title={album.title} sub={[album.artist, album.year].filter(Boolean).join(' · ')} art={album.artworkURL}
+        onClick={() => openAlbum(navigate, album, addons)}
+        liked={isLikedAlbum(taste, album)} onLike={() => toggleLikeAlbum(album)} onHide={() => hideAlbum(album)}
+    />;
+};
+
+const ArtistTile = ({ artist, addons, taste }: { artist: MusicArtist, addons: MusicAddon[], taste: ReturnType<typeof useTaste> }) => {
+    const navigate = useNavigate();
+    return <Tile
+        round title={artist.name} sub={artist.detail} art={artist.artworkURL}
+        onClick={() => openArtist(navigate, artist, addons)}
+        liked={isLikedArtist(taste, artist)} onLike={() => toggleLikeArtist(artist)} onHide={() => hideArtist(artist)}
+    />;
+};
 
 // A row that loads by itself and keeps its answer for the rest of the run.
 const rowCache = new Map<string, unknown>();
@@ -54,6 +76,37 @@ const describe = (addon: MusicAddon) => [
     addon.manifest.version ? `v${addon.manifest.version}` : null,
     ['search', 'stream', 'catalog', 'isrc', 'resolve'].filter((r) => has(addon, r)).join(', '),
 ].filter(Boolean).join(' · ');
+
+// What Codio has learned about your taste, and how to change it. It lives on this computer only.
+const TastePanel = () => {
+    const taste = useTaste();
+    const [sure, setSure] = useState(false);
+    const hidden: { kind: 'artist' | 'album' | 'track', key: string, name: string }[] = [
+        ...Object.entries(taste.hiddenArtists).map(([key, name]) => ({ kind: 'artist' as const, key, name })),
+        ...Object.entries(taste.hiddenAlbums).map(([key, name]) => ({ kind: 'album' as const, key, name })),
+        ...Object.entries(taste.hiddenTracks).map(([key, name]) => ({ kind: 'track' as const, key, name })),
+    ];
+    return (
+        <div>
+            <div className={m['section-title']}>Your taste</div>
+            <div className={m['note']}>
+                Music's rows follow what you play, heart and hide. It all stays on this computer. Play counts so far: {Object.keys(taste.plays).length} artists. Hearted: {taste.likedTracks.length} songs, {taste.likedAlbums.length} albums, {taste.likedArtists.length} artists.
+            </div>
+            <div className={m['addon-box']}>
+                <button className={m['mini-button']} onClick={clearHistory}>Forget what I've played</button>
+                <button className={m['mini-button']} onClick={() => { if (sure) { clearAll(); setSure(false); } else setSure(true); }}>{sure ? 'Tap again to forget everything' : 'Start over'}</button>
+                {hidden.length > 0 ? <button className={m['mini-button']} onClick={unhideAll}>Show all hidden again</button> : null}
+            </div>
+            {hidden.length > 0 ? <div className={m['note']}>Hidden with "Not interested":</div> : null}
+            {hidden.map((h) => (
+                <div key={`${h.kind}/${h.key}`} className={m['taste-line']}>
+                    <span className={m['taste-name']}>{`${h.name} (${h.kind})`}</span>
+                    <button className={m['mini-button']} onClick={() => unhide(h.kind, h.key)}>Show again</button>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const AddonsPanel = () => {
     const addons = useMusicAddons();
@@ -130,12 +183,13 @@ const AddonsPanel = () => {
                     onBlur={() => saveMusicSettings({ mbBase: server.trim() })}
                 />
             </div>
+            <TastePanel />
         </div>
     );
 };
 
 const Results = ({ results, addons, onPlay, current }: { results: SearchResults, addons: MusicAddon[], onPlay: (tracks: MusicTrack[], index: number) => void, current: string | null }) => {
-    const navigate = useNavigate();
+    const taste = useTaste();
     return (
         <div>
             {
@@ -143,7 +197,7 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
                     <>
                         <div className={m['section-title']}>Artists</div>
                         <Strip className={m['row-strip']}>
-                            {results.artists.map((a: MusicArtist) => <Tile key={`${a.addon}/${a.id}`} round title={a.name} sub={a.detail} art={a.artworkURL} onClick={() => openArtist(navigate, a, addons)} />)}
+                            {results.artists.map((a: MusicArtist) => <ArtistTile key={`${a.addon}/${a.id}`} artist={a} addons={addons} taste={taste} />)}
                         </Strip>
                     </>
                     : null
@@ -153,7 +207,7 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
                     <>
                         <div className={m['section-title']}>Albums</div>
                         <Strip className={m['row-strip']}>
-                            {results.albums.map((a: MusicAlbum) => <Tile key={`${a.addon}/${a.id}`} title={a.title} sub={[a.artist, a.year].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => openAlbum(navigate, a, addons)} />)}
+                            {results.albums.map((a: MusicAlbum) => <AlbumTile key={`${a.addon}/${a.id}`} album={a} addons={addons} taste={taste} />)}
                         </Strip>
                     </>
                     : null
@@ -172,70 +226,111 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
     );
 };
 
-// The discovery rows of the Music home: made for you from what you played, then what is popular and new.
+// The Music home's rows. First the ones made from you (what you play, heart and hide), then what is popular and new.
 const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack[] }) => {
     const navigate = useNavigate();
-    // Artists you played lately (most recent first), as MusicBrainz knows them.
-    const seeds = useMemo(() => {
-        const out: { id: string, name: string }[] = [];
-        recent.forEach((t) => { if (t.artistMbid && !out.some((o) => o.id === t.artistMbid)) out.push({ id: t.artistMbid, name: t.artist }); });
-        return out.slice(0, 2);
-    }, [recent]);
-    const like0 = useRow(`similar-${seeds[0]?.id ?? ''}`, () => seeds[0] ? similarArtists(seeds[0].id) : Promise.resolve([]));
-    const like1 = useRow(`similar-${seeds[1]?.id ?? ''}`, () => seeds[1] ? similarArtists(seeds[1].id) : Promise.resolve([]));
-    const more = useRow(`more-${seeds[0]?.id ?? ''}`, () => seeds[0] ? moreFrom(seeds[0].id) : Promise.resolve([]));
-    const albums = useRow('popular-albums', popularAlbums);
-    const fresh = useRow('new-releases', newReleases);
-    const songs = useRow('popular-songs', popularSongs);
-    const artists = useRow('popular-artists', popularArtists);
-    const loading = [albums, fresh, songs, artists].every((r) => r === null);
+    const taste = useTaste();
     const player = usePlayer();
     const current = player.queue[player.index]?.id ?? null;
+    // Your favorite artists, best first (plays, hearts). The key changes only when the order of the top ones does.
+    const seeds = useMemo(() => topSeeds(taste, 5), [taste.plays, taste.likedArtists, taste.likedTracks, taste.likedAlbums, taste.hiddenArtists]);
+    const seedKey = seeds.map((s) => s.id).join(',');
 
-    const artistRow = (title: string, list: MusicArtist[] | null) => list && list.length > 0 ? (
-        <div key={title}>
-            <div className={m['section-title']}>{title}</div>
-            <Strip className={m['row-strip']}>
-                {list.map((a) => <Tile key={a.id} round title={a.name} sub={a.detail} art={a.artworkURL} onClick={() => openArtist(navigate, a, addons)} />)}
-            </Strip>
-        </div>
-    ) : null;
+    // Artists like each favorite (one call each; Codio's server keeps the answers for a week).
+    const sims = [0, 1, 2, 3, 4].map((i) => useRow(`similar-${seeds[i]?.id ?? `none${i}`}`, () => seeds[i] ? similarArtists(seeds[i].id) : Promise.resolve([])));
+    const more = useRow(`more-${seeds[0]?.id ?? ''}`, () => seeds[0] ? moreFrom(seeds[0].id) : Promise.resolve([]));
+    const merged = useMemo(() => mergeSimilar(seeds, sims.map((r) => r ?? []), taste), [seedKey, ...sims, taste.hiddenArtists]);
+
+    // Daily mix: a few songs each from your favorites and artists like them, shuffled the same all day.
+    const mixSources = useMemo(() => [...seeds.slice(0, 4).map((s) => ({ id: s.id, name: s.name })), ...merged.slice(0, 4).map((a) => ({ id: a.id, name: a.name }))], [seedKey, merged.map((a) => a.id).join(',')]);
+    const waiting = sims.slice(0, seeds.length).some((r) => r === null);
+    const mixKey = waiting ? 'mix-wait' : `mix-${new Date().toDateString()}-${mixSources.map((x) => x.id).join(',')}`;
+    const mixRaw = useRow(mixKey, async () => {
+        if (mixSources.length < 2) return [];
+        const lists = await Promise.all(mixSources.map((x) => getTopTracks(x.id, x.name)));
+        const out: MusicTrack[] = [];
+        for (let r = 0; r < 5; r++) lists.forEach((l) => { if (l[r]) out.push(l[r]); });
+        return out;
+    });
+    const mix = useMemo(() => dayShuffle(visibleTracks(taste, mixRaw ?? []), 'mix').slice(0, 30), [mixRaw, taste.hiddenTracks, taste.hiddenArtists]);
+
+    const albums = useRow('popular-albums', popularAlbums);
+    const freshAll = useRow('new-releases', newReleases);
+    const songs = useRow('popular-songs', popularSongs);
+    const artists = useRow('popular-artists', popularArtists);
+    const loading = [albums, freshAll, songs, artists].every((r) => r === null);
+
+    // Artists you like and ones like them: popular and new rows lead with their music.
+    const liked = useMemo(() => new Set([...seeds.map((s) => s.id), ...taste.likedArtists.map((a) => a.id), ...merged.map((a) => a.id)]), [seedKey, taste.likedArtists, merged]);
+    const favor = (list: MusicAlbum[] | null) => {
+        const visible = visibleAlbums(taste, list ?? []);
+        return [...visible.filter((a) => a.artistMbid && liked.has(a.artistMbid)), ...visible.filter((a) => !(a.artistMbid && liked.has(a.artistMbid)))];
+    };
+    const forYou = useMemo(() => visibleAlbums(taste, freshAll ?? []).filter((a) => a.artistMbid && liked.has(a.artistMbid)).slice(0, 24), [freshAll, liked, taste.hiddenAlbums, taste.hiddenArtists]);
+    const fresh = useMemo(() => favor(freshAll).slice(0, 30), [freshAll, liked, taste.hiddenAlbums, taste.hiddenArtists]);
+    const popular = useMemo(() => favor(albums), [albums, liked, taste.hiddenAlbums, taste.hiddenArtists]);
+    const topSongs = visibleTracks(taste, songs ?? []);
+    const recentShown = visibleTracks(taste, recent);
+    const likedSongs = taste.likedTracks;
+
+    const artistRow = (title: string, list: MusicArtist[] | null) => {
+        const shown = visibleArtists(taste, list ?? []);
+        return shown.length > 0 ? (
+            <div key={title}>
+                <div className={m['section-title']}>{title}</div>
+                <Strip className={m['row-strip']}>
+                    {shown.map((a) => <ArtistTile key={a.id} artist={a} addons={addons} taste={taste} />)}
+                </Strip>
+            </div>
+        ) : null;
+    };
     const albumRow = (title: string, list: MusicAlbum[] | null) => list && list.length > 0 ? (
         <div key={title}>
             <div className={m['section-title']}>{title}</div>
             <Strip className={m['row-strip']}>
-                {list.map((a) => <Tile key={a.id} title={a.title} sub={[a.artist, a.year].filter(Boolean).join(' · ')} art={a.artworkURL} onClick={() => openAlbum(navigate, a, addons)} />)}
+                {list.map((a) => <AlbumTile key={a.id} album={a} addons={addons} taste={taste} />)}
+            </Strip>
+        </div>
+    ) : null;
+    const trackRow = (title: string, list: MusicTrack[], withPlay = false) => list.length > 0 ? (
+        <div key={title}>
+            <div className={m['section-head']}>
+                <div className={m['section-title']}>{title}</div>
+                {withPlay ? <button className={m['mini-button']} onClick={() => playQueue(list, 0, false)}>Play all</button> : null}
+            </div>
+            <Strip className={m['row-strip']}>
+                {list.map((t, i) => <Tile key={`${t.addon}/${t.id}`} title={t.title} sub={t.artist} art={t.artworkURL} onClick={() => playQueue(list, i)}
+                    liked={taste.likedTracks.some((x) => x.id === t.id && x.addon === t.addon)} onLike={() => toggleLikeTrack(t)} onHide={() => hideTrack(t)} />)}
             </Strip>
         </div>
     ) : null;
 
     return (
         <>
-            {recent.length > 0 ? (
-                <>
-                    <div className={m['section-title']}>Recently played</div>
-                    <Strip className={m['row-strip']}>
-                        {recent.map((t) => <Tile key={`${t.addon}/${t.id}`} title={t.title} sub={t.artist} art={t.artworkURL} onClick={() => playQueue(recent, recent.indexOf(t))} />)}
-                    </Strip>
-                </>
-            ) : null}
-            {artistRow(seeds[0] ? `Because you played ${seeds[0].name}` : '', like0)}
-            {albumRow(seeds[0] ? `More from ${seeds[0].name}` : '', more)}
-            {artistRow(seeds[1] ? `Because you played ${seeds[1].name}` : '', like1)}
-            {albumRow('Popular right now', albums)}
+            {trackRow('Daily mix', mix, true)}
+            {trackRow('Recently played', recentShown)}
+            {seeds[0] ? artistRow(`Because you played ${seeds[0].name}`, sims[0]) : null}
+            {seeds[0] ? albumRow(`More from ${seeds[0].name}`, visibleAlbums(taste, more ?? [])) : null}
+            {merged.length > 0 ? artistRow('Similar to your favorites', merged) : null}
+            {albumRow('New from artists you like', forYou)}
+            {seeds[1] ? artistRow(`Because you played ${seeds[1].name}`, sims[1]) : null}
+            {trackRow('Liked songs', likedSongs, true)}
+            {albumRow('Popular right now', popular)}
             {albumRow('New releases', fresh)}
-            {songs && songs.length > 0 ? (
+            {topSongs.length > 0 ? (
                 <>
                     <div className={m['section-title']}>Songs people are playing</div>
                     <div className={m['tracks']}>
-                        {songs.slice(0, 10).map((t, i) => <TrackRow key={t.id} track={t} number={i + 1} current={current === t.id} onPlay={() => playQueue(songs, i)} />)}
+                        {topSongs.slice(0, 10).map((t, i) => <TrackRow key={t.id} track={t} number={i + 1} canHide current={current === t.id} onPlay={() => playQueue(topSongs, i)} />)}
                     </div>
                 </>
             ) : null}
             {artistRow('Popular artists', artists)}
             {loading ? <div className={m['center']}><Spinner /></div> : null}
-            {!loading && [albums, fresh, songs, artists].every((r) => r !== null && r.length === 0) && recent.length === 0 ?
+            {!loading && [albums, freshAll, songs, artists].every((r) => r !== null && r.length === 0) && recent.length === 0 ?
                 <div className={m['note']}>Couldn't load ideas right now (no connection?). Search for an artist, an album or a song to start.</div> : null}
+            {seeds.length === 0 && !loading ?
+                <div className={m['note']}>Play and heart songs, and this page starts to fit you: daily mixes, artists like the ones you play, new releases from them.</div> : null}
         </>
     );
 };

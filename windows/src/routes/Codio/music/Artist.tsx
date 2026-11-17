@@ -9,6 +9,7 @@ import { musicStyles as m, Cover, Tile, TrackRow } from './parts';
 import { artistDetail, loadAddons } from './addons';
 import { getArtist, getTopTracks } from './musicbrainz';
 import { playQueue, usePlayer } from './player';
+import { hideArtist, isHiddenArtist, isLikedArtist, toggleLikeArtist, unhide, useTaste } from './taste';
 import { openAlbum } from './Music';
 import type { MusicAlbum, MusicTrack } from './types';
 
@@ -19,6 +20,7 @@ const Artist = () => {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const player = usePlayer();
+    const taste = useTaste();
     const preview = (useLocation().state ?? null) as { name?: string } | null;
     const [page, setPage] = useState<Page | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -73,12 +75,16 @@ const Artist = () => {
                                     <div className={m['hero-kind']}>Artist</div>
                                     <div className={m['hero-title']}>{page.name}</div>
                                     {page.detail ? <div className={m['hero-sub']}>{page.detail}</div> : null}
-                                    {page.top.length > 0 ? (
-                                        <div className={m['hero-actions']}>
-                                            <CodioButton label={'Play'} play primary onClick={() => playQueue(page.top, 0, false)} />
-                                            <CodioButton label={'Shuffle'} onClick={() => playQueue(page.top, 0, true)} />
-                                        </div>
-                                    ) : null}
+                                    <div className={m['hero-actions']}>
+                                        {page.top.length > 0 ? <CodioButton label={'Play'} play primary onClick={() => playQueue(page.top, 0, false)} /> : null}
+                                        {page.top.length > 0 ? <CodioButton label={'Shuffle'} onClick={() => playQueue(page.top, 0, true)} /> : null}
+                                        <button className={classnames(m['toggle'], { [m['on']]: isLikedArtist(taste, { id }) })} onClick={() => toggleLikeArtist({ id, name: page.name, artworkURL: null, addon: page.addon })}>
+                                            {isLikedArtist(taste, { id }) ? '♥ Liked' : '♡ Like'}
+                                        </button>
+                                        {isHiddenArtist(taste, { id }) ?
+                                            <button className={m['toggle']} onClick={() => unhide('artist', id)}>Hidden: undo</button>
+                                            : <button className={m['toggle']} onClick={() => hideArtist({ id, name: page.name })}>Not interested</button>}
+                                    </div>
                                 </div>
                             </div>
                             {

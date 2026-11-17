@@ -9,16 +9,21 @@ import { musicStyles as m, Cover, TrackRow } from './parts';
 import { albumDetail, loadAddons } from './addons';
 import { getAlbum } from './musicbrainz';
 import { playQueue, usePlayer } from './player';
+import { hideAlbum, isHiddenAlbum, isLikedAlbum, toggleLikeAlbum, unhide, useTaste } from './taste';
 import { artistHref } from './Music';
 import type { MusicTrack } from './types';
 
 type Page = { title: string, artist: string, artistId: string | null, addon: string | null, year: string | null, artworkURL: string | null, tracks: MusicTrack[] };
+
+// The album as the taste lists know it.
+const album = (page: Page, id: string) => ({ id, title: page.title, artist: page.artist, year: page.year, artworkURL: page.artworkURL, artistMbid: page.artistId, addon: page.addon });
 
 const Album = () => {
     const { id = '' } = useParams();
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const player = usePlayer();
+    const taste = useTaste();
     const preview = (useLocation().state ?? null) as { title?: string, artist?: string, art?: string | null, year?: string | null } | null;
     const [page, setPage] = useState<Page | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -72,6 +77,12 @@ const Album = () => {
                                     <div className={m['hero-actions']}>
                                         <CodioButton label={'Play'} play primary onClick={() => playQueue(page.tracks, 0, false)} />
                                         <CodioButton label={'Shuffle'} onClick={() => playQueue(page.tracks, Math.floor(Math.random() * page.tracks.length), true)} />
+                                        <button className={classnames(m['toggle'], { [m['on']]: isLikedAlbum(taste, album(page, id)) })} onClick={() => toggleLikeAlbum(album(page, id))}>
+                                            {isLikedAlbum(taste, album(page, id)) ? '♥ Liked' : '♡ Like'}
+                                        </button>
+                                        {isHiddenAlbum(taste, album(page, id)) ?
+                                            <button className={m['toggle']} onClick={() => unhide('album', id)}>Hidden: undo</button>
+                                            : <button className={m['toggle']} onClick={() => hideAlbum(album(page, id))}>Not interested</button>}
                                     </div>
                                 </div>
                             </div>
