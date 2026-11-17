@@ -65,9 +65,9 @@ const fetchUrl = (url, { headers = {}, timeout = 15000, redirects = 3 } = {}) =>
 
 // Calls to one server start at least GAP_MS apart (MusicBrainz asks for no more than one a second); they may overlap.
 const nextStart = new Map();
-const spaced = (origin, job) => new Promise((resolve, reject) => {
+const spaced = (origin, job, gap = GAP_MS) => new Promise((resolve, reject) => {
     const at = Math.max(Date.now(), nextStart.get(origin) || 0);
-    nextStart.set(origin, at + GAP_MS);
+    nextStart.set(origin, at + gap);
     setTimeout(() => job().then(resolve, reject), at - Date.now());
 });
 
@@ -123,7 +123,7 @@ const metadata = async (response, origin, p, ttl) => {
 };
 
 // Cover art: fetched once, kept on disk (a miss is remembered for a day), so every later look is instant.
-const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org)$/;
+const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org|([a-z0-9-]+\.)*dzcdn\.net)$/;
 const image = async (response, target) => {
     let u;
     try {
@@ -168,6 +168,56 @@ const image = async (response, target) => {
     }
 };
 
+// An artist's picture. MusicBrainz has none, so: Deezer's photo of the artist with exactly that name, else the cover of
+// their most played album (ListenBrainz). What was found is kept for a month (a miss for a day), so a row of artists
+// only costs a lookup the first time.
+const DEEZER = process.env.CODIO_TEST_DEEZER || 'https://api.deezer.com';
+const MBID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const plain = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '');
+const findingPicture = new Map();
+
+const deezerPicture = async (name) => {
+    const res = await spaced(DEEZER, () => fetchUrl(`${DEEZER}/search/artist?q=${encodeURIComponent(name)}&limit=10`), 120);
+    if (res.status !== 200) return null;
+    const list = JSON.parse(res.body.toString('utf8')).data;
+    if (!Array.isArray(list)) return null;
+    const wanted = plain(name);
+    const match = list.filter((a) => a && plain(a.name) === wanted).sort((a, b) => (b.nb_fan || 0) - (a.nb_fan || 0))[0];
+    const url = match && (match.picture_big || match.picture_medium);
+    // Deezer's stand-in for "no photo" has an empty picture id (/images/artist//...).
+    return typeof url === 'string' && url.startsWith('https://') && !url.includes('/artist//') ? url : null;
+};
+
+const albumPicture = async (id) => {
+    const res = await spaced(LB, () => fetchUrl(`${LB}/1/popularity/top-release-groups-for-artist/${id}`));
+    if (res.status !== 200) return null;
+    const list = JSON.parse(res.body.toString('utf8'));
+    const g = Array.isArray(list) ? list.find((x) => x && x.release_group && x.release_group.caa_release_mbid) : null;
+    return g ? `https://coverartarchive.org/release/${g.release_group.caa_release_mbid}/front-500` : null;
+};
+
+const artistPicture = (id, name) => {
+    const key = `artist-picture:${id}`;
+    const cached = readCache(key, 30 * DAY);
+    if (cached) {
+        try {
+            const saved = JSON.parse(cached.toString('utf8'));
+            if (saved.url || Date.now() - (saved.at || 0) < DAY) return Promise.resolve(saved.url || null);
+        } catch (_e) { /* look again */ }
+    }
+    if (findingPicture.has(id)) return findingPicture.get(id);
+    const job = (async () => {
+        let url = null;
+        try { if (name) url = await deezerPicture(name); } catch (_e) { /* try the album */ }
+        try { if (!url) url = await albumPicture(id); } catch (_e) { /* none */ }
+        writeCache(key, JSON.stringify({ url, at: Date.now() }));
+        return url;
+    })();
+    findingPicture.set(id, job);
+    job.finally(() => findingPicture.delete(id));
+    return job;
+};
+
 const validBase = (text) => {
     try {
         const u = new URL(text);
@@ -181,7 +231,7 @@ const handle = (request, response, pathname) => {
     if (!pathname.startsWith('/api/music/')) return false;
     const url = new URL(request.url, 'http://127.0.0.1');
     // Pictures are loaded by <img>, which can't send the header; they only come from the cover art hosts.
-    if (request.method !== 'GET' || (request.headers['x-codio'] !== '1' && pathname !== '/api/music/img')) {
+    if (request.method !== 'GET' || (request.headers['x-codio'] !== '1' && pathname !== '/api/music/img' && pathname !== '/api/music/artist-img')) {
         response.writeHead(400).end();
         return true;
     }
@@ -218,6 +268,19 @@ const handle = (request, response, pathname) => {
     }
     if (pathname === '/api/music/img') {
         image(response, url.searchParams.get('u') || '');
+        return true;
+    }
+    if (pathname === '/api/music/artist-img') {
+        const id = url.searchParams.get('id') || '';
+        const name = (url.searchParams.get('name') || '').slice(0, 200);
+        if (!MBID.test(id)) {
+            response.writeHead(400).end();
+            return true;
+        }
+        artistPicture(id, name).then((found) => {
+            if (found) image(response, found);
+            else response.writeHead(404, { 'Cache-Control': 'max-age=3600' }).end();
+        }, () => response.writeHead(502).end());
         return true;
     }
     if (pathname === '/api/music/addon') {

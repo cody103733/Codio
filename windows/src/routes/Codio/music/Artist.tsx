@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { NavBar, CodioButton, Spinner, Strip, styles } from '../components';
 import { musicStyles as m, Cover, Tile, TrackRow } from './parts';
 import { artistDetail, loadAddons } from './addons';
-import { getArtist, getTopTracks } from './musicbrainz';
+import { artistPhotoUrl, getArtist, getTopTracks } from './musicbrainz';
 import { playQueue, usePlayer } from './player';
 import { hideArtist, isHiddenArtist, isLikedArtist, toggleLikeArtist, unhide, useTaste } from './taste';
 import { openAlbum } from './Music';
@@ -40,7 +40,7 @@ const Artist = () => {
         } else {
             getArtist(id, preview?.name).then((a) => {
                 if (cancelled) return;
-                const cover = a.albums[0]?.artworkURL ?? a.singles[0]?.artworkURL ?? null;
+                const cover = artistPhotoUrl(id, a.name) ?? a.albums[0]?.artworkURL ?? a.singles[0]?.artworkURL ?? null;
                 setPage({
                     name: a.name, detail: a.detail, artworkURL: cover, addon: null, top: [],
                     groups: [{ title: 'Albums', albums: a.albums }, { title: 'Singles and EPs', albums: a.singles }, { title: 'Live, compilations and more', albums: a.other }].filter((g) => g.albums.length > 0),
@@ -60,7 +60,7 @@ const Artist = () => {
                     {error ? <div className={m['error']}>{error}</div> : null}
                     {!page && !error && preview?.name ? (
                         <div className={classnames(m['hero'], m['round'])}>
-                            <Cover src={null} label={preview.name} />
+                            <Cover src={params.get('addon') ? null : artistPhotoUrl(id, preview.name)} label={preview.name} />
                             <div>
                                 <div className={m['hero-kind']}>Artist</div>
                                 <div className={m['hero-title']}>{preview.name}</div>

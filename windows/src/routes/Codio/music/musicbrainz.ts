@@ -64,6 +64,10 @@ const year = (date: unknown) => typeof date === 'string' && /^\d{4}/.test(date) 
 // Cover art goes through Codio's server, which keeps each picture on disk after the first time.
 export const artUrl = (url: string) => `/api/music/img?u=${enc(url)}`;
 export const coverUrl = (releaseGroupId: string, size: 250 | 500 | 1200 = 250) => artUrl(`https://coverartarchive.org/release-group/${releaseGroupId}/front-${size}`);
+// An artist's photo, found by Codio's server (Deezer, by exact name; else the cover of their most played album).
+const MBID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const artistPhotoUrl = (artistId: string, name?: string | null): string | null =>
+    MBID.test(artistId) ? `/api/music/artist-img?id=${enc(artistId)}${name ? `&name=${enc(name)}` : ''}` : null;
 export const releaseCoverUrl = (releaseId: string, size: 250 | 500 = 250) => artUrl(`https://coverartarchive.org/release/${releaseId}/front-${size}`);
 
 const toAlbum = (g: any): MusicAlbum => {

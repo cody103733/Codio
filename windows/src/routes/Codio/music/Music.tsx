@@ -9,7 +9,7 @@ import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, 
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
 import { clearAll, clearHistory, dayShuffle, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
-import { getTopTracks } from './musicbrainz';
+import { artistPhotoUrl, getTopTracks } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
 import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
@@ -40,13 +40,9 @@ const AlbumTile = ({ album, addons, taste }: { album: MusicAlbum, addons: MusicA
     />;
 };
 
-// MusicBrainz has no artist photos, so an artist is shown by the cover of their most played album, looked up when the tile
-// comes into view (Codio's server keeps the answers).
-const artistArtCache = new Map<string, Promise<string | null>>();
-const artistArt = (id: string) => {
-    if (!artistArtCache.has(id)) artistArtCache.set(id, moreFrom(id).then((albums) => albums.find((a) => a.artworkURL)?.artworkURL ?? null, () => null));
-    return artistArtCache.get(id)!;
-};
+// MusicBrainz has no artist photos, so Codio's server finds one (or the cover of their most played album) when the tile
+// comes into view, and keeps it.
+const artistArt = (id: string, name: string) => Promise.resolve(artistPhotoUrl(id, name));
 
 const ArtistTile = ({ artist, addons, taste }: { artist: MusicArtist, addons: MusicAddon[], taste: ReturnType<typeof useTaste> }) => {
     const navigate = useNavigate();
@@ -56,7 +52,7 @@ const ArtistTile = ({ artist, addons, taste }: { artist: MusicArtist, addons: Mu
         setArt(artist.artworkURL ?? null);
         if (artist.artworkURL || artist.addon || !box.current) return undefined;
         let cancelled = false;
-        const load = () => { artistArt(artist.id).then((url) => { if (!cancelled && url) setArt(url); }); };
+        const load = () => { artistArt(artist.id, artist.name).then((url) => { if (!cancelled && url) setArt(url); }); };
         if (typeof IntersectionObserver === 'undefined') { load(); return undefined; }
         const watcher = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { watcher.disconnect(); load(); } }, { rootMargin: '300px' });
         watcher.observe(box.current);
