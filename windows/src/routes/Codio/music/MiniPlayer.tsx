@@ -9,6 +9,7 @@ import { Cover, HeartButton } from './parts';
 import { isLikedTrack, toggleLikeTrack, useTaste } from './taste';
 import { cycleRepeat, next, pause, playIndex, previous, removeFromQueue, seek, setVolume, stop, toggle, toggleMute, toggleShuffle, usePlayer } from './player';
 import { formatTime } from './types';
+import { startListenBrainz } from './listenbrainz';
 
 const MiniPlayer = () => {
     const player = usePlayer();
@@ -21,6 +22,9 @@ const MiniPlayer = () => {
     useEffect(() => {
         if (inVideo) pause();
     }, [inVideo]);
+
+    // The mini player is always there, so it starts the ListenBrainz sync (it does nothing while signed out).
+    useEffect(() => startListenBrainz(), []);
 
     // Space plays and pauses, as long as you're not typing.
     useEffect(() => {

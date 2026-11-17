@@ -1,1 +1,1 @@
-Artists in Music now show a photo of the artist (or, when there isn't one, the cover of their most played album).
+Sign in to ListenBrainz (Music > Addons) and the songs you play and heart follow you across your devices.

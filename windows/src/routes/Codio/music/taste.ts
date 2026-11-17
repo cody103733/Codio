@@ -59,11 +59,37 @@ export const isLikedTrack = (t: Taste, track: MusicTrack) => t.likedTracks.some(
 export const isLikedAlbum = (t: Taste, a: { id: string }) => t.likedAlbums.some((x) => x.id === a.id);
 export const isLikedArtist = (t: Taste, a: { id: string }) => t.likedArtists.some((x) => x.id === a.id);
 
+// Told when you heart or un-heart a song (the ListenBrainz account, when signed in, keeps them in step).
+export const likeHooks = new Set<(track: MusicTrack, liked: boolean) => void>();
+
 export const toggleLikeTrack = (track: MusicTrack) => {
     const liked = isLikedTrack(taste, track);
     const hidden = { ...taste.hiddenTracks };
     delete hidden[trackKey(track)];
     commit({ ...taste, hiddenTracks: hidden, likedTracks: liked ? taste.likedTracks.filter((x) => !sameTrack(x, track)) : [track, ...taste.likedTracks].slice(0, 500) });
+    likeHooks.forEach((h) => h(track, !liked));
+};
+
+// The songs loved on your ListenBrainz account (from any device). For songs with a MusicBrainz id the account is the
+// truth: loved ones are added here, ones no longer loved are dropped, except those keep() says changed here just now.
+export const applyLovedFromAccount = (lovedIds: Set<string>, loved: MusicTrack[], keep: (t: MusicTrack) => boolean) => {
+    const kept = taste.likedTracks.filter((t) => !t.mbid || lovedIds.has(t.mbid) || keep(t));
+    const have = new Set(kept.map((t) => t.mbid).filter(Boolean));
+    const added = loved.filter((t) => t.mbid && !have.has(t.mbid) && !taste.hiddenTracks[trackKey(t)] && !keep(t));
+    if (added.length === 0 && kept.length === taste.likedTracks.length) return;
+    commit({ ...taste, likedTracks: [...kept, ...added].slice(0, 500) });
+};
+
+// Plays from your other devices (ListenBrainz listens): they count towards your taste like the ones here.
+export const addPlaysFromAccount = (plays: { artistMbid: string, name: string, at: number }[]) => {
+    if (plays.length === 0) return;
+    const next = { ...taste.plays };
+    plays.forEach((p) => {
+        if (taste.hiddenArtists[p.artistMbid]) return;
+        const prev = next[p.artistMbid];
+        next[p.artistMbid] = { name: prev?.name ?? p.name, count: (prev?.count ?? 0) + 1, last: Math.max(prev?.last ?? 0, p.at) };
+    });
+    commit({ ...taste, plays: next });
 };
 
 export const toggleLikeAlbum = (album: MusicAlbum) => {
@@ -81,9 +107,13 @@ export const toggleLikeArtist = (artist: MusicArtist) => {
 };
 
 // "Not interested": gone from the rows, and no longer counts towards your taste.
-export const hideTrack = (track: MusicTrack) => commit({
-    ...taste, likedTracks: taste.likedTracks.filter((x) => !sameTrack(x, track)), hiddenTracks: { ...taste.hiddenTracks, [trackKey(track)]: `${track.title} · ${track.artist}` },
-});
+export const hideTrack = (track: MusicTrack) => {
+    const wasLiked = isLikedTrack(taste, track);
+    commit({
+        ...taste, likedTracks: taste.likedTracks.filter((x) => !sameTrack(x, track)), hiddenTracks: { ...taste.hiddenTracks, [trackKey(track)]: `${track.title} · ${track.artist}` },
+    });
+    if (wasLiked) likeHooks.forEach((h) => h(track, false));
+};
 export const hideAlbum = (album: MusicAlbum) => commit({
     ...taste, likedAlbums: taste.likedAlbums.filter((x) => x.id !== album.id), hiddenAlbums: { ...taste.hiddenAlbums, [album.id]: `${album.title} · ${album.artist}` },
 });

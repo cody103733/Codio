@@ -7,6 +7,7 @@ import { loadAddons, onNotice } from './addons';
 import { findAudio } from './match';
 import { getRecordingIsrc } from './musicbrainz';
 import { recordPlay } from './taste';
+import { listened, playingNow } from './listenbrainz';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -58,12 +59,40 @@ const say = (text: string | null) => {
 
 const current = () => state.queue[state.index] ?? null;
 
+// How long the current song has really been heard (seeking doesn't count), so it is sent to ListenBrainz (when signed in)
+// once it counts as listened to: half of it, or four minutes.
+let heard = 0;
+let lastPosition = 0;
+let listenSent = false;
+let startedAt = 0;
+const startListening = (t: MusicTrack) => {
+    heard = 0;
+    lastPosition = 0;
+    listenSent = false;
+    startedAt = Date.now();
+    playingNow(t);
+};
+const countListening = (position: number) => {
+    const step = position - lastPosition;
+    lastPosition = position;
+    if (step > 0 && step < 2) heard += step;
+    const t = current();
+    if (listenSent || !t || state.loading) return;
+    const length = state.duration > 0 ? state.duration : 480;
+    if (length < 30 || heard < Math.min(240, length / 2)) return;
+    listenSent = true;
+    listened(t, startedAt);
+};
+
 const ensureAudio = () => {
     if (audio) return audio;
     audio = new Audio();
     audio.preload = 'auto';
     audio.volume = state.volume;
-    audio.addEventListener('timeupdate', () => set({ position: audio!.currentTime, duration: isFinite(audio!.duration) ? audio!.duration : state.duration }));
+    audio.addEventListener('timeupdate', () => {
+        set({ position: audio!.currentTime, duration: isFinite(audio!.duration) ? audio!.duration : state.duration });
+        countListening(audio!.currentTime);
+    });
     audio.addEventListener('durationchange', () => set({ duration: isFinite(audio!.duration) ? audio!.duration : 0 }));
     audio.addEventListener('play', () => set({ playing: true }));
     audio.addEventListener('pause', () => set({ playing: false }));
@@ -139,6 +168,7 @@ const load = async (index: number) => {
     set({ loading: false, quality: found.quality ?? found.format, source: found.addon.manifest?.name ?? null });
     remember(t);
     recordPlay(t);
+    startListening(t);
     try {
         await a.play();
     } catch (_e) {
@@ -150,6 +180,8 @@ const advance = (auto: boolean) => {
     if (state.queue.length === 0) return;
     if (auto && state.repeat === 'one') {
         if (audio) { audio.currentTime = 0; void audio.play(); }
+        const t = current();
+        if (t) startListening(t);
         return;
     }
     const last = state.index >= state.queue.length - 1;

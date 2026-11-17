@@ -5,6 +5,9 @@
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
+//   GET /api/music/artist-img?id=<artist mbid>&name=...    a picture of the artist, kept on disk
+//   GET|POST /api/music/me?p=/1/...                         your ListenBrainz account (header X-LB-Token): sign-in check,
+//                                                           listens and loved songs. Never cached, the token never logged.
 //
 // Every call needs the header X-Codio: 1. Addon addresses (they can contain a personal token) are never logged or cached.
 
@@ -218,6 +221,47 @@ const artistPicture = (id, name) => {
     return job;
 };
 
+// Your ListenBrainz account. Only these calls are let through, with your token added as ListenBrainz asks.
+const ME_PATHS = [
+    /^\/1\/validate-token$/,
+    /^\/1\/submit-listens$/,
+    /^\/1\/feedback\/recording-feedback$/,
+    /^\/1\/feedback\/user\/[^/?]+\/get-feedback\?[\w=&-]*$/,
+    /^\/1\/user\/[^/?]+\/listens\?[\w=&-]*$/,
+];
+const account = (request, response, p) => {
+    const token = String(request.headers['x-lb-token'] || '');
+    if (!ME_PATHS.some((r) => r.test(p)) || !/^[\w-]{8,100}$/.test(token) || (request.method === 'POST') !== (p === '/1/submit-listens' || p === '/1/feedback/recording-feedback')) {
+        response.writeHead(400).end();
+        return;
+    }
+    const chunks = [];
+    let size = 0;
+    request.on('data', (c) => { size += c.length; if (size <= 1024 * 1024) chunks.push(c); });
+    request.on('end', () => {
+        if (size > 1024 * 1024) { fail(response, 413, 'Too large'); return; }
+        const body = Buffer.concat(chunks);
+        const target = new URL(LB + p);
+        const lib = target.protocol === 'http:' ? http : https;
+        const req = lib.request(target, {
+            method: request.method,
+            timeout: 15000,
+            headers: {
+                'User-Agent': USER_AGENT, 'Accept': 'application/json', 'Authorization': `Token ${token}`,
+                ...(request.method === 'POST' ? { 'Content-Type': 'application/json', 'Content-Length': body.length } : {}),
+            },
+        }, (res) => {
+            const out = [];
+            res.on('data', (c) => out.push(c));
+            res.on('end', () => send(response, res.statusCode || 502, Buffer.concat(out)));
+            res.on('error', () => fail(response, 502, 'ListenBrainz read failed'));
+        });
+        req.on('timeout', () => req.destroy(new Error('timeout')));
+        req.on('error', () => fail(response, 502, 'Couldn\'t reach ListenBrainz'));
+        req.end(request.method === 'POST' ? body : undefined);
+    });
+};
+
 const validBase = (text) => {
     try {
         const u = new URL(text);
@@ -230,8 +274,12 @@ const validBase = (text) => {
 const handle = (request, response, pathname) => {
     if (!pathname.startsWith('/api/music/')) return false;
     const url = new URL(request.url, 'http://127.0.0.1');
+    if (pathname === '/api/music/me' && request.headers['x-codio'] === '1' && (request.method === 'GET' || request.method === 'POST')) {
+        account(request, response, url.searchParams.get('p') || '');
+        return true;
+    }
     // Pictures are loaded by <img>, which can't send the header; they only come from the cover art hosts.
-    if (request.method !== 'GET' || (request.headers['x-codio'] !== '1' && pathname !== '/api/music/img' && pathname !== '/api/music/artist-img')) {
+    if (request.method !== 'GET' ||(request.headers['x-codio'] !== '1' && pathname !== '/api/music/img' && pathname !== '/api/music/artist-img')) {
         response.writeHead(400).end();
         return true;
     }

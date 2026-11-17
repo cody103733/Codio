@@ -13,6 +13,8 @@ import { artistPhotoUrl, getTopTracks } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
 import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
+import { signIn, signOut, syncNow, useListenBrainz } from './listenbrainz';
+import { usePlatform } from 'stremio/common';
 
 export const albumHref = (album: { id: string, addon?: string | null }, addons: MusicAddon[]) => {
     const owner = album.addon ? addons.find((a) => a.url === album.addon) : null;
@@ -93,9 +95,86 @@ const describe = (addon: MusicAddon) => [
     ['search', 'stream', 'catalog', 'isrc', 'resolve'].filter((r) => has(addon, r)).join(', '),
 ].filter(Boolean).join(' · ');
 
-// What Codio has learned about your taste, and how to change it. It lives on this computer only.
+const ago = (at: number | null) => {
+    if (!at) return 'not yet';
+    const minutes = Math.round((Date.now() - at) / 60000);
+    return minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : new Date(at).toLocaleString();
+};
+
+// Sign in to ListenBrainz, so what you play and heart follows you to your other devices.
+const AccountPanel = () => {
+    const account = useListenBrainz();
+    const platform = usePlatform() as any;
+    const [token, setToken] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [, tick] = useState(0);
+    useEffect(() => {
+        const timer = window.setInterval(() => tick((n) => n + 1), 30000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    const submit = async () => {
+        if (busy || token.trim().length === 0) return;
+        setBusy(true);
+        setError(null);
+        try {
+            await signIn(token);
+            setToken('');
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Couldn\'t sign in');
+        }
+        setBusy(false);
+    };
+
+    return (
+        <div>
+            <div className={m['section-title']}>Your account (ListenBrainz)</div>
+            {
+                account ?
+                    <>
+                        <div className={m['note']}>
+                            {`Signed in as ${account.user}. The songs you listen to and the ones you heart go to your ListenBrainz account, and hearts and plays from your other devices come back here. Last synced: ${ago(account.lastSync)}.`}
+                        </div>
+                        {account.syncError ? <div className={m['error']}>{account.syncError}</div> : null}
+                        <div className={m['addon-box']}>
+                            <button className={m['mini-button']} onClick={() => void syncNow()}>Sync now</button>
+                            <button className={m['mini-button']} onClick={() => platform.openExternal?.(`https://listenbrainz.org/user/${encodeURIComponent(account.user)}/`)}>Open my ListenBrainz page</button>
+                            <button className={m['mini-button']} onClick={signOut}>Sign out</button>
+                        </div>
+                    </>
+                    :
+                    <>
+                        <div className={m['note']}>
+                            Sign in to keep what you listen to and the songs you heart in step across your devices. ListenBrainz is free and open (from the people behind MusicBrainz).
+                            Make an account at listenbrainz.org, copy your user token from its settings page, and paste it here. The token stays on this computer and is only sent to ListenBrainz.
+                        </div>
+                        <div className={m['addon-box']}>
+                            <input
+                                className={m['search-input']}
+                                placeholder={'Paste your ListenBrainz user token'}
+                                value={token}
+                                spellCheck={false}
+                                autoComplete={'off'}
+                                type={'password'}
+                                onChange={(e) => { setToken(e.target.value); setError(null); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
+                            />
+                            <CodioButton label={busy ? 'Checking…' : 'Sign in'} primary onClick={() => void submit()} />
+                            <button className={m['mini-button']} onClick={() => platform.openExternal?.('https://listenbrainz.org/settings/')}>Get my token</button>
+                        </div>
+                        {error ? <div className={m['error']}>{error}</div> : null}
+                    </>
+            }
+        </div>
+    );
+};
+
+// What Codio has learned about your taste, and how to change it. It lives on this computer (and in your ListenBrainz
+// account when signed in).
 const TastePanel = () => {
     const taste = useTaste();
+    const account = useListenBrainz();
     const [sure, setSure] = useState(false);
     const hidden: { kind: 'artist' | 'album' | 'track', key: string, name: string }[] = [
         ...Object.entries(taste.hiddenArtists).map(([key, name]) => ({ kind: 'artist' as const, key, name })),
@@ -106,7 +185,7 @@ const TastePanel = () => {
         <div>
             <div className={m['section-title']}>Your taste</div>
             <div className={m['note']}>
-                Music's rows follow what you play, heart and hide. It all stays on this computer. Play counts so far: {Object.keys(taste.plays).length} artists. Hearted: {taste.likedTracks.length} songs, {taste.likedAlbums.length} albums, {taste.likedArtists.length} artists.
+                Music's rows follow what you play, heart and hide. {account ? 'Plays and hearted songs also sync with your ListenBrainz account; hidden items stay on this computer.' : 'It all stays on this computer.'} Play counts so far: {Object.keys(taste.plays).length} artists. Hearted: {taste.likedTracks.length} songs, {taste.likedAlbums.length} albums, {taste.likedArtists.length} artists.
             </div>
             <div className={m['addon-box']}>
                 <button className={m['mini-button']} onClick={clearHistory}>Forget what I've played</button>
@@ -199,6 +278,7 @@ const AddonsPanel = () => {
                     onBlur={() => saveMusicSettings({ mbBase: server.trim() })}
                 />
             </div>
+            <AccountPanel />
             <TastePanel />
         </div>
     );
