@@ -12,10 +12,10 @@
     "notes": "Music settings now show the last song sent to ListenBrainz, and ListenBrainz's exact reason if it turns listens down. Also new: a bigger Daily mix that changes every day."
   },
   "windows": {
-    "version": "1.9.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.9.1/CodioSetup-1.9.1.exe",
-    "size": 66150873,
-    "sha256": "54fbdfae6bf08357869cc5537a48be72ddd8f85d4938ec832be94dbe32abc697",
-    "notes": "A bigger Daily mix (50 to 100 songs) that changes every day: your ListenBrainz Daily Jams, your artists, artists like them and your hearted songs, with no repeats."
+    "version": "1.9.2",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.9.2/CodioSetup-1.9.2.exe",
+    "size": 66146695,
+    "sha256": "59fa22a575ef723136160011e1c1a3e454cfe46e29f2ee7e0ab146871a55bb76",
+    "notes": "Music > Addons > Your account now shows the last song sent to ListenBrainz and, if ListenBrainz turns listens down, its exact reason."
   }
 }
