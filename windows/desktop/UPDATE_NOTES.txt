@@ -1,1 +1,1 @@
-Music has a volume slider and a Back button, and artists show a picture from their top album.
+Artists on the Music tab show their real picture.

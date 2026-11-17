@@ -3,6 +3,7 @@
 //   GET /api/music/mb?p=/ws/2/...[&base=https://mirror]   MusicBrainz (or a mirror), one request a second, cached on disk
 //   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
+//   GET /api/music/artistpic?name=Radiohead               an artist's picture (Deezer, matched by exact name), cached a month
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
 //
@@ -21,6 +22,8 @@ const USER_AGENT = 'Codio/1.7 ( https://github.com/cody103733/Codio )';
 const DEFAULT_MB = 'https://musicbrainz.org';
 // (CODIO_TEST_LB points both ListenBrainz hosts at a stand-in server, for testing without the internet.)
 const LB = process.env.CODIO_TEST_LB || 'https://api.listenbrainz.org';
+// (CODIO_TEST_DEEZER does the same for the artist picture lookup.)
+const DEEZER = process.env.CODIO_TEST_DEEZER || 'https://api.deezer.com';
 const LABS = process.env.CODIO_TEST_LB || 'https://labs.api.listenbrainz.org';
 const CACHE_DIR = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'Codio', 'music-cache');
 const DAY = 24 * 3600 * 1000;
@@ -123,7 +126,7 @@ const metadata = async (response, origin, p, ttl) => {
 };
 
 // Cover art: fetched once, kept on disk (a miss is remembered for a day), so every later look is instant.
-const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org)$/;
+const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*(archive\.org|dzcdn\.net|e-cdns-images\.com))$/;
 const image = async (response, target) => {
     let u;
     try {
@@ -165,6 +168,35 @@ const image = async (response, target) => {
         }
     } catch (_e) {
         response.writeHead(502).end();
+    }
+};
+
+// An artist's picture: Deezer's artist whose name is exactly the same, or null. Only the artist's name is sent.
+const artistPicture = async (response, name) => {
+    if (!name || name.length > 120) {
+        response.writeHead(400).end();
+        return;
+    }
+    const url = `${DEEZER}/search/artist?limit=8&q=${encodeURIComponent(name)}`;
+    const key = url + '#pic';
+    const cached = readCache(key, 30 * DAY);
+    if (cached) {
+        send(response, 200, cached);
+        return;
+    }
+    try {
+        const res = await spaced(DEEZER, () => fetchUrl(url));
+        if (res.status !== 200) {
+            fail(response, 502, 'No answer');
+            return;
+        }
+        const wanted = name.trim().toLowerCase();
+        const hit = (JSON.parse(res.body.toString('utf8')).data || []).find((a) => String(a.name || '').trim().toLowerCase() === wanted && a.picture_big && !/\/images\/artist\/\/|artist\/\//.test(a.picture_big));
+        const body = JSON.stringify({ url: hit ? hit.picture_big : null });
+        writeCache(key, body);
+        send(response, 200, body);
+    } catch (_e) {
+        fail(response, 502, 'No answer');
     }
 };
 
@@ -214,6 +246,10 @@ const handle = (request, response, pathname) => {
             return true;
         }
         metadata(response, LABS, p, 7 * DAY);
+        return true;
+    }
+    if (pathname === '/api/music/artistpic') {
+        artistPicture(response, url.searchParams.get('name') || '');
         return true;
     }
     if (pathname === '/api/music/img') {
