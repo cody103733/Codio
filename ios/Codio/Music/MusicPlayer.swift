@@ -36,6 +36,9 @@ final class MusicPlayer: ObservableObject {
     private var messageTask: Task<Void, Never>?
     private var loadTask: Task<Void, Never>?
     private var artworkFor: String?
+    /// VLC takes over a song the iPhone's own player can't play (Opus, WebM, Ogg...).
+    private var vlc: MusicVLC?
+    private var usingVLC = false
 
     // How long the current song has really been heard (seeking doesn't count), for ListenBrainz.
     private var heard: Double = 0
@@ -51,13 +54,17 @@ final class MusicPlayer: ObservableObject {
         player.publisher(for: \.timeControlStatus)
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
-                guard let self = self else { return }
+                guard let self = self, !self.usingVLC else { return }
                 self.playing = status != .paused
                 self.publishNowPlaying()
             }
             .store(in: &bag)
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] time in
-            Task { @MainActor in self?.tick(time.seconds) }
+            Task { @MainActor in
+                guard let self = self, !self.usingVLC else { return }
+                if let d = self.player.currentItem?.duration.seconds, d.isFinite, d > 0 { self.duration = d }
+                self.tick(time.seconds)
+            }
         }
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .receive(on: RunLoop.main)
@@ -73,7 +80,6 @@ final class MusicPlayer: ObservableObject {
     private func tick(_ seconds: Double) {
         guard seconds.isFinite, current != nil else { return }
         position = seconds
-        if let d = player.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
         let step = seconds - lastPosition
         lastPosition = seconds
         if step > 0 && step < 2 { heard += step }
@@ -132,6 +138,7 @@ final class MusicPlayer: ObservableObject {
         player.pause()
         player.replaceCurrentItem(with: nil)
         itemBag.removeAll()
+        stopVLC()
         index = i
         loading = true
         position = 0
@@ -154,7 +161,8 @@ final class MusicPlayer: ObservableObject {
     }
 
     private func started(_ t: MusicTrack, _ found: MusicMatch.Playable?, _ mine: Int) {
-        guard let found = found, let url = URL(string: found.url) else {
+        let link = found.map { f in URL(string: f.url) ?? URL(string: f.url.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? "") }
+        guard let found = found, let url = link ?? nil else {
             loading = false
             say("No source available for \u{201C}\(t.title)\u{201D}")
             // Move on so a queue doesn't stall on one missing song.
@@ -172,8 +180,14 @@ final class MusicPlayer: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
                 guard let self = self, mine == self.token, status == .failed else { return }
-                self.say("Couldn't play \u{201C}\(t.title)\u{201D}")
-                self.advance(auto: true)
+                self.playWithVLC(url, t, mine)
+            }
+            .store(in: &itemBag)
+        NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime, object: item)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self = self, mine == self.token, !self.usingVLC else { return }
+                self.playWithVLC(url, t, mine, from: self.position)
             }
             .store(in: &itemBag)
         NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: item)
@@ -192,20 +206,74 @@ final class MusicPlayer: ObservableObject {
         startListening(t)
         player.play()
         publishNowPlaying()
+        // Some links never get ready in the iPhone's player (no error either): VLC gets a go after 10 seconds.
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard let self = self, mine == self.token, !self.usingVLC, item.status != .readyToPlay else { return }
+            self.playWithVLC(url, t, mine)
+        }
+    }
+
+    private func stopVLC() {
+        vlc?.stop()
+        usingVLC = false
+    }
+
+    /// The same link again, with VLC (it plays nearly any audio format).
+    private func playWithVLC(_ url: URL, _ t: MusicTrack, _ mine: Int, from seconds: Double = 0) {
+        guard mine == token else { return }
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        itemBag.removeAll()
+        let v = vlc ?? MusicVLC()
+        vlc = v
+        usingVLC = true
+        v.onTime = { [weak self] sec in
+            guard let self = self, mine == self.token else { return }
+            self.tick(sec)
+        }
+        v.onLength = { [weak self] len in
+            guard let self = self, mine == self.token else { return }
+            self.duration = len
+            self.publishNowPlaying()
+        }
+        v.onPlaying = { [weak self] on in
+            guard let self = self, mine == self.token else { return }
+            self.playing = on
+            self.publishNowPlaying()
+        }
+        v.onEnd = { [weak self] in
+            guard let self = self, mine == self.token else { return }
+            self.advance(auto: true)
+        }
+        v.onError = { [weak self] in
+            guard let self = self, mine == self.token else { return }
+            self.usingVLC = false
+            self.say("Couldn't play \u{201C}\(t.title)\u{201D}")
+            self.advance(auto: true)
+        }
+        activateSession()
+        v.load(url, volume: volume)
+        if seconds > 1 { v.seek(seconds) }
     }
 
     private func advance(auto: Bool) {
         if queue.isEmpty { return }
         if auto && repeatMode == .one {
-            player.seek(to: .zero)
-            player.play()
+            if usingVLC, let v = vlc {
+                v.seek(0)
+                v.play()
+            } else {
+                player.seek(to: .zero)
+                player.play()
+            }
             if let t = current { startListening(t) }
             return
         }
         if index >= queue.count - 1 {
             if repeatMode == .all { load(0) } else {
-                player.pause()
-                player.seek(to: .zero)
+                pause()
+                if !usingVLC { player.seek(to: .zero) }
                 position = 0
             }
             return
@@ -253,9 +321,16 @@ final class MusicPlayer: ObservableObject {
         load(index - 1)
     }
 
-    func pause() { player.pause() }
+    func pause() {
+        if usingVLC { vlc?.pause() } else { player.pause() }
+    }
 
     func resume() {
+        if usingVLC, let v = vlc {
+            activateSession()
+            v.play()
+            return
+        }
         guard player.currentItem != nil else {
             if current != nil { load(index) }
             return
@@ -268,7 +343,7 @@ final class MusicPlayer: ObservableObject {
 
     func seek(_ seconds: Double) {
         position = max(0, seconds)
-        player.seek(to: CMTime(seconds: max(0, seconds), preferredTimescale: 600))
+        if usingVLC { vlc?.seek(seconds) } else { player.seek(to: CMTime(seconds: max(0, seconds), preferredTimescale: 600)) }
         publishNowPlaying()
     }
 
@@ -294,6 +369,8 @@ final class MusicPlayer: ObservableObject {
         player.pause()
         player.replaceCurrentItem(with: nil)
         itemBag.removeAll()
+        stopVLC()
+        playing = false
         queue = []
         index = -1
         loading = false
@@ -309,6 +386,7 @@ final class MusicPlayer: ObservableObject {
     func setVolume(_ v: Float) {
         volume = min(1, max(0, v))
         player.volume = volume
+        vlc?.setVolume(volume)
         UserDefaults.standard.set(Double(volume), forKey: volumeKey)
     }
 
