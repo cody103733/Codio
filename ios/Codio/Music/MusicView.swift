@@ -52,29 +52,17 @@ final class MusicHome: ObservableObject {
         for (id, list) in found { similar[id] = list }
         if let first = seeds.first, more[first.id] == nil { more[first.id] = await LBData.moreFrom(first.id) }
         let merged = taste.mergeSimilar(seeds, seeds.map { similar[$0.id] ?? [] })
-        let sources = seeds.prefix(4).map { ($0.id, $0.name) } + merged.prefix(4).map { ($0.id, $0.name) }
-        let key = Date().formatted(date: .numeric, time: .omitted) + sources.map { $0.0 }.joined(separator: ",")
-        guard key != mixKey, sources.count >= 2 else { return }
-        let pairs = sources.map { (id: $0.0, name: $0.1) }
-        let fetched = await withTaskGroup(of: (Int, [MusicTrack]).self, returning: [Int: [MusicTrack]].self) { group in
-            for (i, p) in pairs.enumerated() {
-                let id = p.id, name = p.name
-                group.addTask {
-                    let list = await LBData.topTracks(id, name: name)
-                    return (i, list)
-                }
-            }
-            var out: [Int: [MusicTrack]] = [:]
-            for await (i, list) in group { out[i] = list }
-            return out
-        }
-        let lists = fetched
-        var out: [MusicTrack] = []
-        for r in 0..<5 {
-            for i in 0..<sources.count { if let l = lists[i], r < l.count { out.append(l[r]) } }
-        }
+        // Daily mix: 50 to 100 songs from your ListenBrainz Daily Jams, your artists, artists like them and your hearts
+        // (see DailyMix). Built again when the day, your favorites or your ListenBrainz account change; today's order is kept.
+        if mix.isEmpty { mix = DailyMix.saved() }
+        let mine = taste.topSeeds(8)
+        let user = MusicAccount.shared.account?.user
+        let bucket = Int((MusicAccount.shared.account?.lastSync?.timeIntervalSince1970 ?? 0) / (3 * 3600))
+        let key = DailyMix.today() + (mine.map(\.id) + merged.map(\.id)).joined(separator: ",") + "|\(user ?? "")|\(bucket)|\(taste.likedTracks.count)"
+        guard key != mixKey, !mine.isEmpty || user != nil else { return }
         mixKey = key
-        mix = out
+        let built = await DailyMix.build(seeds: mine, similar: merged, taste: taste, user: user)
+        if !built.isEmpty { mix = built }
     }
 }
 
@@ -83,6 +71,7 @@ struct MusicView: View {
     @ObservedObject private var taste = MusicTaste.shared
     @ObservedObject private var home = MusicHome.shared
     @ObservedObject private var player = MusicPlayer.shared
+    @ObservedObject private var account = MusicAccount.shared
     @State private var query = ""
     @State private var results: MusicResults?
     @State private var searching = false
@@ -131,10 +120,15 @@ struct MusicView: View {
         .onChange(of: addons.list) { _ in scheduleSearch(now: true) }
         .onAppear { home.loadGlobal() }
         .task(id: addons.list.map(\.url).joined()) { await home.loadCatalogs(addons.list) }
-        .task(id: seeds.map(\.id).joined(separator: ",")) { await home.loadPersonal(seeds, taste: taste.data) }
+        .task(id: personalKey) { await home.loadPersonal(seeds, taste: taste.data) }
     }
 
     private var seeds: [TasteData.Seed] { taste.data.topSeeds(5) }
+    /// Changes when your favorites, your hearts or your ListenBrainz account (a sync, every few hours) change.
+    private var personalKey: String {
+        let a = account.account
+        return DailyMix.today() + taste.data.topSeeds(8).map(\.id).joined(separator: ",") + "|\(a?.user ?? "")|\(Int((a?.lastSync?.timeIntervalSince1970 ?? 0) / (3 * 3600)))|\(taste.data.likedTracks.count)"
+    }
 
     // MARK: Search
 
@@ -242,7 +236,7 @@ struct MusicView: View {
             return v.filter { a in a.artistMbid.map { liked.contains($0) } ?? false } + v.filter { a in !(a.artistMbid.map { liked.contains($0) } ?? false) }
         }
         let forYou = Array(t.visible(home.newReleases ?? []).filter { a in a.artistMbid.map { liked.contains($0) } ?? false }.prefix(24))
-        let mix = Array(dayShuffle(t.visible(home.mix), salt: "mix").prefix(30))
+        let mix = t.visible(home.mix)
         let recent = t.visible(player.recentTracks())
 
         songRow("Daily mix", mix, playAll: true)
