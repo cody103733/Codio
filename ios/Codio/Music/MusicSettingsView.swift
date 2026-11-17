@@ -120,7 +120,15 @@ struct MusicSettingsView: View {
                     Spacer()
                     Text(a.lastSync.map { $0.formatted(.relative(presentation: .named)) } ?? "not yet").foregroundColor(Theme.dim)
                 }
-                if let e = a.syncError { Label(e, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange) }
+                HStack {
+                    Text("Last song sent").foregroundColor(.white)
+                    Spacer()
+                    Text(a.lastSentAt.map { "\(a.lastSentTitle ?? ""), \($0.formatted(.relative(presentation: .named)))" } ?? "none yet").foregroundColor(Theme.dim).lineLimit(2).multilineTextAlignment(.trailing)
+                }
+                if account.waitingListens > 0 {
+                    Text("\(account.waitingListens) waiting to be sent").foregroundColor(Theme.dim)
+                }
+                if let e = a.sendError ?? a.syncError { Label(e, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange) }
                 Button {
                     syncing = true
                     Task { await account.syncNow(); syncing = false }

@@ -21,6 +21,9 @@ export type Account = {
     listensUntil: number,
     lastSync: number | null,
     syncError: string | null,
+    // The last song ListenBrainz took, and the reason it gave the last time it turned listens down (cleared on success).
+    lastSent?: { title: string, at: number } | null,
+    sendError?: string | null,
 };
 
 type Queue = {
@@ -114,6 +117,9 @@ export const signIn = async (tokenText: string): Promise<string> => {
     return String(answer.user_name);
 };
 
+// Songs waiting to be sent.
+export const waitingListens = () => queue.listens.length;
+
 export const signOut = () => {
     queue = { listens: [], feedback: {} };
     saveQueue();
@@ -122,12 +128,36 @@ export const signOut = () => {
 
 // ---- What you play and heart, sent as it happens (kept and sent later when offline)
 
+// What ListenBrainz said when it turned something down, in words to show.
+const reason = (e: unknown): string => {
+    const status = (e as { status?: number }).status;
+    const said = e instanceof Error && e.message && !/^ListenBrainz answered/.test(e.message) ? e.message : null;
+    if (status === 401) return `ListenBrainz refused your token${said ? `: ${said}` : '. Sign in again.'}`;
+    if (status && status < 500) return `ListenBrainz turned your listens down: ${said ?? `error ${status}`}`;
+    return 'Couldn\'t reach ListenBrainz. Your listens are kept and sent later.';
+};
+const noteSend = (a: Account, patch: Partial<Account>) => {
+    if (account && account.token === a.token) setAccount({ ...account, ...patch });
+};
+
 const sendQueued = async (a: Account) => {
     if (queue.listens.length > 0) {
         const batch = queue.listens.slice(0, 100);
-        await call(a.token, '/1/submit-listens', { listen_type: batch.length === 1 ? 'single' : 'import', payload: batch });
+        try {
+            await call(a.token, '/1/submit-listens', { listen_type: batch.length === 1 ? 'single' : 'import', payload: batch });
+        } catch (e) {
+            noteSend(a, { sendError: reason(e) });
+            // A batch ListenBrainz says is wrong would block every later listen: drop it (the reason stays shown).
+            if ((e as { status?: number }).status === 400) {
+                queue.listens = queue.listens.slice(batch.length);
+                saveQueue();
+            }
+            throw e;
+        }
         queue.listens = queue.listens.slice(batch.length);
         saveQueue();
+        const last = batch[batch.length - 1]?.track_metadata;
+        noteSend(a, { sendError: null, lastSent: { title: `${last?.track_name ?? ''} · ${last?.artist_name ?? ''}`, at: Date.now() } });
     }
     for (const [mbid, f] of Object.entries(queue.feedback)) {
         await call(a.token, '/1/feedback/recording-feedback', { recording_mbid: mbid, score: f.score });
@@ -225,9 +255,7 @@ export const syncNow = (): Promise<void> => {
             const newest = await pullListens(a);
             if (account && account.token === a.token) setAccount({ ...account, listensUntil: newest, lastSync: Date.now(), syncError: null });
         } catch (e) {
-            const status = (e as { status?: number }).status;
-            const message = status === 401 ? 'ListenBrainz no longer accepts your token. Sign in again.' : 'Couldn\'t reach ListenBrainz. Trying again later.';
-            if (account && account.token === a.token) setAccount({ ...account, syncError: message });
+            if (account && account.token === a.token) setAccount({ ...account, syncError: reason(e) });
         } finally {
             syncing = null;
         }

@@ -255,6 +255,69 @@ public final class ListenBrainz {
         setAccount(null);
     }
 
+    // ---- What happened to the last listens sent, shown in Music settings
+
+    private static final String SEND_KEY = "codioListenBrainzSend";
+
+    /** Words for why ListenBrainz turned something down. */
+    private static String reason(Exception e) {
+        int status = e instanceof Refused ? ((Refused) e).status : 0;
+        String said = e.getMessage() != null && !e.getMessage().startsWith("ListenBrainz answered") ? e.getMessage() : null;
+        if (status == 401) return "ListenBrainz refused your token" + (said != null ? ": " + said : ". Sign in again.");
+        if (status > 0 && status < 500) return "ListenBrainz turned your listens down: " + (said != null ? said : "error " + status);
+        return "Couldn't reach ListenBrainz. Your listens are kept and sent later.";
+    }
+
+    /** title = the last song ListenBrainz took (null: none now); error = why it refused (null: no error). */
+    private static void noteSend(String title, String error) {
+        try {
+            JSONObject o = new JSONObject(MusicNet.prefs().getString(SEND_KEY, "{}"));
+            if (title != null) o.put("title", title).put("at", System.currentTimeMillis());
+            if (error != null) o.put("error", error);
+            else o.remove("error");
+            MusicNet.prefs().edit().putString(SEND_KEY, o.toString()).apply();
+        } catch (JSONException ignored) {
+        }
+        MusicNet.MAIN.post(new Runnable() {
+            @Override
+            public void run() {
+                for (Runnable l : new ArrayList<Runnable>(listeners)) l.run();
+            }
+        });
+    }
+
+    /** Why the last listens weren't taken, or null. */
+    public static String sendError() {
+        try {
+            return Model.str(new JSONObject(MusicNet.prefs().getString(SEND_KEY, "{}")), "error");
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    /** "Last song sent: …, 5 min ago. 2 waiting to be sent." */
+    public static String sendStatus() {
+        String out;
+        try {
+            JSONObject o = new JSONObject(MusicNet.prefs().getString(SEND_KEY, "{}"));
+            long at = o.optLong("at", 0);
+            if (Model.str(o, "title") != null && at > 0) {
+                long min = (System.currentTimeMillis() - at) / 60000;
+                out = "Last song sent: " + o.getString("title") + ", " + (min < 1 ? "just now" : min < 60 ? min + " min ago" : java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(new java.util.Date(at))) + ".";
+            } else {
+                out = "No song sent yet. A song is sent once you've heard half of it, or four minutes.";
+            }
+        } catch (JSONException e) {
+            out = "";
+        }
+        int waiting;
+        synchronized (LOCK) {
+            load();
+            waiting = queuedListens.length();
+        }
+        return waiting > 0 ? out + " " + waiting + " waiting to be sent." : out;
+    }
+
     // ---- What you play and heart, sent as it happens (kept and sent later when offline)
 
     /** On the work thread. */
@@ -264,7 +327,23 @@ public final class ListenBrainz {
             for (int i = 0; i < queuedListens.length() && i < 100; i++) batch.put(queuedListens.get(i));
         }
         if (batch.length() > 0) {
-            call(a.token, "/1/submit-listens", new JSONObject().put("listen_type", batch.length() == 1 ? "single" : "import").put("payload", batch));
+            try {
+                call(a.token, "/1/submit-listens", new JSONObject().put("listen_type", batch.length() == 1 ? "single" : "import").put("payload", batch));
+            } catch (IOException e) {
+                noteSend(null, reason(e));
+                // A batch ListenBrainz says is wrong would block every later listen: drop it (the reason stays shown).
+                if (e instanceof Refused && ((Refused) e).status == 400) {
+                    synchronized (LOCK) {
+                        JSONArray rest = new JSONArray();
+                        for (int i = batch.length(); i < queuedListens.length(); i++) rest.put(queuedListens.get(i));
+                        queuedListens = rest;
+                        saveQueue();
+                    }
+                }
+                throw e;
+            }
+            JSONObject last = MusicNet.obj(MusicNet.obj(batch.opt(batch.length() - 1)).optJSONObject("track_metadata"));
+            noteSend(last.optString("track_name") + " · " + last.optString("artist_name"), null);
             synchronized (LOCK) {
                 JSONArray rest = new JSONArray();
                 for (int i = batch.length(); i < queuedListens.length(); i++) rest.put(queuedListens.get(i));
@@ -457,11 +536,8 @@ public final class ListenBrainz {
                     Account now = account();
                     if (now != null && now.token.equals(a.token)) setAccount(changed(now, newest, System.currentTimeMillis(), null));
                 } catch (Exception e) {
-                    boolean refused = e instanceof Refused && ((Refused) e).status == 401;
                     Account now = account();
-                    if (now != null && now.token.equals(a.token)) {
-                        setAccount(changed(now, now.listensUntil, now.lastSync, refused ? "ListenBrainz no longer accepts your token. Sign in again." : "Couldn't reach ListenBrainz. Trying again later."));
-                    }
+                    if (now != null && now.token.equals(a.token)) setAccount(changed(now, now.listensUntil, now.lastSync, reason(e)));
                 } finally {
                     synchronized (LOCK) {
                         syncing = false;

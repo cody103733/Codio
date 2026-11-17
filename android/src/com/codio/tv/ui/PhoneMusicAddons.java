@@ -290,8 +290,10 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         ListenBrainz.Account a = ListenBrainz.account();
         if (a != null) {
             accountBox.addView(footer("Signed in as " + a.user + ". The songs you listen to and the ones you heart go to your ListenBrainz account, and hearts and plays from your other devices come back here. Last synced: " + ago(a.lastSync) + "."));
-            if (a.syncError != null) {
-                TextView e = PhoneKit.text(c, a.syncError, 14, PhoneKit.DESTRUCTIVE, PhoneKit.REGULAR);
+            accountBox.addView(footer(ListenBrainz.sendStatus()));
+            String problem = ListenBrainz.sendError() != null ? ListenBrainz.sendError() : a.syncError;
+            if (problem != null) {
+                TextView e = PhoneKit.text(c, problem, 14, PhoneKit.DESTRUCTIVE, PhoneKit.REGULAR);
                 e.setPadding(dp(32), 0, dp(16), dp(6));
                 accountBox.addView(e);
             }

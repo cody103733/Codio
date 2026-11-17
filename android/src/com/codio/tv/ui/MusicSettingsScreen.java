@@ -146,9 +146,10 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             in.head = "Your account";
             in.note = "Sign in and what you play and heart follows you to your other devices. Make a free account at listenbrainz.org and copy your user token from listenbrainz.org/settings. The token stays on this TV and is only sent to ListenBrainz.";
         } else {
-            Item who = item("Signed in as " + account.user, account.syncError != null ? account.syncError : "Last sync: " + ago(account.lastSync), null);
+            String sendError = ListenBrainz.sendError();
+            Item who = item("Signed in as " + account.user, sendError != null ? sendError : account.syncError != null ? account.syncError : "Last sync: " + ago(account.lastSync), null);
             who.head = "Your account";
-            who.note = "What you play and the songs you heart sync with your ListenBrainz account. Hidden items stay on this TV.";
+            who.note = ListenBrainz.sendStatus() + " What you play and the songs you heart sync with your ListenBrainz account. Hidden items stay on this TV.";
             item("Sync now", null, new Runnable() {
                 @Override
                 public void run() {

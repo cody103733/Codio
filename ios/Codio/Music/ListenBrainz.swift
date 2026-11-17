@@ -17,6 +17,10 @@ final class MusicAccount: ObservableObject {
         var listensUntil: Int
         var lastSync: Date?
         var syncError: String?
+        /// The last song ListenBrainz took, and why it last turned listens down (cleared when one goes through).
+        var lastSentTitle: String?
+        var lastSentAt: Date?
+        var sendError: String?
     }
 
     struct Queue: Codable {
@@ -27,7 +31,7 @@ final class MusicAccount: ObservableObject {
         var feedback: [String: Feedback] = [:]
     }
 
-    struct Failure: Error { var status: Int }
+    struct Failure: Error { var status: Int; var message: String? = nil }
 
     private let accountKey = "music_lb_account"
     private let queueKey = "music_lb_queue"
@@ -75,7 +79,7 @@ final class MusicAccount: ObservableObject {
         }
         let (data, response) = result
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status / 100 != 2 { throw Failure(status: status) }
+        if status / 100 != 2 { throw Failure(status: status, message: mstr((MusicNet.parse(data) as? JSON)?["error"])) }
         return MusicNet.parse(data)
     }
 
@@ -83,7 +87,7 @@ final class MusicAccount: ObservableObject {
         var info: JSON = ["media_player": "Codio", "submission_client": "Codio for iPhone", "codio_device": device]
         if isMbid(t.mbid) { info["recording_mbid"] = t.mbid! }
         if isMbid(t.artistMbid) { info["artist_mbids"] = [t.artistMbid!] }
-        if let d = t.durationMs { info["duration_ms"] = d }
+        if let d = t.durationMs, d > 0 { info["duration_ms"] = d }
         if let i = t.isrc { info["isrc"] = i }
         var meta: JSON = ["artist_name": t.artist.isEmpty ? "Unknown artist" : t.artist,
                           "track_name": t.title.isEmpty ? "Unknown song" : t.title,
@@ -136,7 +140,19 @@ final class MusicAccount: ObservableObject {
                 return ["listened_at": l.at, "track_metadata": meta]
             }
             if !payload.isEmpty {
-                _ = try await call(token, "/1/submit-listens", body: ["listen_type": payload.count == 1 ? "single" : "import", "payload": payload] as JSON)
+                do {
+                    _ = try await call(token, "/1/submit-listens", body: ["listen_type": payload.count == 1 ? "single" : "import", "payload": payload] as JSON)
+                } catch {
+                    noteSend(title: nil, error: reason(error))
+                    // A batch ListenBrainz says is wrong would block every later listen: drop it (the reason stays shown).
+                    if (error as? Failure)?.status == 400 {
+                        queue.listens.removeFirst(min(batch.count, queue.listens.count))
+                        saveQueue()
+                    }
+                    throw error
+                }
+                let last = payload.last?["track_metadata"] as? JSON
+                noteSend(title: "\(mstr(last?["track_name"]) ?? "") · \(mstr(last?["artist_name"]) ?? "")", error: nil)
             }
             queue.listens.removeFirst(min(batch.count, queue.listens.count))
             saveQueue()
@@ -147,6 +163,24 @@ final class MusicAccount: ObservableObject {
             saveQueue()
         }
     }
+
+    /// Why ListenBrainz turned something down, in words to show.
+    private func reason(_ error: Error) -> String {
+        let f = error as? Failure
+        if f?.status == 401 { return f?.message.map { "ListenBrainz refused your token: \($0)" } ?? "ListenBrainz no longer accepts your token. Sign in again." }
+        if let f = f, f.status > 0, f.status < 500 { return "ListenBrainz turned your listens down: \(f.message ?? "error \(f.status)")" }
+        return "Couldn't reach ListenBrainz. Your listens are kept and sent later."
+    }
+
+    private func noteSend(title: String?, error: String?) {
+        guard var now = account else { return }
+        if let title = title { now.lastSentTitle = title; now.lastSentAt = Date() }
+        now.sendError = error
+        setAccount(now)
+    }
+
+    /// Songs waiting to be sent.
+    var waitingListens: Int { queue.listens.count }
 
     func playingNow(_ t: MusicTrack) {
         guard let a = account, let token = Keychain.get(tokenAccount) else { return }
@@ -237,7 +271,8 @@ final class MusicAccount: ObservableObject {
         } catch {
             let status = (error as? Failure)?.status ?? 0
             if var now = account, now.user == a.user {
-                now.syncError = status == 401 ? "ListenBrainz no longer accepts your token. Sign in again." : "Couldn't reach ListenBrainz. Trying again later."
+                _ = status
+                now.syncError = reason(error)
                 setAccount(now)
             }
         }

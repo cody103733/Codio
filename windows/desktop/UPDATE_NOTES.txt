@@ -1,1 +1,1 @@
-A bigger Daily mix (50 to 100 songs) that changes every day: your ListenBrainz Daily Jams, your artists, artists like them and your hearted songs, with no repeats.
+Music > Addons > Your account now shows the last song sent to ListenBrainz and, if ListenBrainz turns listens down, its exact reason.

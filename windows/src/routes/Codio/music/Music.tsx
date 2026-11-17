@@ -14,7 +14,7 @@ import { artistPhotoUrl } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
 import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
-import { signIn, signOut, syncNow, useListenBrainz } from './listenbrainz';
+import { signIn, signOut, syncNow, useListenBrainz, waitingListens } from './listenbrainz';
 import { usePlatform } from 'stremio/common';
 
 export const albumHref = (album: { id: string, addon?: string | null }, addons: MusicAddon[]) => {
@@ -137,7 +137,12 @@ const AccountPanel = () => {
                         <div className={m['note']}>
                             {`Signed in as ${account.user}. The songs you listen to and the ones you heart go to your ListenBrainz account, and hearts and plays from your other devices come back here. Last synced: ${ago(account.lastSync)}.`}
                         </div>
-                        {account.syncError ? <div className={m['error']}>{account.syncError}</div> : null}
+                        <div className={m['note']}>
+                            {account.lastSent ? `Last song sent: ${account.lastSent.title}, ${ago(account.lastSent.at)}.` : 'No song sent yet. A song is sent once you\'ve heard half of it, or four minutes.'}
+                            {waitingListens() > 0 ? ` ${waitingListens()} waiting to be sent.` : ''}
+                        </div>
+                        {account.sendError ? <div className={m['error']}>{account.sendError}</div> : null}
+                        {account.syncError && account.syncError !== account.sendError ? <div className={m['error']}>{account.syncError}</div> : null}
                         <div className={m['addon-box']}>
                             <button className={m['mini-button']} onClick={() => void syncNow()}>Sync now</button>
                             <button className={m['mini-button']} onClick={() => platform.openExternal?.(`https://listenbrainz.org/user/${encodeURIComponent(account.user)}/`)}>Open my ListenBrainz page</button>
