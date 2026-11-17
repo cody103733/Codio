@@ -12,10 +12,10 @@
     "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave the device."
   },
   "windows": {
-    "version": "1.9.2",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.9.2/CodioSetup-1.9.2.exe",
-    "size": 66146695,
-    "sha256": "59fa22a575ef723136160011e1c1a3e454cfe46e29f2ee7e0ab146871a55bb76",
-    "notes": "Music > Addons > Your account now shows the last song sent to ListenBrainz and, if ListenBrainz turns listens down, its exact reason."
+    "version": "1.10.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.0/CodioSetup-1.10.0.exe",
+    "size": 66151852,
+    "sha256": "9ea5893f0b9a9291aa80caa966f9559380cb372ab5d998bf7ca28fe1dd9f947f",
+    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave this PC."
   }
 }
