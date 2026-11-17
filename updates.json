@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.5.1",
-    "versionCode": 63,
+    "version": "1.5.2",
+    "versionCode": 64,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music plays far more formats, FLAC, Opus, WebM and Ogg included: VLC takes over when Android's own player can't play a song. New in 1.5: the Music tab."
+    "notes": "A bigger Daily mix (50 to 100 songs) that changes every day: your ListenBrainz Daily Jams, your artists, artists like them and your hearted songs, with no repeats."
   },
   "phone": {
-    "version": "1.1.1",
-    "versionCode": 22,
+    "version": "1.1.2",
+    "versionCode": 23,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music now plays more kinds of files, FLAC, Opus, WebM and Ogg included, and links with spaces. If the phone's own player can't play a song, Codio switches to VLC."
+    "notes": "A bigger Daily mix (50 to 100 songs) that changes every day: your ListenBrainz Daily Jams, your artists, artists like them and your hearted songs, with no repeats."
   },
   "windows": {
     "version": "1.9.0",

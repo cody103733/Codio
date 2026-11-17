@@ -1,7 +1,9 @@
 package com.codio.tv.ui;
 
 import com.codio.tv.music.Addons;
+import com.codio.tv.music.DailyMix;
 import com.codio.tv.music.Discovery;
+import com.codio.tv.music.ListenBrainz;
 import com.codio.tv.music.Model;
 import com.codio.tv.music.MusicBrainz;
 import com.codio.tv.music.MusicNet;
@@ -192,7 +194,6 @@ final class MusicScreen extends MusicPage {
                 if (!mine.equals(seedKey) || v == null) return;
                 sims.clear();
                 sims.addAll(v);
-                loadMix(now);
             }
         });
         ask(new MusicNet.Job<List<Model.Album>>() {
@@ -208,35 +209,35 @@ final class MusicScreen extends MusicPage {
         });
     }
 
-    /** Daily mix: a few songs each from your favorites and artists like them, shuffled the same all day. */
-    private void loadMix(List<Taste.Seed> now) {
-        final List<String[]> sources = new ArrayList<String[]>();
-        for (int i = 0; i < now.size() && i < 4; i++) sources.add(new String[]{now.get(i).id, now.get(i).name});
-        List<Model.Artist> like = Taste.mergeSimilar(now, sims);
-        for (int i = 0; i < like.size() && i < 4; i++) sources.add(new String[]{like.get(i).id, like.get(i).name});
-        StringBuilder k = new StringBuilder(new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date()));
-        for (String[] s : sources) k.append(',').append(s[0]);
-        if (k.toString().equals(mixKey) || sources.size() < 2) return;
+    /**
+     * Daily mix: 50 to 100 songs from your ListenBrainz Daily Jams, your artists, artists like them and your hearts (see
+     * DailyMix). Built again when the day, your favorites or your ListenBrainz account change; today's order is kept.
+     */
+    private void loadMix() {
+        final List<Taste.Seed> mine = Taste.topSeeds(8);
+        ListenBrainz.Account account = ListenBrainz.account();
+        final String user = account != null ? account.user : null;
+        if (mine.isEmpty() && user == null) return;
+        // Wait for the artists like your favorites first.
+        if (!mine.isEmpty() && sims.isEmpty()) return;
+        final List<Model.Artist> like = Taste.mergeSimilar(Taste.topSeeds(5), sims);
+        final List<Model.Track> liked = new ArrayList<Model.Track>(Taste.likedTracks());
+        StringBuilder k = new StringBuilder(DailyMix.today());
+        for (Taste.Seed s : mine) k.append(',').append(s.id);
+        for (Model.Artist x : like) k.append(',').append(x.id);
+        k.append('|').append(user).append('|').append(account != null ? account.lastSync / (3 * 3600 * 1000L) : 0).append('|').append(liked.size());
+        if (k.toString().equals(mixKey)) return;
         mixKey = k.toString();
+        final DailyMix.Hidden hidden = DailyMix.Hidden.now();
         ask(new MusicNet.Job<List<Model.Track>>() {
             @Override
             public List<Model.Track> run() {
-                List<List<Model.Track>> lists = new ArrayList<List<Model.Track>>();
-                for (String[] s : sources) {
-                    try {
-                        lists.add(Model.list(MusicBrainz.getTopTracks(s[0], s[1])));
-                    } catch (Exception e) {
-                        lists.add(new ArrayList<Model.Track>());
-                    }
-                }
-                List<Model.Track> out = new ArrayList<Model.Track>();
-                for (int r = 0; r < 5; r++) for (List<Model.Track> l : lists) if (r < l.size()) out.add(l.get(r));
-                return out;
+                return DailyMix.build(mine, like, liked, user, hidden);
             }
         }, new Got<List<Model.Track>>() {
             @Override
             public void got(List<Model.Track> v) {
-                mixRaw = v;
+                if (v != null && !v.isEmpty()) mixRaw = v;
             }
         });
     }
@@ -253,6 +254,8 @@ final class MusicScreen extends MusicPage {
     void rebuild() {
         loadCatalogs();
         loadForYou();
+        loadMix();
+        if (mixRaw == null) mixRaw = DailyMix.saved();
         seeds = Taste.topSeeds(5);
         merged = Taste.mergeSimilar(seeds, sims);
         // Artists you like and ones like them: popular and new rows lead with their music.
@@ -262,7 +265,7 @@ final class MusicScreen extends MusicPage {
         for (Model.Artist a : merged) liked.add(a.id);
 
         List<MusicStrip> out = new ArrayList<MusicStrip>();
-        if (mixRaw != null) row(out, "Daily mix", first(Taste.dayShuffle(Taste.visibleTracks(mixRaw), "mix"), 30));
+        if (mixRaw != null) row(out, "Daily mix", Taste.visibleTracks(mixRaw));
         row(out, "Recently played", Taste.visibleTracks(MusicPlayer.recent()));
         if (seeds.size() > 0 && sims.size() > 0) row(out, "Because you played " + seeds.get(0).name, Taste.visibleArtists(sims.get(0)));
         if (seeds.size() > 0 && more != null) row(out, "More from " + seeds.get(0).name, Taste.visibleAlbums(more));

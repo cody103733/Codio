@@ -19,6 +19,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.codio.tv.music.Addons;
+import com.codio.tv.music.DailyMix;
+import com.codio.tv.music.ListenBrainz;
 import com.codio.tv.music.Discovery;
 import com.codio.tv.music.Model.Addon;
 import com.codio.tv.music.Model.Album;
@@ -173,6 +175,7 @@ final class PhoneMusic extends PhoneUi.Page {
     @Override
     void onShow() {
         Taste.listeners.add(tasteChanged);
+        ListenBrainz.listeners.add(accountChanged);
         Addons.listen(addonsChanged);
         MusicPlayer.listen(playerListener);
     }
@@ -180,6 +183,7 @@ final class PhoneMusic extends PhoneUi.Page {
     @Override
     void onHide() {
         Taste.listeners.remove(tasteChanged);
+        ListenBrainz.listeners.remove(accountChanged);
         Addons.unlisten(addonsChanged);
         MusicPlayer.unlisten(playerListener);
         keyboard(false);
@@ -278,7 +282,8 @@ final class PhoneMusic extends PhoneUi.Page {
     private void startHome() {
         final int gen = ++homeGen;
         albums = freshAll = more = null;
-        songs = mixRaw = null;
+        songs = null;
+        mixRaw = DailyMix.saved();
         artists = null;
         sims = new ArrayList<>();
         seeds = Taste.topSeeds(5);
@@ -326,7 +331,7 @@ final class PhoneMusic extends PhoneUi.Page {
                 }
             }, 10 + i);
         }
-        if (seeds.isEmpty()) mixRaw = new ArrayList<>();
+        startMix(gen);
         loadCatalogs();
     }
 
@@ -373,7 +378,7 @@ final class PhoneMusic extends PhoneUi.Page {
                         break;
                     default:
                         if (slot - 10 < sims.size()) sims.set(slot - 10, (List<Artist>) (List<?>) list);
-                        if (!sims.contains(null) && mixRaw == null) startMix(gen);
+                        startMix(gen);
                         break;
                 }
                 renderSoon();
@@ -381,42 +386,50 @@ final class PhoneMusic extends PhoneUi.Page {
         });
     }
 
-    /** Daily mix: a few songs each from your favorites and artists like them. */
+    private String mixKey = "";
+
+    /**
+     * Daily mix: 50 to 100 songs from your ListenBrainz Daily Jams, your artists, artists like them and your hearts (see
+     * DailyMix). Built again when the day, your favorites or your ListenBrainz account change; today's order is kept.
+     */
     private void startMix(final int gen) {
+        if (sims.contains(null)) return;
         List<List<Artist>> lists = new ArrayList<>();
         for (List<Artist> l : sims) lists.add(l == null ? new ArrayList<Artist>() : l);
-        final List<Artist> merged = Taste.mergeSimilar(seeds, lists);
-        final List<String[]> from = new ArrayList<>();
-        for (int i = 0; i < Math.min(4, seeds.size()); i++) from.add(new String[] {seeds.get(i).id, seeds.get(i).name});
-        for (int i = 0; i < Math.min(4, merged.size()); i++) from.add(new String[] {merged.get(i).id, merged.get(i).name});
-        if (from.size() < 2) {
-            mixRaw = new ArrayList<>();
-            return;
-        }
-        mixRaw = new ArrayList<>();
-        final List<List<Track>> got = new ArrayList<>();
-        final int[] left = {from.size()};
-        for (final String[] x : from) {
-            got.add(null);
-            final int at = got.size() - 1;
-            MusicNet.async(new MusicNet.Job<List<Track>>() {
-                @Override
-                public List<Track> run() {
-                    return MusicBrainz.getTopTracks(x[0], x[1]);
-                }
-            }, new MusicNet.Done<List<Track>>() {
-                @Override
-                public void done(List<Track> v, Exception e) {
-                    got.set(at, v == null ? new ArrayList<Track>() : v);
-                    if (--left[0] > 0 || gen != homeGen) return;
-                    List<Track> out = new ArrayList<>();
-                    for (int r = 0; r < 5; r++) for (List<Track> l : got) if (r < l.size()) out.add(l.get(r));
-                    mixRaw = out;
-                    renderSoon();
-                }
-            });
-        }
+        final List<Artist> like = Taste.mergeSimilar(seeds, lists);
+        final List<Taste.Seed> mine = Taste.topSeeds(8);
+        ListenBrainz.Account account = ListenBrainz.account();
+        final String user = account != null ? account.user : null;
+        if (mine.isEmpty() && user == null) return;
+        final List<Track> liked = new ArrayList<>(Taste.likedTracks());
+        StringBuilder k = new StringBuilder(DailyMix.today());
+        for (Taste.Seed s : mine) k.append(',').append(s.id);
+        for (Artist x : like) k.append(',').append(x.id);
+        k.append('|').append(user).append('|').append(account != null ? account.lastSync / (3 * 3600 * 1000L) : 0).append('|').append(liked.size());
+        if (k.toString().equals(mixKey)) return;
+        mixKey = k.toString();
+        final DailyMix.Hidden hidden = DailyMix.Hidden.now();
+        MusicNet.async(new MusicNet.Job<List<Track>>() {
+            @Override
+            public List<Track> run() {
+                return DailyMix.build(mine, like, liked, user, hidden);
+            }
+        }, new MusicNet.Done<List<Track>>() {
+            @Override
+            public void done(List<Track> v, Exception e) {
+                if (v == null || v.isEmpty() || gen != homeGen) return;
+                mixRaw = v;
+                renderSoon();
+            }
+        });
     }
+
+    private final Runnable accountChanged = new Runnable() {
+        @Override
+        public void run() {
+            if (results == null) startMix(homeGen);
+        }
+    };
 
     // ------------------------------------------------------------------ drawing
 
@@ -465,8 +478,7 @@ final class PhoneMusic extends PhoneUi.Page {
 
         List<Track> mix = new ArrayList<>();
         if (mixRaw != null) {
-            mix = Taste.dayShuffle(Taste.visibleTracks(mixRaw), "mix");
-            if (mix.size() > 30) mix = new ArrayList<>(mix.subList(0, 30));
+            mix = Taste.visibleTracks(mixRaw);
         }
         addTracks(c, "Daily mix", mix);
         addTracks(c, "Recently played", Taste.visibleTracks(MusicPlayer.recent()));
