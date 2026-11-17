@@ -14,6 +14,8 @@ import com.codio.tv.music.Model.Addon;
 import com.codio.tv.music.Model.Track;
 
 import org.json.JSONArray;
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,6 +51,11 @@ public final class MusicPlayer {
     private static double position, duration;
     private static float volume = 1f;
     private static MediaPlayer mp;
+    /** The second engine: libVLC plays what Android's player can't (FLAC variants, Opus, WebM, Ogg, odd links). */
+    private static org.videolan.libvlc.MediaPlayer vp;
+    private static LibVLC vlc;
+    private static boolean vlcMode;
+    private static Runnable stall;
     private static int token = 0;
     private static boolean inited, wantPlay, focusLost;
     private static AudioFocusRequest focusRequest;
@@ -195,7 +202,13 @@ public final class MusicPlayer {
     private static final Runnable TICKER = new Runnable() {
         @Override
         public void run() {
-            if (mp != null && prepared) {
+            if (vlcMode && vp != null) {
+                long t = vp.getTime(), l = vp.getLength();
+                if (t >= 0) position = t / 1000.0;
+                if (l > 0) duration = l / 1000.0;
+                countListening(position);
+                tick();
+            } else if (mp != null && prepared) {
                 try {
                     position = mp.getCurrentPosition() / 1000.0;
                     int d = mp.getDuration();
@@ -251,9 +264,9 @@ public final class MusicPlayer {
                     pause();
                 }
             } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                if (mp != null) mp.setVolume(volume * 0.3f, volume * 0.3f);
+                engineVolume(volume * 0.3f);
             } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
-                if (mp != null) mp.setVolume(volume, volume);
+                engineVolume(volume);
                 if (focusLost) {
                     focusLost = false;
                     resume();
@@ -290,6 +303,28 @@ public final class MusicPlayer {
         prepared = false;
         playing = false;
         H.removeCallbacks(TICKER);
+        if (stall != null) H.removeCallbacks(stall);
+        stall = null;
+        vlcMode = false;
+        if (vp != null) {
+            final org.videolan.libvlc.MediaPlayer old = vp;
+            vp = null;
+            try {
+                old.setEventListener(null);
+                // libVLC stops and frees on a worker thread so the screen never waits for it
+                MusicNet.POOL.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            old.stop();
+                            old.release();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                });
+            } catch (Throwable ignored) {
+            }
+        }
         if (mp != null) {
             try {
                 mp.setOnCompletionListener(null);
@@ -338,7 +373,7 @@ public final class MusicPlayer {
                 if (mine != token) return;
                 if (found == null) {
                     loading = false;
-                    say("No source available for “" + t.title + "”");
+                    say("No source available for \u201c" + t.title + "\u201d");
                     // Move on so a queue doesn't stall on one missing song.
                     if (index < queue.size() - 1) {
                         H.postDelayed(new Runnable() {
@@ -364,11 +399,12 @@ public final class MusicPlayer {
             p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setWakeMode(MusicNet.context(), PowerManager.PARTIAL_WAKE_LOCK);
             p.setVolume(volume, volume);
-            p.setDataSource(found.url);
+            p.setDataSource(fixed(found.url));
             p.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(MediaPlayer m) {
                     if (mine != token || m != mp) return;
+                    if (stall != null) H.removeCallbacks(stall);
                     prepared = true;
                     loading = false;
                     int d = m.getDuration();
@@ -395,27 +431,133 @@ public final class MusicPlayer {
                 @Override
                 public boolean onError(MediaPlayer m, int what, int extra) {
                     if (mine != token || m != mp) return true;
-                    loading = false;
-                    playing = false;
-                    say("Couldn't play “" + t.title + "”");
-                    advance(true);
+                    // Android's player can't take this one: libVLC tries before giving up.
+                    useVlc(t, found, mine);
                     return true;
                 }
             });
             changed();
             p.prepareAsync();
+            // Some links just hang in Android's player: after 10 seconds, libVLC gets the song.
+            final Playable f = found;
+            stall = new Runnable() {
+                @Override
+                public void run() {
+                    if (mine == token && !prepared && !vlcMode) useVlc(t, f, mine);
+                }
+            };
+            H.postDelayed(stall, 10000);
         } catch (Exception e) {
-            loading = false;
-            say("Couldn't play “" + t.title + "”");
-            advance(true);
+            useVlc(t, found, mine);
+        }
+    }
+
+    /** Links with spaces (some addons send them) are escaped. */
+    private static String fixed(String url) {
+        return url.trim().replace(" ", "%20");
+    }
+
+    private static void engineVolume(float v) {
+        if (vlcMode && vp != null) vp.setVolume(Math.round(v * 100));
+        else if (mp != null) mp.setVolume(v, v);
+    }
+
+    private static void giveUp(Track t) {
+        loading = false;
+        playing = false;
+        say("Couldn't play \u201c" + t.title + "\u201d");
+        advance(true);
+    }
+
+    /** Plays the song with libVLC (audio only), which handles FLAC, Opus, WebM, Ogg and more. */
+    private static void useVlc(final Track t, Playable found, final int mine) {
+        if (vlcMode) return;
+        if (stall != null) H.removeCallbacks(stall);
+        if (mp != null) {
+            try {
+                mp.setOnCompletionListener(null);
+                mp.setOnErrorListener(null);
+                mp.setOnPreparedListener(null);
+                mp.release();
+            } catch (Exception ignored) {
+            }
+            mp = null;
+        }
+        prepared = false;
+        try {
+            if (vlc == null) {
+                ArrayList<String> o = new ArrayList<>();
+                o.add("--no-video");
+                o.add("--network-caching=3000");
+                vlc = new LibVLC(MusicNet.context(), o);
+            }
+            vlcMode = true;
+            final org.videolan.libvlc.MediaPlayer p = new org.videolan.libvlc.MediaPlayer(vlc);
+            vp = p;
+            Media m = new Media(vlc, android.net.Uri.parse(fixed(found.url)));
+            m.addOption(":no-video");
+            p.setMedia(m);
+            m.release();
+            p.setVolume(Math.round(volume * 100));
+            p.setEventListener(new org.videolan.libvlc.MediaPlayer.EventListener() {
+                @Override
+                public void onEvent(org.videolan.libvlc.MediaPlayer.Event e) {
+                    if (mine != token || p != vp) return;
+                    switch (e.type) {
+                        case org.videolan.libvlc.MediaPlayer.Event.Playing:
+                            if (!prepared) {
+                                prepared = true;
+                                loading = false;
+                                remember(t);
+                                Taste.recordPlay(t);
+                                startListening(t);
+                            }
+                            if (!wantPlay) {
+                                p.pause();
+                                break;
+                            }
+                            playing = true;
+                            H.removeCallbacks(TICKER);
+                            H.post(TICKER);
+                            changed();
+                            break;
+                        case org.videolan.libvlc.MediaPlayer.Event.Paused:
+                            playing = false;
+                            H.removeCallbacks(TICKER);
+                            changed();
+                            break;
+                        case org.videolan.libvlc.MediaPlayer.Event.LengthChanged:
+                            if (e.getLengthChanged() > 0) duration = e.getLengthChanged() / 1000.0;
+                            break;
+                        case org.videolan.libvlc.MediaPlayer.Event.EndReached:
+                            advance(true);
+                            break;
+                        case org.videolan.libvlc.MediaPlayer.Event.EncounteredError:
+                            giveUp(t);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            });
+            if (takeFocus()) p.play();
+            else giveUp(t);
+        } catch (Throwable e) {
+            vlcMode = false;
+            giveUp(t);
         }
     }
 
     private static void advance(boolean auto) {
         if (queue.isEmpty()) return;
-        if (auto && repeat == REPEAT_ONE && mp != null && prepared) {
-            mp.seekTo(0);
-            mp.start();
+        if (auto && repeat == REPEAT_ONE && prepared && (mp != null || (vlcMode && vp != null))) {
+            if (vlcMode) {
+                vp.setTime(0);
+                vp.play();
+            } else {
+                mp.seekTo(0);
+                mp.start();
+            }
             Track t = current();
             if (t != null) startListening(t);
             return;
@@ -428,7 +570,10 @@ public final class MusicPlayer {
                 position = 0;
                 wantPlay = false;
                 H.removeCallbacks(TICKER);
-                if (mp != null && prepared) {
+                if (vlcMode && vp != null) {
+                    vp.pause();
+                    vp.setTime(0);
+                } else if (mp != null && prepared) {
                     try {
                         mp.pause();
                         mp.seekTo(0);
@@ -499,7 +644,7 @@ public final class MusicPlayer {
     }
 
     public static void previous() {
-        if (mp != null && prepared && (position > 4 || index <= 0)) {
+        if (prepared && (mp != null || vp != null) && (position > 4 || index <= 0)) {
             seek(0);
             return;
         }
@@ -508,7 +653,9 @@ public final class MusicPlayer {
 
     public static void pause() {
         wantPlay = false;
-        if (mp != null && prepared && playing) {
+        if (vlcMode && vp != null) {
+            if (playing) vp.pause();
+        } else if (mp != null && prepared && playing) {
             try {
                 mp.pause();
             } catch (Exception ignored) {
@@ -521,6 +668,10 @@ public final class MusicPlayer {
 
     public static void resume() {
         wantPlay = true;
+        if (vlcMode && vp != null && prepared && !playing && takeFocus()) {
+            vp.play();
+            return;
+        }
         if (mp != null && prepared && !playing && takeFocus()) {
             try {
                 mp.start();
@@ -539,6 +690,13 @@ public final class MusicPlayer {
     }
 
     public static void seek(double seconds) {
+        if (vlcMode && vp != null && prepared) {
+            vp.setTime((long) (Math.max(0, seconds) * 1000));
+            position = Math.max(0, seconds);
+            lastPosition = position;
+            tick();
+            return;
+        }
         if (mp == null || !prepared) return;
         try {
             mp.seekTo((int) (Math.max(0, seconds) * 1000));
@@ -591,7 +749,7 @@ public final class MusicPlayer {
     /** Volume 0 to 1, kept for next time. This is the music's own volume, on top of the phone's. */
     public static void setVolume(float v) {
         volume = Math.max(0f, Math.min(1f, v));
-        if (mp != null) mp.setVolume(volume, volume);
+        engineVolume(volume);
         MusicNet.prefs().edit().putFloat(VOLUME_KEY, volume).apply();
         changed();
     }

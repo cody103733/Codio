@@ -6,10 +6,10 @@
     "notes": "New Music tab: search artists, albums and songs, rows made from what you play and heart, a Now playing screen with queue, shuffle and repeat, and ListenBrainz sign-in. Hold OK on a song for more options. Add a music addon in Music > Addons to play songs."
   },
   "phone": {
-    "version": "1.1.0",
-    "versionCode": 21,
+    "version": "1.1.1",
+    "versionCode": 22,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "New Music tab: search and browse artists, albums and songs, rows made from what you play and heart, a mini player with queue, shuffle and volume that keeps playing with the screen off, and ListenBrainz sign-in. Add a music addon in Music > Addons to play songs."
+    "notes": "Music now plays more kinds of files, FLAC, Opus, WebM and Ogg included, and links with spaces. If the phone's own player can't play a song, Codio switches to VLC."
   },
   "windows": {
     "version": "1.9.0",
