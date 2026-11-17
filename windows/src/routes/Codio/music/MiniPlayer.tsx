@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router';
 import styles from './Music.less';
 import { Cover, HeartButton } from './parts';
 import { isLikedTrack, toggleLikeTrack, useTaste } from './taste';
-import { cycleRepeat, next, pause, playIndex, previous, removeFromQueue, seek, stop, toggle, toggleShuffle, usePlayer } from './player';
+import { cycleRepeat, next, pause, playIndex, previous, removeFromQueue, seek, setVolume, stop, toggle, toggleMute, toggleShuffle, usePlayer } from './player';
 import { formatTime } from './types';
 
 const MiniPlayer = () => {
@@ -84,6 +84,13 @@ const MiniPlayer = () => {
                     <button className={classnames(styles['round'], { [styles['active']]: player.repeat !== 'off' })} onClick={cycleRepeat} title={`Repeat: ${player.repeat}`}>{player.repeat === 'one' ? '↻1' : '↻'}</button>
                 </div>
                 <div className={styles['mini-time']}>{`${formatTime(player.position)} / ${formatTime(player.duration)}`}</div>
+                <div className={styles['volume']}>
+                    <button className={styles['round']} onClick={toggleMute} title={player.volume > 0 ? 'Mute' : 'Unmute'}>{player.volume === 0 ? '🔇' : player.volume < 0.5 ? '🔉' : '🔊'}</button>
+                    <input
+                        type={'range'} min={0} max={100} value={Math.round(player.volume * 100)} title={'Volume'}
+                        onChange={(e) => setVolume(Number(e.target.value) / 100)}
+                    />
+                </div>
                 <button className={classnames(styles['round'], { [styles['active']]: queueOpen })} onClick={() => setQueueOpen(!queueOpen)} title={'Queue'}>☰</button>
                 <button className={styles['round']} onClick={stop} title={'Close'}>✕</button>
             </div>

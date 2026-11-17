@@ -40,10 +40,30 @@ const AlbumTile = ({ album, addons, taste }: { album: MusicAlbum, addons: MusicA
     />;
 };
 
+// MusicBrainz has no artist photos, so an artist is shown by the cover of their most played album, looked up when the tile
+// comes into view (Codio's server keeps the answers).
+const artistArtCache = new Map<string, Promise<string | null>>();
+const artistArt = (id: string) => {
+    if (!artistArtCache.has(id)) artistArtCache.set(id, moreFrom(id).then((albums) => albums.find((a) => a.artworkURL)?.artworkURL ?? null, () => null));
+    return artistArtCache.get(id)!;
+};
+
 const ArtistTile = ({ artist, addons, taste }: { artist: MusicArtist, addons: MusicAddon[], taste: ReturnType<typeof useTaste> }) => {
     const navigate = useNavigate();
+    const box = useRef<HTMLDivElement>(null);
+    const [art, setArt] = useState<string | null>(artist.artworkURL ?? null);
+    useEffect(() => {
+        setArt(artist.artworkURL ?? null);
+        if (artist.artworkURL || artist.addon || !box.current) return undefined;
+        let cancelled = false;
+        const load = () => { artistArt(artist.id).then((url) => { if (!cancelled && url) setArt(url); }); };
+        if (typeof IntersectionObserver === 'undefined') { load(); return undefined; }
+        const watcher = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { watcher.disconnect(); load(); } }, { rootMargin: '300px' });
+        watcher.observe(box.current);
+        return () => { cancelled = true; watcher.disconnect(); };
+    }, [artist.id, artist.artworkURL, artist.addon]);
     return <Tile
-        round title={artist.name} sub={artist.detail} art={artist.artworkURL}
+        boxRef={box} round title={artist.name} sub={artist.detail} art={art}
         onClick={() => openArtist(navigate, artist, addons)}
         liked={isLikedArtist(taste, artist)} onLike={() => toggleLikeArtist(artist)} onHide={() => hideArtist(artist)}
     />;

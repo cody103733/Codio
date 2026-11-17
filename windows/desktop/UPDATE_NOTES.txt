@@ -1,1 +1,1 @@
-Music is now made for you: a daily mix, rows because of what you play, and artists like your favorites. Heart songs, albums and artists, or say not interested to drop them.
+Music has a volume slider and a Back button, and artists show a picture from their top album.

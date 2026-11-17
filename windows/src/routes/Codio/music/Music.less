@@ -640,3 +640,33 @@
         text-overflow: ellipsis;
     }
 }
+
+.volume {
+    display: flex;
+    align-items: center;
+    gap: calc(@u * 8);
+
+    input[type=range] {
+        width: calc(@u * 160);
+        accent-color: @red;
+        cursor: pointer;
+    }
+}
+
+.back {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(@u * 8);
+    margin-bottom: calc(@u * 20);
+    padding: calc(@u * 8) calc(@u * 22);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 999px;
+    background: transparent;
+    color: #fff;
+    font-size: calc(@u * 24);
+    cursor: pointer;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+}

@@ -49,6 +49,7 @@ const Album = () => {
         <div className={classnames(styles['codio'], styles['flat'])}>
             <div className={styles['page-scroll']}>
                 <div className={m['music']}>
+                    <button className={m['back']} onClick={() => navigate(-1)}>‹ Back</button>
                     {error ? <div className={m['error']}>{error}</div> : null}
                     {!page && !error && preview?.title ? (
                         <div className={m['hero']}>

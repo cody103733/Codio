@@ -54,11 +54,12 @@ export const TrackRow = ({ track, number, current, onPlay, canHide = false }: { 
 };
 
 // A tile in a row. Hover it for a heart and "not interested".
-export const Tile = ({ title, sub, art, round, onClick, liked, onLike, onHide }: {
+export const Tile = ({ title, sub, art, round, onClick, liked, onLike, onHide, boxRef }: {
+    boxRef?: React.Ref<HTMLDivElement>,
     title: string, sub?: string | null, art?: string | null, round?: boolean, onClick: () => void,
     liked?: boolean, onLike?: () => void, onHide?: () => void,
 }) => (
-    <div className={styles['tile-wrap']}>
+    <div className={styles['tile-wrap']} ref={boxRef}>
         <button className={classnames(styles['tile'], { [styles['round']]: round })} onClick={onClick} title={title}>
             <Cover src={art} label={title} />
             <div className={styles['tile-title']}>{title}</div>

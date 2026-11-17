@@ -22,13 +22,23 @@ export type PlayerState = {
     message: string | null,
     quality: string | null,
     source: string | null,
+    volume: number,
 };
 
 const RECENT_KEY = 'codioMusicRecent';
+const VOLUME_KEY = 'codioMusicVolume';
+const savedVolume = (): number => {
+    try {
+        const v = parseFloat(window.localStorage.getItem(VOLUME_KEY) ?? '');
+        return isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+    } catch (_e) {
+        return 1;
+    }
+};
 
 let state: PlayerState = {
     queue: [], index: -1, playing: false, loading: false, position: 0, duration: 0,
-    shuffle: false, repeat: 'off', message: null, quality: null, source: null,
+    shuffle: false, repeat: 'off', message: null, quality: null, source: null, volume: savedVolume(),
 };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<PlayerState>) => {
@@ -52,6 +62,7 @@ const ensureAudio = () => {
     if (audio) return audio;
     audio = new Audio();
     audio.preload = 'auto';
+    audio.volume = state.volume;
     audio.addEventListener('timeupdate', () => set({ position: audio!.currentTime, duration: isFinite(audio!.duration) ? audio!.duration : state.duration }));
     audio.addEventListener('durationchange', () => set({ duration: isFinite(audio!.duration) ? audio!.duration : 0 }));
     audio.addEventListener('play', () => set({ playing: true }));
@@ -222,3 +233,15 @@ const subscribe = (l: () => void) => {
 };
 
 export const usePlayer = (): PlayerState => useSyncExternalStore(subscribe, () => state);
+
+// Volume 0 to 1, kept for next time. This is the music's own volume, on top of the computer's.
+export const setVolume = (value: number) => {
+    const volume = Math.min(1, Math.max(0, value));
+    if (audio) audio.volume = volume;
+    try { window.localStorage.setItem(VOLUME_KEY, String(volume)); } catch (_e) { /* ignore */ }
+    set({ volume });
+};
+let volumeBeforeMute = 1;
+export const toggleMute = () => {
+    if (state.volume > 0) { volumeBeforeMute = state.volume; setVolume(0); } else setVolume(volumeBeforeMute || 1);
+};
