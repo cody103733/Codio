@@ -1,5 +1,5 @@
 // Checks the iPhone's sync crypto against sync/vector.json (run in CI on macOS):
-//   swiftc ios/Codio/Store/VaultCrypto.swift sync/check.swift -o /tmp/vault-check && /tmp/vault-check sync/vector.json
+//   swiftc ios/Codio/Store/VaultCrypto.swift sync/main.swift -o /tmp/vault-check && /tmp/vault-check sync/vector.json
 import Foundation
 
 let path = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "sync/vector.json"

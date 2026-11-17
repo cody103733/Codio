@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check the sync passcode crypto (sync/vector.json)
-        run: swiftc ios/Codio/Store/VaultCrypto.swift sync/check.swift -o "$RUNNER_TEMP/vault-check" && "$RUNNER_TEMP/vault-check" sync/vector.json
+        run: swiftc ios/Codio/Store/VaultCrypto.swift sync/main.swift -o "$RUNNER_TEMP/vault-check" && "$RUNNER_TEMP/vault-check" sync/vector.json
 
       - name: Tools
         run: brew install xcodegen

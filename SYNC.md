@@ -32,7 +32,7 @@ apps never show it). Its `name` is this JSON:
   rounds, 32 bytes. At least 6 characters.
 - `data`: AES-256-GCM of the UTF-8 JSON `{"v":1,"items":{"<item>":{"value":...,"at":<ms>}}}`, the 16-byte tag
   appended (as WebCrypto and Java give it). No associated data. A new random `iv` on every write.
-- `sync/vector.json` is a box every app must open (`node sync/make-vector.js` makes it; iOS CI runs `sync/check.swift`).
+- `sync/vector.json` is a box every app must open (`node sync/make-vector.js` makes it; iOS CI runs `sync/main.swift`).
 - Each write also empties the old unlocked TMDB entry, `codio:tmdb`. Apps no longer write that entry; they still read it
   when they have no key and the passcode is off.
 
