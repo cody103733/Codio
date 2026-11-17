@@ -3,7 +3,7 @@ name: Build Codio for iPhone
 on:
   push:
     branches: [main]
-    paths: ['ios/**', 'web/**', 'android/assets/codio-android.js', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'web/**', 'sync/**', 'android/assets/codio-android.js', '.github/workflows/ios.yml']
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the sync passcode crypto (sync/vector.json)
+        run: swiftc ios/Codio/Store/VaultCrypto.swift sync/check.swift -o "$RUNNER_TEMP/vault-check" && "$RUNNER_TEMP/vault-check" sync/vector.json
 
       - name: Tools
         run: brew install xcodegen

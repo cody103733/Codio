@@ -51,7 +51,7 @@ struct MusicResults {
 }
 
 /// A music addon: a plain HTTP server that follows Eclipse Music's addon protocol (https://eclipsemusic.app/docs).
-/// The list lives on this phone only.
+/// The list lives on this phone, and goes locked to your other devices with the sync passcode (Store/Vault.swift).
 struct MusicAddon: Codable, Hashable {
     /// The addon's base link, without manifest.json. A personal token in the link is part of it.
     var url: String

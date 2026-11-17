@@ -123,6 +123,17 @@ final class MusicAccount: ObservableObject {
         await syncNow()
     }
 
+    /// The user token, from the keychain (nil when signed out).
+    var token: String? { account == nil ? nil : Keychain.get(tokenAccount) }
+
+    /// Signs in with a token another of your devices already checked (it came through the sync passcode).
+    func adopt(token: String, user: String) {
+        if account != nil, Keychain.get(tokenAccount) == token { return }
+        Keychain.set(token, for: tokenAccount)
+        setAccount(Account(user: user, device: account?.device ?? UUID().uuidString, listensUntil: Int(Date().timeIntervalSince1970) - 30 * 24 * 3600, lastSync: nil, syncError: nil))
+        Task { await syncNow() }
+    }
+
     func signOut() {
         queue = Queue()
         saveQueue()

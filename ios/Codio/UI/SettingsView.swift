@@ -28,6 +28,13 @@ struct SettingsView: View {
     @State private var tmdbKey = UserDefaults.standard.string(forKey: "tmdb_key") ?? ""
     @State private var keyStatus: KeyStatus = .empty
     @State private var keyTask: Task<Void, Never>?
+    @ObservedObject private var vault = Vault.shared
+    @State private var passcodeAsk: PasscodeAsk?
+    @State private var passcode = ""
+    @State private var passcodeWorking = false
+
+    /// Which passcode question is open.
+    enum PasscodeAsk: Identifiable { case turnOn, change, startOver; var id: Int { hashValue } }
 
     private let langCodes = ["eng", "spa", "fre", "ger", "ita", "por", "pob", "nld", "swe", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"]
     private let langNames = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Portuguese (Brazil)", "Dutch", "Swedish", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"]
@@ -109,7 +116,7 @@ struct SettingsView: View {
             } header: {
                 Text("Cast, actors & Top Picks")
             } footer: {
-                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away, and saves it with your Stremio account so your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
+                Text("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away. With a sync passcode (below), your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.")
             }
             Section {
                 Button("Check for updates") {
@@ -134,6 +141,7 @@ struct SettingsView: View {
                     Button("Sign in") { showSignIn = true }
                 }
             }
+            syncSection
             Section {
                 ForEach(Array(store.addonDescriptors.enumerated()), id: \.offset) { _, d in
                     addonRow(d)
@@ -149,7 +157,22 @@ struct SettingsView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Settings")
         .profileToolbar()
-        .onAppear { if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) } }
+        .onAppear {
+            if keyStatus == .empty, !tmdbKey.isEmpty { scheduleKeyCheck(now: true) }
+            vault.maybeSync()
+        }
+        .onReceive(vault.$lastSync) { _ in
+            // A key that came from another device through the sync passcode.
+            let k = UserDefaults.standard.string(forKey: "tmdb_key") ?? ""
+            if !k.isEmpty, k != tmdbKey.trimmingCharacters(in: .whitespacesAndNewlines) { tmdbKey = k }
+        }
+        .alert(passcodeTitle, isPresented: Binding(get: { passcodeAsk != nil }, set: { if !$0 { passcodeAsk = nil } })) {
+            SecureField("At least \(Vault.minPasscode) characters", text: $passcode)
+            Button(passcodeAsk == .change ? "Change" : passcodeAsk == .startOver ? "Start over" : "Unlock") { runPasscode() }
+            Button("Cancel", role: .cancel) { passcode = "" }
+        } message: {
+            Text(passcodeMessage)
+        }
         .alert("Sign in", isPresented: $showSignIn) {
             TextField("Email", text: $email).textInputAutocapitalization(.never).keyboardType(.emailAddress)
             SecureField("Password", text: $password)
@@ -170,6 +193,78 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Paste the addon's link (it ends in manifest.json).")
+        }
+    }
+
+    // MARK: - Sync passcode
+
+    @ViewBuilder private var syncSection: some View {
+        Section {
+            HStack {
+                Text("Sync passcode")
+                Spacer()
+                if vault.busy || passcodeWorking { ProgressView().tint(Theme.red) }
+                Text(vault.label).foregroundColor(Theme.red)
+            }
+            Text(vault.detail).foregroundColor(vault.problem == .locked ? Theme.red : Theme.dim).font(.subheadline)
+            if vault.signedIn {
+                if !vault.on {
+                    Button("Set sync passcode") { passcode = ""; passcodeAsk = .turnOn }
+                } else if vault.problem == .locked {
+                    Button("Enter the new passcode") { passcode = ""; passcodeAsk = .turnOn }
+                    Button("Start over with a new passcode") { passcode = ""; passcodeAsk = .startOver }
+                } else {
+                    Button("Sync now") { vault.maybeSync(force: true) }
+                    Button("Change passcode") { passcode = ""; passcodeAsk = .change }
+                }
+                if vault.on {
+                    Button("Turn off on this iPhone", role: .destructive) { vault.turnOff() }
+                }
+            }
+        } header: {
+            Text("Sync passcode")
+        } footer: {
+            Text(Vault.help)
+        }
+    }
+
+    private var passcodeTitle: String {
+        switch passcodeAsk {
+        case .change: return "New sync passcode"
+        case .startOver: return "Start over"
+        default: return vault.problem == .locked ? "New sync passcode" : "Sync passcode"
+        }
+    }
+
+    private var passcodeMessage: String {
+        switch passcodeAsk {
+        case .change: return "Your other devices will ask for the new one."
+        case .startOver: return "Replaces the synced settings with this iPhone's, locked with the new passcode. Your other devices then ask for it."
+        default: return vault.problem == .locked ? "The passcode was changed on another device." : "Enter the passcode you set on another device, or pick a new one. It can't be recovered, so remember it."
+        }
+    }
+
+    private func runPasscode() {
+        let p = passcode
+        let ask = passcodeAsk
+        passcode = ""
+        guard !p.trimmingCharacters(in: .whitespaces).isEmpty, let ask = ask else { return }
+        passcodeWorking = true
+        engine.show(toast: ask == .change ? "Changing passcode…" : "Unlocking…")
+        Task {
+            do {
+                switch ask {
+                case .turnOn: try await vault.setPasscode(p)
+                case .change: try await vault.changePasscode(p)
+                case .startOver: try await vault.startOver(p)
+                }
+                engine.show(toast: ask == .turnOn ? "Sync is on" : ask == .change ? "Passcode changed" : "Started over with the new passcode")
+            } catch let f as Vault.Failure {
+                engine.show(toast: f.message)
+            } catch {
+                engine.show(toast: "Something went wrong. Try again.")
+            }
+            passcodeWorking = false
         }
     }
 
@@ -213,7 +308,7 @@ struct SettingsView: View {
             keyStatus = result
             if result == .ok {
                 UserDefaults.standard.set(k, forKey: "tmdb_key")
-                if let auth = jstr(store.profile["auth"] as? JSON, "key") { await KeySync.push(k, authKey: auth) }
+                vault.maybeSync()
                 Recommender.shared.invalidate()
                 await Recommender.shared.refresh(store)
             } else if case .bad = result {

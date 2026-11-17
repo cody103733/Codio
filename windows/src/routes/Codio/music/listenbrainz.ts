@@ -117,6 +117,17 @@ export const signIn = async (tokenText: string): Promise<string> => {
     return String(answer.user_name);
 };
 
+// The signed-in account, or null.
+export const getAccount = (): Account | null => account;
+
+// Signs in with a token another of your devices already checked (it came through the sync passcode). No-op when it's this one.
+export const adoptAccount = (token: string, user: string) => {
+    if (account && account.token === token) return;
+    const device = account?.device ?? (window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    setAccount({ token, user, device, listensUntil: Math.floor(Date.now() / 1000) - 30 * 24 * 3600, lastSync: null, syncError: null });
+    void syncNow();
+};
+
 // Songs waiting to be sent.
 export const waitingListens = () => queue.listens.length;
 

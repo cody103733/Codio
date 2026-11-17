@@ -11,6 +11,8 @@ import { NavBar, styles } from './components';
 import SignIn from './SignIn';
 import { useProfiles, profileColor } from './profiles';
 import { useUpdate, updateLabel, updateHelp } from './update';
+import SyncPanel, { SYNC_HELP, syncLabel } from './SyncPanel';
+import { useSyncStatus } from './vault';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -29,8 +31,9 @@ type Account = { kind: 'account', label: string, help: string };
 type Profiles = { kind: 'profiles', label: string, help: string };
 type Heading = { kind: 'heading', label: string };
 type Update = { kind: 'update', label: string, help: string };
+type Sync = { kind: 'sync', label: string, help: string };
 
-type Item = Choice | Link | Account | Profiles | Heading | Update;
+type Item = Choice | Link | Account | Profiles | Heading | Update | Sync;
 
 const BITRATES = [0, 25, 40, 60, 70, 80, 100, 150];
 
@@ -74,6 +77,7 @@ const ITEMS: Item[] = [
     { kind: 'heading', label: 'Account' },
     { kind: 'account', label: 'Account', help: 'Signing in keeps your addons, library and progress in sync between Codio on this PC and on your TV.' },
     { kind: 'profiles', label: 'Who\'s watching', help: 'Profiles you made on the iPhone. Each has its own library, Continue Watching and addons. Pick one on the right to switch, or use Left and Right, then Enter.' },
+    { kind: 'sync', label: 'Sync passcode', help: SYNC_HELP },
 
     { kind: 'heading', label: 'Addons' },
     { kind: 'link', label: 'Addons', help: 'Install or remove addons (catalogs and sources).', route: '/addons' },
@@ -91,6 +95,9 @@ const Settings = () => {
     const navigate = useNavigate();
     const [focus, setFocus] = useState(1);
     const [signingIn, setSigningIn] = useState(false);
+    // The passcode form stays open while the mouse wanders over other rows.
+    const [syncOpen, setSyncOpen] = useState(false);
+    const syncStatus = useSyncStatus();
     const version = useMemo(() => {
         try {
             return process.env.CODIO_VERSION || '';
@@ -124,6 +131,7 @@ const Settings = () => {
     };
 
     const activate = (item: Item) => {
+        if (item.kind !== 'sync') setSyncOpen(false);
         if (item.kind === 'link') navigate(item.route);
         else if (item.kind === 'account') {
             if (email) core.transport.dispatch({ action: 'Ctx', args: { action: 'Logout' } });
@@ -131,6 +139,8 @@ const Settings = () => {
         } else if (item.kind === 'profiles') {
             const p = profiles.list[picked];
             if (p) profiles.switchTo(p);
+        } else if (item.kind === 'sync') {
+            setSyncOpen(true);
         } else if (item.kind === 'update') {
             if (update_.state.phase === 'current') update_.check();
             else update_.install();
@@ -141,6 +151,7 @@ const Settings = () => {
         if (item.kind === 'link') return '›';
         if (item.kind === 'account') return email ? 'Sign out' : 'Sign in';
         if (item.kind === 'update') return updateLabel(update_.state);
+        if (item.kind === 'sync') return syncLabel(syncStatus, !!email);
         if (item.kind === 'profiles') {
             if (profiles.list.length === 0) return email ? 'Make profiles on the iPhone' : 'Sign in first';
             if (profiles.switching) return 'Switching…';
@@ -153,7 +164,8 @@ const Settings = () => {
         return index >= 0 ? item.labels[index] : String(value ?? '');
     };
 
-    const helpItem = ITEMS[focus] ?? ITEMS[1];
+    const syncItem = ITEMS.find((i) => i.kind === 'sync')!;
+    const helpItem = syncOpen ? syncItem : (ITEMS[focus] ?? ITEMS[1]);
 
     return (
         <div className={classnames(styles['codio'], styles['flat'])}>
@@ -169,7 +181,7 @@ const Settings = () => {
                                     tabIndex={0}
                                     className={classnames(styles['setting'], { [styles['link']]: item.kind === 'link' })}
                                     onMouseEnter={() => setFocus(index)}
-                                    onFocus={() => setFocus(index)}
+                                    onFocus={() => { setFocus(index); if (item.kind !== 'sync') setSyncOpen(false); }}
                                     onClick={() => activate(item)}
                                     onKeyDown={(event) => {
                                         if (event.key === 'ArrowLeft' && (item.kind === 'choice' || item.kind === 'profiles')) { event.preventDefault(); event.stopPropagation(); change(item, -1); }
@@ -216,6 +228,7 @@ const Settings = () => {
                                         </div>
                                         : null
                                 }
+                                {helpItem.kind === 'sync' ? <SyncPanel /> : null}
                                 {helpItem.kind === 'profiles' && profiles.error ? <div className={styles['sign-in-error']}>{profiles.error}</div> : null}
                             </>
                     }

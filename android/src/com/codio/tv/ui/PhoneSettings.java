@@ -53,7 +53,7 @@ final class PhoneSettings extends PhoneUi.Page {
     }
 
     private String signature() {
-        return ui.store.profileJson.toString().hashCode() + "|" + ui.store.autoPlay;
+        return ui.store.profileJson.toString().hashCode() + "|" + ui.store.autoPlay + "|" + Vault.signedIn() + Vault.on() + Vault.problem();
     }
 
     @Override
@@ -91,8 +91,8 @@ final class PhoneSettings extends PhoneUi.Page {
         keyStatus = PhoneKit.text(ctx(), "", 17, Theme.TEXT_DIM, PhoneKit.REGULAR);
         keyStatus.setPadding(dp(16), dp(11), dp(16), dp(11));
         add(cast, keyStatus);
-        footer("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away, and saves it with your "
-                + "Stremio account so your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.");
+        footer("Paste the free API Key from themoviedb.org (Settings, API). Codio checks it right away. With a sync "
+                + "passcode (below, under Account), your other devices get it too.\n\nThis product uses the TMDB API but is not endorsed or certified by TMDB.");
         showKeyStatus(keyField.getText().toString().trim().isEmpty() ? KEY_EMPTY : CastInfo.key() != null ? KEY_SAVED : KEY_EMPTY, null);
 
         header("Updates", false);
@@ -137,6 +137,8 @@ final class PhoneSettings extends PhoneUi.Page {
                 }
             }));
         }
+
+        syncSection();
 
         header("Addons", false);
         LinearLayout addons = group();
@@ -383,6 +385,82 @@ final class PhoneSettings extends PhoneUi.Page {
                 }, "codio-tmdb-check").start();
             }
         }, now ? 0 : 600);
+    }
+
+    // ------------------------------------------------------------------ sync passcode (ui/Vault)
+
+    private TextView syncStatus;
+    private final Runnable syncChanged = new Runnable() {
+        @Override
+        public void run() {
+            if (syncStatus != null) syncStatus.setText(Vault.busy() ? "Syncing…" : Vault.detail());
+            refresh();
+        }
+    };
+
+    private void syncSection() {
+        Vault.listeners.add(syncChanged);
+        header("Sync passcode", false);
+        LinearLayout g = group();
+        syncStatus = plain(Vault.busy() ? "Syncing…" : Vault.detail(), Theme.TEXT_DIM);
+        syncStatus.setSingleLine(false);
+        add(g, syncStatus);
+        if (Vault.signedIn()) {
+            if (!Vault.on()) {
+                add(g, button("Set sync passcode", Theme.RED, passcodeClick("Sync passcode", "Enter the passcode you set on another device, or pick a new one. It can't be recovered, so remember it.", 0)));
+            } else if (Vault.problem() == Vault.LOCKED) {
+                add(g, button("Enter the new passcode", Theme.RED, passcodeClick("New sync passcode", "The passcode was changed on another device.", 0)));
+                add(g, button("Start over with a new passcode", Theme.RED, passcodeClick("Start over", "Replaces the synced settings with this phone's, locked with the new passcode. Your other devices then ask for it.", 2)));
+            } else {
+                add(g, button("Sync now", Theme.RED, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Vault.maybeSync(true);
+                    }
+                }));
+                add(g, button("Change passcode", Theme.RED, passcodeClick("New sync passcode", "Your other devices will ask for the new one.", 1)));
+            }
+            if (Vault.on()) {
+                add(g, button("Turn off on this phone", PhoneKit.DESTRUCTIVE, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Vault.turnOff();
+                        fill();
+                    }
+                }));
+            }
+        }
+        footer(Vault.HELP);
+    }
+
+    /** kind 0 = turn on / unlock, 1 = change, 2 = start over. */
+    private View.OnClickListener passcodeClick(final String title, final String message, final int kind) {
+        return new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final EditText pass = field("At least " + Vault.MIN_PASSCODE + " characters", InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                ui.dialog().setTitle(title).setMessage(message).setView(boxed(pass))
+                        .setPositiveButton(kind == 1 ? "Change" : kind == 2 ? "Start over" : "Unlock", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                String p = pass.getText().toString();
+                                if (p.trim().isEmpty()) return;
+                                ui.toast(kind == 1 ? "Changing passcode…" : "Unlocking…");
+                                Vault.Done done = new Vault.Done() {
+                                    @Override
+                                    public void done(String error) {
+                                        if (error != null) ui.toast(error);
+                                        else ui.toast(kind == 0 ? "Sync is on" : kind == 1 ? "Passcode changed" : "Started over with the new passcode");
+                                        fill();
+                                    }
+                                };
+                                if (kind == 0) Vault.setPasscode(p, done);
+                                else if (kind == 1) Vault.changePasscode(p, done);
+                                else Vault.startOver(p, done);
+                            }
+                        }).setNegativeButton("Cancel", null).show();
+            }
+        };
     }
 
     // ------------------------------------------------------------------ dialogs

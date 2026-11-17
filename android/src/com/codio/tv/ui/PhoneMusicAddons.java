@@ -322,7 +322,7 @@ final class PhoneMusicAddons extends PhoneUi.Page {
             accountBox.addView(row);
             return;
         }
-        accountBox.addView(footer("Sign in to keep what you listen to and the songs you heart in step across your devices. ListenBrainz is free and open (from the people behind MusicBrainz). Make an account at listenbrainz.org, copy your user token from its settings page, and paste it here. The token stays on this phone and is only sent to ListenBrainz."));
+        accountBox.addView(footer("Sign in to keep what you listen to and the songs you heart in step across your devices. ListenBrainz is free and open (from the people behind MusicBrainz). Make an account at listenbrainz.org, copy your user token from its settings page, and paste it here. The token is only sent to ListenBrainz, and to your other devices locked with your sync passcode if you set one (Settings)."));
         token = input("Paste your ListenBrainz user token", true);
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, dp(40));
         tl.setMargins(dp(16), dp(4), dp(16), dp(4));

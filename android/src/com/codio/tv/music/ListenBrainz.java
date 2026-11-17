@@ -245,6 +245,24 @@ public final class ListenBrainz {
         });
     }
 
+    /** Signs in with a token another of your devices already checked (it came through the sync passcode). */
+    public static void adopt(String token, String user) {
+        Account before = account();
+        if (before != null && token.equals(before.token)) return;
+        Account a = new Account();
+        a.token = token;
+        a.user = user;
+        a.device = before != null ? before.device : UUID.randomUUID().toString();
+        a.listensUntil = System.currentTimeMillis() / 1000 - 30L * 24 * 3600;
+        setAccount(a);
+        MusicNet.MAIN.post(new Runnable() {
+            @Override
+            public void run() {
+                syncNow();
+            }
+        });
+    }
+
     public static void signOut() {
         synchronized (LOCK) {
             load();

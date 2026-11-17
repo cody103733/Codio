@@ -1,14 +1,13 @@
 import Foundation
 
-/// Keeps the TMDB key with the Stremio account, so every device signed in to it gets the key.
-/// Stremio has no place for app settings, so the key rides in a hidden library entry
-/// ("codio:tmdb", type other, removed + temp), which Stremio apps never show.
+/// Reads the TMDB key older Codio versions kept unlocked with the Stremio account (hidden entry "codio:tmdb",
+/// type other, removed + temp), and shares the profile list. New keys travel locked with the sync passcode (Vault),
+/// which also empties the old entry.
 /// The same entry is read by the Android TV and phone apps (ui/KeySync.java).
 enum KeySync {
     static let itemId = "codio:tmdb"
     private static let api = "https://api.strem.io/api/"
     private static let defaultsKey = "tmdb_key"
-    private static let pushedKey = "tmdb_key_pushed"   // "<auth key>|<tmdb key>" last written
 
     static func isKey(_ k: String) -> Bool { k.count == 32 && k.allSatisfy { $0.isHexDigit } }
 
@@ -27,24 +26,16 @@ enum KeySync {
     private static func syncNow(_ auth: String) {
         let local = UserDefaults.standard.string(forKey: defaultsKey) ?? ""
         Task {
-            if isKey(local) {
-                await push(local, authKey: auth)
-            } else if let k = await pull(authKey: auth) {
+            // The key no longer goes up unlocked: the sync passcode (Vault) carries it. Older copies are still read.
+            let vaultOn = await MainActor.run { Vault.shared.on }
+            if isKey(local) || vaultOn { return }
+            if let k = await pull(authKey: auth) {
                 await MainActor.run {
                     if (UserDefaults.standard.string(forKey: defaultsKey) ?? "").isEmpty {
                         UserDefaults.standard.set(k, forKey: defaultsKey)
                     }
                 }
             }
-        }
-    }
-
-    /// Writes the key (empty = forget it) to the account. Skips a write it already made.
-    static func push(_ key: String, authKey: String) async {
-        let mark = authKey + "|" + key
-        if UserDefaults.standard.string(forKey: pushedKey) == mark { return }
-        if await put(itemId, name: key, authKey: authKey) {
-            UserDefaults.standard.set(mark, forKey: pushedKey)
         }
     }
 

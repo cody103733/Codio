@@ -17,7 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Music addons: plain HTTP servers that follow Eclipse Music's addon protocol (https://eclipsemusic.app/docs), as in
- * windows/src/routes/Codio/music/addons.ts. The list lives on this device only (pref codioMusicAddons). Addon links, which
+ * windows/src/routes/Codio/music/addons.ts. The list lives on this device (pref codioMusicAddons), and goes locked to your other devices with the sync passcode (ui/Vault). Addon links, which
  * can hold a personal token, go to nobody but the addon itself.
  */
 public final class Addons {

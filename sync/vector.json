@@ -1,0 +1,13 @@
+{
+  "passcode": "  Codio sync ✓ 1  ",
+  "keyHex": "372f01c0e0ffa115127a3ded0fcedbf8c16e72d61a790f563c2bc67e756f60e0",
+  "plain": "{\"v\":1,\"items\":{\"tmdbKey\":{\"value\":\"0123456789abcdef0123456789abcdef\",\"at\":1763380000000},\"listenBrainz\":{\"value\":{\"token\":\"tok-123456\",\"user\":\"cody\"},\"at\":1763380000001}}}",
+  "box": {
+    "v": 1,
+    "kdf": "pbkdf2-sha256",
+    "iter": 600000,
+    "salt": "AQIDBAUGBwgJCgsMDQ4PEA==",
+    "iv": "oKGio6Slpqeoqaqr",
+    "data": "X1xG4nx+l/FtQkMg2rAhiA6NSlQbL4kP2qV1asoppqRf6CVRAdgwH3HJSGupQSRbAxRAAltbBvnswqVxAUoa9u1RlbPg6BNWUwooduJOFqc8r/0HcHK7GFmo6pOVs0RawDFM7HnfLjeccOpNBfau/zJQ+388qVOCWYwRAQ8toSBZ6RsUZarljoOsZqBFZcRMRCNQSh+BsL/ENREb68Jh0sd1Pfi5GL/3f2eQlAMRD4euEXHHg9BBwCaeqYg="
+  }
+}

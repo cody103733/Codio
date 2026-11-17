@@ -159,7 +159,7 @@ struct MusicSettingsView: View {
             if account.account != nil {
                 Text("The songs you listen to and the ones you heart go to your ListenBrainz account, and hearts and plays from your other devices come back here.")
             } else {
-                Text("Sign in to keep what you listen to and the songs you heart in step across your devices. ListenBrainz is free and open (from the people behind MusicBrainz). Make an account at listenbrainz.org, copy your user token from its settings page, and paste it here. The token stays on this phone and is only sent to ListenBrainz.")
+                Text("Sign in to keep what you listen to and the songs you heart in step across your devices. ListenBrainz is free and open (from the people behind MusicBrainz). Make an account at listenbrainz.org, copy your user token from its settings page, and paste it here. The token is only sent to ListenBrainz, and to your other devices locked with your sync passcode if you set one (Settings).")
             }
         }
     }

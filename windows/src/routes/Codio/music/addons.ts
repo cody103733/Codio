@@ -1,5 +1,5 @@
 // Music addons: plain HTTP servers that follow Eclipse Music's addon protocol (https://eclipsemusic.app/docs).
-// The list lives on this device only. Addon links (which can hold a personal token) go to nobody but the addon itself.
+// The list lives on this device (locked copies go to your other devices with the sync passcode, vault.ts). Addon links (which can hold a personal token) go to nobody but the addon itself.
 
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
 

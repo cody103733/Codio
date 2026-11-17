@@ -55,6 +55,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         com.codio.tv.ui.CastInfo.init(getSharedPreferences("codio", MODE_PRIVATE));
+        com.codio.tv.ui.Vault.init(this);
         com.codio.tv.ui.NewEpisodes.load(this);
         NewEpisodesJob.schedule(this);
         openFromNotification(getIntent());
@@ -1498,6 +1499,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                                     // TMDB key: shared through the Stremio account (ui/KeySync).
                                     com.codio.tv.ui.KeySync.sync(getSharedPreferences("codio", MODE_PRIVATE),
                                             com.codio.tv.ui.KeySync.authKey(store.profileJson), null);
+                                    // Private settings locked with the sync passcode (ui/Vault).
+                                    com.codio.tv.ui.Vault.account(store.profileJson);
                                     store.ensureDefaults(new Runnable() {
                                         @Override
                                         public void run() {

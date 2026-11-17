@@ -79,7 +79,7 @@ Sections, in order, with the same labels and help text everywhere a setting exis
    Hardware decoding, Surround sound on Windows)
 3. **Downloads** (phones)
 4. **Languages & subtitles**: Audio language, Subtitles, Subtitle size
-5. **Account**: sign in or out, Who's watching, Cast photos (TMDB key)
+5. **Account**: sign in or out, Who's watching, Cast photos (TMDB key), Sync passcode (rules in `SYNC.md`)
 6. **Addons**
 7. **About**: Updates, and the version as "Codio 1.2.3 for Android TV / Android / iPhone / Windows"
 

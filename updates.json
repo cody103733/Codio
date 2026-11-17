@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.5.3",
-    "versionCode": 65,
+    "version": "1.6.0",
+    "versionCode": 66,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music settings now show the last song sent to ListenBrainz, and ListenBrainz's exact reason if it turns listens down. Also new: a bigger Daily mix that changes every day."
+    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave the device."
   },
   "phone": {
-    "version": "1.1.3",
-    "versionCode": 24,
+    "version": "1.2.0",
+    "versionCode": 25,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music settings now show the last song sent to ListenBrainz, and ListenBrainz's exact reason if it turns listens down. Also new: a bigger Daily mix that changes every day."
+    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave the device."
   },
   "windows": {
     "version": "1.9.2",

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router';
 import BrandLogo from 'stremio/components/BrandLogo';
 import type { Meta } from './api';
 import { useProfiles, profileColor } from './profiles';
+import { useVaultSync } from './vault';
 import type { CodioProfile } from './profiles';
 import styles from './Codio.less';
 
@@ -59,6 +60,8 @@ const Avatar = ({ profile, size }: { profile: CodioProfile | null, size: number 
 const ProfileMenu = () => {
     const navigate = useNavigate();
     const profiles = useProfiles();
+    // Private settings follow the sync passcode (vault.ts) while any Codio page is open.
+    useVaultSync();
     const [open, setOpen] = useState(false);
     const box = useRef<HTMLDivElement>(null);
     useEffect(() => {

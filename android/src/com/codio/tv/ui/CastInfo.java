@@ -50,10 +50,11 @@ public final class CastInfo {
 
     static final String BAD_KEY = "That doesn't look like a TMDB API key (32 letters and numbers)";
 
-    /** Saves the key from Settings (empty removes it) on this device and with the account. */
+    /** Saves the key from Settings (empty removes it) on this device; with the sync passcode on, it goes to your other devices too. */
     static void saveKey(android.content.SharedPreferences p, Store store, String k) {
         p.edit().putString("tmdb_key", k).apply();
-        KeySync.push(p, k, KeySync.authKey(store.profileJson));
+        // Other devices get it through the sync passcode (Vault), locked.
+        Vault.maybeSync(false);
     }
 
     private static final String API = "https://api.themoviedb.org/3/";

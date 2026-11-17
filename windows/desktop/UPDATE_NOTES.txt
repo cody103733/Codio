@@ -1,1 +1,1 @@
-Music > Addons > Your account now shows the last song sent to ListenBrainz and, if ListenBrainz turns listens down, its exact reason.
+New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave this PC.

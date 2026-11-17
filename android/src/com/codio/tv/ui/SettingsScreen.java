@@ -24,6 +24,10 @@ final class SettingsScreen extends Screen {
 
         abstract String value();
 
+        String help() {
+            return help;
+        }
+
         /** Left (-1) or Right (1) on a row that cycles through values. */
         void change(int dir) {}
 
@@ -115,6 +119,106 @@ final class SettingsScreen extends Screen {
         }));
     }
 
+    // ------------------------------------------------------------------ sync passcode (ui/Vault)
+
+    private final Runnable syncChanged = new Runnable() {
+        @Override
+        public void run() {
+            tv.kick();
+        }
+    };
+
+    private void addSyncRows() {
+        rows.add(new Item("Sync passcode", Vault.HELP) {
+            @Override
+            String value() {
+                return Vault.label();
+            }
+
+            @Override
+            String help() {
+                return Vault.detail() + "\n\n" + help + (Vault.on() && Vault.problem() != Vault.LOCKED ? "\n\nPress OK to sync now." : "");
+            }
+
+            @Override
+            void ok() {
+                if (!Vault.signedIn()) {
+                    tv.toast("Sign in first");
+                } else if (!Vault.on() || Vault.problem() == Vault.LOCKED) {
+                    askPasscode(Vault.on() ? "New sync passcode" : "Sync passcode", Vault.on() ? "The one set on your other device" : "Same as on your other devices, or a new one", 0);
+                } else {
+                    Vault.maybeSync(true);
+                    tv.toast("Syncing…");
+                }
+            }
+        });
+        rows.add(new Item("Change sync passcode", "Change: locks your synced settings with a new passcode, and your other devices ask for it. Start over: forgot the passcode? Replaces the synced settings with this TV's, under a new passcode. Turn off: this TV stops syncing and keeps what it has. Left and Right pick, OK does it.") {
+            private int action;
+            private long confirmUntil;
+            private final String[] names = {"Change passcode", "Start over", "Turn off on this TV"};
+
+            @Override
+            String value() {
+                if (!Vault.on()) return "Turn sync on first";
+                if (action == 2 && SystemClock.uptimeMillis() < confirmUntil) return "Press OK again to turn off";
+                return names[action];
+            }
+
+            @Override
+            boolean cycles() {
+                return Vault.on();
+            }
+
+            @Override
+            void change(int dir) {
+                action = (action + dir + names.length) % names.length;
+                confirmUntil = 0;
+            }
+
+            @Override
+            void ok() {
+                if (!Vault.on()) {
+                    tv.toast("Set a sync passcode first");
+                    return;
+                }
+                if (action == 0) askPasscode("New sync passcode", "At least " + Vault.MIN_PASSCODE + " characters", 1);
+                else if (action == 1) askPasscode("Start over: new sync passcode", "Replaces the synced settings with this TV's", 2);
+                else {
+                    long now = SystemClock.uptimeMillis();
+                    if (now < confirmUntil) {
+                        confirmUntil = 0;
+                        Vault.turnOff();
+                        tv.toast("Sync is off on this TV");
+                    } else {
+                        confirmUntil = now + 4000;
+                    }
+                }
+            }
+        });
+    }
+
+    /** kind 0 = turn on / unlock, 1 = change, 2 = start over. */
+    private void askPasscode(String title, String hint, final int kind) {
+        tv.push(new TextEntryScreen(tv, title, hint, null, true, new TextEntryScreen.Done() {
+            @Override
+            public void done(String text) {
+                if (text.trim().isEmpty()) return;
+                tv.toast(kind == 1 ? "Changing passcode…" : "Unlocking…");
+                Vault.Done done = new Vault.Done() {
+                    @Override
+                    public void done(String error) {
+                        if (error != null) tv.toast(error);
+                        else tv.toast(kind == 0 ? "Sync is on" : kind == 1 ? "Passcode changed. Your other devices will ask for it." : "Started over with the new passcode");
+                        tv.kick();
+                    }
+                };
+                if (kind == 0) Vault.setPasscode(text, done);
+                else if (kind == 1) Vault.changePasscode(text, done);
+                else Vault.startOver(text, done);
+            }
+        }));
+    }
+
     private final NavBar nav;
     /** Section headings (String) and the items under them. */
     private final List<Object> rows = new ArrayList<>();
@@ -147,7 +251,7 @@ final class SettingsScreen extends Screen {
                 SettingsScreen.this.tv.push(new ProfilesScreen(SettingsScreen.this.tv));
             }
         });
-        rows.add(new Item("Cast photos (TMDB key)", "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). Press OK to type it in. It's saved with your account, so your other devices get it. Without a key, the cast shows names only.") {
+        rows.add(new Item("Cast photos (TMDB key)", "Actors' photos and characters come from TMDB with your own free API key (themoviedb.org, Settings, API). Press OK to type it in. With a sync passcode (below), your other devices get it too. Without a key, the cast shows names only.") {
             @Override
             String value() {
                 return CastInfo.key() != null ? "Key saved" : "Add key";
@@ -170,6 +274,7 @@ final class SettingsScreen extends Screen {
                 }));
             }
         });
+        addSyncRows();
         rows.add(Setting.ABOUT);
         rows.add(new Item("Updates", "Codio checks for a newer version when it starts and offers to install it. Press OK to check now.") {
             @Override
@@ -205,6 +310,12 @@ final class SettingsScreen extends Screen {
     @Override
     void onShow() {
         nav.focus = nav.current;
+        Vault.listeners.add(syncChanged);
+    }
+
+    @Override
+    void onHide() {
+        Vault.listeners.remove(syncChanged);
     }
 
     @Override
@@ -272,7 +383,7 @@ final class SettingsScreen extends Screen {
         if (!navFocused) {
             Item it = focused();
             c.drawText(it.label, hx, LIST_Y + 44, tv.tLabel);
-            tv.drawWrapped(c, it.help, tv.tBody, hx, LIST_Y + 70, TvView.W - hx - TvView.MARGIN, 8);
+            tv.drawWrapped(c, it.help(), tv.tBody, hx, LIST_Y + 70, TvView.W - hx - TvView.MARGIN, 8);
         }
         c.drawText("Codio " + tv.host.version() + " for Android TV", hx, TvView.H - 60, tv.tSmall);
         nav.draw(c, navFocused);

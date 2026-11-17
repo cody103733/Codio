@@ -19,9 +19,9 @@ import java.util.Set;
 import java.util.TimeZone;
 
 /**
- * Keeps the TMDB key with the Stremio account, so every device signed in to it gets the key.
- * Stremio has no place for app settings, so the key rides in a hidden library entry
- * ("codio:tmdb", type other, removed + temp), which Stremio apps never show.
+ * Reads the TMDB key older Codio versions kept unlocked with the Stremio account (hidden entry "codio:tmdb",
+ * type other, removed + temp), and the iPhone's profile list. New keys travel locked with the sync passcode (Vault),
+ * which also empties the old entry.
  * The iPhone app uses the same entry (ios/Codio/Store/KeySync.swift).
  */
 public final class KeySync {
@@ -40,7 +40,7 @@ public final class KeySync {
         return k.isEmpty() ? null : k;
     }
 
-    /** After sign-in (and at every start): this device's key goes up, or with none here the account's key comes down. */
+    /** After sign-in (and at every start): with no key here, a key an older Codio saved unlocked with the account comes down. */
     public static void sync(final SharedPreferences prefs, final String authKey, final Runnable onPulled) {
         if (prefs == null || authKey == null) return;
         final String local = prefs.getString("tmdb_key", "").trim();
@@ -51,10 +51,8 @@ public final class KeySync {
             @Override
             public void run() {
                 pullProfiles(prefs, authKey);
-                if (CastInfo.looksLikeKey(local)) {
-                    pushNow(prefs, local, authKey);
-                    return;
-                }
+                // The key no longer goes up unlocked: the sync passcode (Vault) carries it. Older copies are still read.
+                if (CastInfo.looksLikeKey(local) || Vault.on()) return;
                 String k = pull(authKey);
                 if (k != null && prefs.getString("tmdb_key", "").trim().isEmpty()) {
                     prefs.edit().putString("tmdb_key", k).apply();
@@ -63,45 +61,6 @@ public final class KeySync {
                 }
             }
         });
-    }
-
-    /** Saves the key with the account (in the background). */
-    public static void push(final SharedPreferences prefs, final String key, final String authKey) {
-        if (prefs == null || authKey == null || !CastInfo.looksLikeKey(key)) return;
-        Net.IO.execute(new Runnable() {
-            @Override
-            public void run() {
-                pushNow(prefs, key, authKey);
-            }
-        });
-    }
-
-    private static void pushNow(SharedPreferences prefs, String key, String authKey) {
-        String mark = authKey + "|" + key;
-        if (mark.equals(prefs.getString("tmdb_key_pushed", ""))) return;
-        try {
-            SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-            f.setTimeZone(TimeZone.getTimeZone("UTC"));
-            String now = f.format(new Date());
-            JSONObject state = new JSONObject()
-                    .put("lastWatched", JSONObject.NULL).put("timeWatched", 0).put("timeOffset", 0)
-                    .put("overallTimeWatched", 0).put("timesWatched", 0).put("flaggedWatched", 0)
-                    .put("duration", 0).put("video_id", JSONObject.NULL).put("watched", JSONObject.NULL)
-                    .put("noNotif", true);
-            JSONObject hints = new JSONObject().put("defaultVideoId", JSONObject.NULL)
-                    .put("featuredVideoId", JSONObject.NULL).put("hasScheduledVideos", false);
-            JSONObject item = new JSONObject()
-                    .put("_id", ITEM_ID).put("name", key).put("type", "other")
-                    .put("poster", JSONObject.NULL).put("posterShape", "poster")
-                    .put("removed", true).put("temp", true).put("_ctime", now).put("_mtime", now)
-                    .put("state", state).put("behaviorHints", hints);
-            JSONObject body = new JSONObject().put("authKey", authKey).put("collection", "libraryItem")
-                    .put("changes", new JSONArray().put(item));
-            JSONObject r = call("datastorePut", body);
-            if (r != null && r.has("result")) prefs.edit().putString("tmdb_key_pushed", mark).apply();
-        } catch (Exception e) {
-            Log.w(TAG, "push failed", e);
-        }
     }
 
     /** The key saved with the account, if any. */

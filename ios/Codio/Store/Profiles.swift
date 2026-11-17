@@ -40,7 +40,10 @@ final class Profiles: ObservableObject {
 
     /// Called whenever the engine's profile changes: remembers the signed-in account and its sign-in token.
     func profileChanged() {
-        guard let email = store?.signedInEmail else { return }
+        guard let email = store?.signedInEmail else {
+            Vault.shared.account(authKey: nil, id: nil)
+            return
+        }
         let token = currentToken
         if let i = list.firstIndex(where: { $0.id == email.lowercased() }) {
             if let t = token, list[i].token != t { list[i].token = t; save() }
@@ -50,6 +53,7 @@ final class Profiles: ObservableObject {
         }
         Ratings.shared.load(for: email)
         KeySync.sync(authKey: token)
+        Vault.shared.account(authKey: token, id: email)
         KeySync.pushProfiles(list)
         if !askedAtLaunch {
             askedAtLaunch = true
