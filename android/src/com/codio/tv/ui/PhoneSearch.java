@@ -260,7 +260,7 @@ final class PhoneSearch extends PhoneUi.Page {
     }
 
     /** The grey magnifier at the start of the search field. */
-    private static final class Magnifier extends View {
+    static final class Magnifier extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         Magnifier(Context c) {

@@ -6,10 +6,10 @@
     "notes": "New look, taken from the iPhone app: the system font, the current page in red, outlined chips, and Settings as a grouped list with values in red."
   },
   "phone": {
-    "version": "1.0.19",
-    "versionCode": 20,
+    "version": "1.1.0",
+    "versionCode": 21,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Codio for Android now looks exactly like Codio for iPhone: the featured card with Top 10, a Top 10 row, Search and Library with a segmented filter, Settings as a grouped list, and the iPhone's tab bar."
+    "notes": "New Music tab: search and browse artists, albums and songs, rows made from what you play and heart, a mini player with queue, shuffle and volume that keeps playing with the screen off, and ListenBrainz sign-in. Add a music addon in Music > Addons to play songs."
   },
   "windows": {
     "version": "1.9.0",

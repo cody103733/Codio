@@ -32,7 +32,7 @@ public final class Addons {
     private static final List<Changed> LISTENERS = new CopyOnWriteArrayList<>();
 
     public static void listen(Changed c) {
-        LISTENERS.add(c);
+        if (!LISTENERS.contains(c)) LISTENERS.add(c);
     }
 
     public static void unlisten(Changed c) {

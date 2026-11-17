@@ -115,6 +115,11 @@ public final class MusicService extends Service {
         else if (A_STOP.equals(a)) MusicPlayer.stop();
         if (MusicPlayer.hasQueue()) refresh();
         else {
+            // started with startForegroundService, so it must call startForeground before it stops again
+            try {
+                startForeground(ID, new Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_notify).setContentTitle("Music").build());
+            } catch (Exception ignored) {
+            }
             stopSelf();
         }
         return START_NOT_STICKY;

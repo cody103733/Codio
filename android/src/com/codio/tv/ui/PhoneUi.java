@@ -18,6 +18,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.util.Log;
 
+import com.codio.tv.music.ListenBrainz;
+import com.codio.tv.music.MusicPlayer;
+import com.codio.tv.music.Taste;
+
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -27,7 +31,7 @@ import java.util.ArrayList;
  * in landscape), on the same engine as the TV app (Store, the hidden web page for sources and playback, VLC).
  */
 public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloads.Listener, Profiles.Ui {
-    static final int TAB_HOME = 0, TAB_SEARCH = 1, TAB_LIBRARY = 2, TAB_SETTINGS = 3;
+    static final int TAB_HOME = 0, TAB_SEARCH = 1, TAB_MUSIC = 2, TAB_LIBRARY = 3, TAB_SETTINGS = 4;
 
     /** The activity: keeps Android's mini player (picture-in-picture) settings up to date. */
     public interface MiniPlayerHost {
@@ -80,7 +84,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     private final FrameLayout content;
     private final LinearLayout tabs;
     private final ArrayList<Page> stack = new ArrayList<>();
-    private final TabButton[] tabButtons = new TabButton[4];
+    private final TabButton[] tabButtons = new TabButton[5];
+    private final MiniBar mini;
     private PhoneLoading loading;
     private PhonePlayer player;
     final PlayerState playerState = new PlayerState();
@@ -95,16 +100,21 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         PhoneKit.init(act);
         setBackgroundColor(Theme.BLACK);
         downloads = new PhoneDownloads(act, store, host, this);
+        MusicPlayer.init(act);
+        Taste.load();
+        ListenBrainz.start();
 
         LinearLayout col = new LinearLayout(act);
         col.setOrientation(LinearLayout.VERTICAL);
         content = new FrameLayout(act);
         col.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        mini = new MiniBar(this);
+        col.addView(mini, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         tabs = new LinearLayout(act);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabs.setBackgroundColor(Color.BLACK);
-        String[] labels = {"Home", "Search", "Library", "Settings"};
-        for (int i = 0; i < 4; i++) {
+        String[] labels = {"Home", "Search", "Music", "Library", "Settings"};
+        for (int i = 0; i < 5; i++) {
             final int t = i;
             TabButton b = new TabButton(act, i, labels[i]);
             b.setOnClickListener(new OnClickListener() {
@@ -182,6 +192,9 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             case TAB_SEARCH:
                 p = new PhoneSearch(this);
                 break;
+            case TAB_MUSIC:
+                p = new PhoneMusic(this);
+                break;
             case TAB_LIBRARY:
                 p = new PhoneLibrary(this);
                 break;
@@ -196,10 +209,16 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         setRoot(p);
     }
 
+    /** Opens the full music player (from the mini player). */
+    void openNowPlaying() {
+        if (!(top() instanceof PhoneNowPlaying)) push(new PhoneNowPlaying(this));
+    }
+
     private void updateTabs() {
         Page t = top();
         int sel = t != null ? t.tab : 0;
         for (int i = 0; i < tabButtons.length; i++) tabButtons[i].setSelected(i == sel);
+        mini.refresh();
     }
 
     /** No movie page or source list open: the hidden web page can stop loading sources. */
@@ -346,6 +365,8 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
     @Override
     public void showPlayer(Store.Meta m, String videoId) {
+        // A video starts: the music pauses by itself.
+        MusicPlayer.pause();
         hideLoading();
         if (player != null) {
             player.setVideo(m, videoId);
@@ -614,9 +635,11 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         private final Paint t = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
         private final RectF r = new RectF();
+        private final MusicIcons notes;
 
         TabButton(Context c, int icon, String label) {
             super(c);
+            notes = new MusicIcons(c, MusicIcons.NOTE, 0);
             this.icon = icon;
             this.label = label;
             t.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 10, c.getResources().getDisplayMetrics()));
@@ -668,6 +691,12 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
                     c.drawCircle(cx - s * 0.18f, cy - s * 0.18f, s * 0.66f, p);
                     p.setStrokeWidth(2.8f * d);
                     c.drawLine(cx + s * 0.32f, cy + s * 0.32f, cx + s * 0.9f, cy + s * 0.9f, p);
+                    break;
+                case TAB_MUSIC:
+                    c.save();
+                    c.translate(cx - s, cy - s);
+                    notes.draw(c, MusicIcons.NOTE, col, 2 * s, 2 * s, d);
+                    c.restore();
                     break;
                 case TAB_LIBRARY:
                     // rectangle.stack.fill

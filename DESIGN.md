@@ -62,9 +62,9 @@ the full word.
 | New episode (the red mark on a poster) | New, Unwatched |
 | Who's watching | Switch user |
 
-Tabs, in order: Home, Movies, Shows, Music, Search, Library, Addons, Settings (phones fold some of these into Home and Settings; Music is on Windows and iPhone so far).
+Tabs, in order: Home, Movies, Shows, Music, Search, Library, Addons, Settings (phones fold some of these into Home and Settings; Music is on Windows and the Android phone so far; the Android phone's bar is Home, Search, Music, Library, Settings).
 
-Music: songs, albums and artists come from MusicBrainz; the audio comes from "music addons" (Eclipse Music's addon protocol, see `music/`), kept on the device and added by pasting a link. Words: Music, Songs, Albums, Artists, Recently played, Play next, Add to queue, Up next (the queue), Music addons, "No source available". Hearts and "Not interested" on songs, albums and artists shape the rows (Daily mix, Because you played, Similar to your favorites); it stays on the device.
+Music: songs, albums and artists come from MusicBrainz; the audio comes from "music addons" (Eclipse Music's addon protocol, see `music/`), kept on the device and added by pasting a link. Words: Music, Songs, Albums, Artists, Recently played, Play next, Add to queue, Up next (the queue), Music addons, "No source available". Hearts and "Not interested" on songs, albums and artists shape the rows (Daily mix, Because you played, Similar to your favorites); it stays on the device. On the Android phone the Java for all of this is in `android/src/com/codio/tv/music/` (shared with TV) and the screens are `PhoneMusic`, `PhoneAlbum`, `PhoneArtist`, `PhoneMusicAddons`, `PhoneNowPlaying` and the `MiniBar` above the tab bar; playback runs in a foreground service so it continues with the screen off.
 
 Search filter: Both, Movies, Shows. Empty search shows "Recent searches" with "Clear recent searches" as the last row.
 
