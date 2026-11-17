@@ -2,6 +2,7 @@
 //
 //   GET /api/music/mb?p=/ws/2/...[&base=https://mirror]   MusicBrainz (or a mirror), one request a second, cached on disk
 //   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
+//   GET /api/music/lb?p=/1/user/<name>/playlists/createdfor?... and /1/playlist/<mbid>   playlists made for you (Daily Jams), cached
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
@@ -297,12 +298,15 @@ const handle = (request, response, pathname) => {
     }
     if (pathname === '/api/music/lb') {
         const p = url.searchParams.get('p') || '';
-        if (!/^\/1\/(popularity|stats\/sitewide|explore\/fresh-releases)\//.test(p)) {
+        const madeFor = /^\/1\/user\/[^/?]+\/playlists\/createdfor\?[\w=&-]*$/.test(p);
+        const playlist = /^\/1\/playlist\/[0-9a-f-]{36}$/.test(p);
+        if (!madeFor && !playlist && !/^\/1\/(popularity|stats\/sitewide|explore\/fresh-releases)\//.test(p)) {
             response.writeHead(400).end();
             return true;
         }
-        // Charts and new releases change by the day; an artist's top tracks hardly at all.
-        metadata(response, LB, p, p.startsWith('/1/popularity/') ? DAY : 6 * 3600 * 1000);
+        // Charts and new releases change by the day; an artist's top tracks hardly at all. The playlists ListenBrainz
+        // makes for you (Daily Jams) are looked for every two hours; one playlist never changes once made.
+        metadata(response, LB, p, madeFor ? 2 * 3600 * 1000 : playlist ? 7 * DAY : p.startsWith('/1/popularity/') ? DAY : 6 * 3600 * 1000);
         return true;
     }
     if (pathname === '/api/music/labs') {

@@ -7,9 +7,10 @@ import { NavBar, Chip, CodioButton, Spinner, Strip, styles } from '../components
 import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
+import { buildDailyMix, savedMix, today } from './dailymix';
 import { moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
-import { clearAll, clearHistory, dayShuffle, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
-import { artistPhotoUrl, getTopTracks } from './musicbrainz';
+import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
+import { artistPhotoUrl } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
 import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
@@ -337,18 +338,15 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
     const more = useRow(`more-${seeds[0]?.id ?? ''}`, () => seeds[0] ? moreFrom(seeds[0].id) : Promise.resolve([]));
     const merged = useMemo(() => mergeSimilar(seeds, sims.map((r) => r ?? []), taste), [seedKey, ...sims, taste.hiddenArtists]);
 
-    // Daily mix: a few songs each from your favorites and artists like them, shuffled the same all day.
-    const mixSources = useMemo(() => [...seeds.slice(0, 4).map((s) => ({ id: s.id, name: s.name })), ...merged.slice(0, 4).map((a) => ({ id: a.id, name: a.name }))], [seedKey, merged.map((a) => a.id).join(',')]);
+    // Daily mix: 50 to 100 songs from your ListenBrainz Daily Jams, your artists, artists like them and your hearts. New
+    // every day, steady within the day, and it grows as new listens come in (see dailymix.ts).
+    const account = useListenBrainz();
+    const mixSeeds = useMemo(() => topSeeds(taste, 8), [taste.plays, taste.likedArtists, taste.likedTracks, taste.likedAlbums, taste.hiddenArtists]);
     const waiting = sims.slice(0, seeds.length).some((r) => r === null);
-    const mixKey = waiting ? 'mix-wait' : `mix-${new Date().toDateString()}-${mixSources.map((x) => x.id).join(',')}`;
-    const mixRaw = useRow(mixKey, async () => {
-        if (mixSources.length < 2) return [];
-        const lists = await Promise.all(mixSources.map((x) => getTopTracks(x.id, x.name)));
-        const out: MusicTrack[] = [];
-        for (let r = 0; r < 5; r++) lists.forEach((l) => { if (l[r]) out.push(l[r]); });
-        return out;
-    });
-    const mix = useMemo(() => dayShuffle(visibleTracks(taste, mixRaw ?? []), 'mix').slice(0, 30), [mixRaw, taste.hiddenTracks, taste.hiddenArtists]);
+    const syncBucket = account?.lastSync ? Math.floor(account.lastSync / (3 * 3600 * 1000)) : 0;
+    const mixKey = waiting ? 'mix-wait' : `mix-${today()}-${mixSeeds.map((x) => x.id).join(',')}-${merged.map((a) => a.id).join(',')}-${account?.user ?? ''}-${syncBucket}-${taste.likedTracks.length}`;
+    const mixRaw = useRow(mixKey, () => mixSeeds.length === 0 && !account ? Promise.resolve(savedMix()) : buildDailyMix(mixSeeds, merged, getTaste(), account?.user ?? null));
+    const mix = useMemo(() => visibleTracks(taste, mixRaw && mixRaw.length > 0 ? mixRaw : savedMix()), [mixRaw, taste.hiddenTracks, taste.hiddenArtists]);
 
     const albums = useRow('popular-albums', popularAlbums);
     const freshAll = useRow('new-releases', newReleases);
