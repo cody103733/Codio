@@ -127,7 +127,7 @@ final class Vault: ObservableObject {
 
     // MARK: What is synced, as it is on this phone
 
-    static let names = ["tmdbKey", "musicAddons", "listenBrainz", "musicBrainzServer"]
+    static let names = ["tmdbKey", "musicAddons", "listenBrainz", "musicBrainzServer", "lastfmKey"]
 
     private func read(_ name: String) -> Any {
         switch name {
@@ -140,6 +140,8 @@ final class Vault: ObservableObject {
             return NSNull()
         case "musicBrainzServer":
             return (UserDefaults.standard.string(forKey: MB.baseKey) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        case "lastfmKey":
+            return Chart.lastfmKey
         default:
             return NSNull()
         }
@@ -178,6 +180,8 @@ final class Vault: ObservableObject {
             }
         case "musicBrainzServer":
             UserDefaults.standard.set((v as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines), forKey: MB.baseKey)
+        case "lastfmKey":
+            Chart.lastfmKey = v as? String ?? ""
         default:
             break
         }

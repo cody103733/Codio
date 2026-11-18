@@ -156,6 +156,12 @@ const KINDS: Record<string, Kind> = {
         empty: (v) => typeof v !== 'string' || v.trim() === '',
         print: (v) => typeof v === 'string' ? v.trim() : '',
     },
+    lastfmKey: {
+        read: () => loadMusicSettings().lastfmKey,
+        write: (v) => { saveMusicSettings({ lastfmKey: typeof v === 'string' ? v.trim() : '' }); },
+        empty: (v) => typeof v !== 'string' || v.trim() === '',
+        print: (v) => typeof v === 'string' ? v.trim() : '',
+    },
 };
 
 // ---- State

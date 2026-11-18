@@ -8,7 +8,7 @@ import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { buildDailyMix, savedMix, today } from './dailymix';
-import { moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
+import { appleMusicUrl, chartSource, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
 import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
 import { artistPhotoUrl } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
@@ -215,6 +215,7 @@ const AddonsPanel = () => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [server, setServer] = useState(loadMusicSettings().mbBase);
+    const [lastfm, setLastfm] = useState(loadMusicSettings().lastfmKey);
 
     const add = async () => {
         if (link.trim().length === 0 || busy) return;
@@ -284,6 +285,21 @@ const AddonsPanel = () => {
                     onBlur={() => saveMusicSettings({ mbBase: server.trim() })}
                 />
             </div>
+            <div className={m['section-title']}>Charts</div>
+            <div className={m['note']}>
+                Popular songs and artists come from Apple Music's chart for your country, with a button to listen there. Paste your own Last.fm API key
+                (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode.
+            </div>
+            <div className={m['addon-box']}>
+                <input
+                    className={m['search-input']}
+                    placeholder={'Last.fm API key'}
+                    value={lastfm}
+                    spellCheck={false}
+                    onChange={(e) => setLastfm(e.target.value)}
+                    onBlur={() => saveMusicSettings({ lastfmKey: lastfm.trim() })}
+                />
+            </div>
             <AccountPanel />
             <TastePanel />
         </div>
@@ -330,6 +346,7 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
 
 // The Music home's rows. First the ones made from you (what you play, heart and hide), then what is popular and new.
 const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack[] }) => {
+    const platform = usePlatform() as any;
     const navigate = useNavigate();
     const taste = useTaste();
     const player = usePlayer();
@@ -419,8 +436,13 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
             {topSongs.length > 0 ? (
                 <>
                     <div className={m['section-title']}>Songs people are playing</div>
+                    {topSongs.some((t) => appleMusicUrl(t)) ? <div className={m['chart-credit']}>Chart from Apple Music</div> : chartSource() === 'lastfm' ? <div className={m['chart-credit']}>Chart data from Last.fm</div> : null}
                     <div className={m['tracks']}>
-                        {topSongs.slice(0, 10).map((t, i) => <TrackRow key={t.id} track={t} number={i + 1} canHide current={current === t.id} onPlay={() => playQueue(topSongs, i)} />)}
+                        {topSongs.slice(0, 10).map((t, i) => {
+                            const apple = appleMusicUrl(t);
+                            return <TrackRow key={t.id} track={t} number={i + 1} canHide current={current === t.id} onPlay={() => playQueue(topSongs, i)}
+                                link={apple ? { label: 'Listen on Apple Music', onOpen: () => platform.openExternal(apple) } : null} />;
+                        })}
                     </div>
                 </>
             ) : null}

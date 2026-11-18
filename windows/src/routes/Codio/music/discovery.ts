@@ -3,7 +3,7 @@
 // is made once and kept by Codio's server for hours or days, so the Music page opens fast after the first time.
 
 import type { MusicAlbum, MusicArtist, MusicTrack } from './types';
-import { artUrl, coverUrl, releaseCoverUrl } from './musicbrainz';
+import { artUrl, coverUrl, loadMusicSettings, releaseCoverUrl } from './musicbrainz';
 
 const enc = encodeURIComponent;
 
@@ -56,10 +56,30 @@ const country = (): string => {
         return 'us';
     }
 };
+// Last.fm wants the country's English name ("United States").
+const countryName = (cc: string): string => {
+    try {
+        return new (Intl as any).DisplayNames(['en'], { type: 'region' }).of(cc.toUpperCase()) || 'United States';
+    } catch (_e) {
+        return 'United States';
+    }
+};
+// 'lastfm' when your Last.fm key is set (its chart replaces Apple's), else 'apple'.
+export const chartSource = (): 'lastfm' | 'apple' => loadMusicSettings().lastfmKey ? 'lastfm' : 'apple';
 let chartJob: Promise<any> | null = null;
+let chartFor = '';
 const chart = (): Promise<any> => {
+    const key = loadMusicSettings().lastfmKey;
+    if (chartFor !== key) {
+        chartFor = key;
+        chartJob = null;
+        appleLinks.clear();
+    }
     if (!chartJob) {
-        chartJob = fetch(`/api/music/chart?cc=${country()}`, { headers: { 'X-Codio': '1' } })
+        const cc = country();
+        const headers: Record<string, string> = { 'X-Codio': '1' };
+        if (key) headers['X-Lastfm-Key'] = key;
+        chartJob = fetch(`/api/music/chart?cc=${cc}&country=${enc(countryName(cc))}`, { headers })
             .then((r) => r.ok ? r.json() : null)
             .catch(() => null)
             .then((j) => {
@@ -70,9 +90,14 @@ const chart = (): Promise<any> => {
     return chartJob;
 };
 
+// The song's page on Apple Music, for songs that came from Apple's chart (the chart is meant to send people there).
+const appleLinks = new Map<string, string>();
+export const appleMusicUrl = (t: MusicTrack): string | null => t.mbid ? appleLinks.get(t.mbid) ?? null : null;
+
 // Songs people are playing this week: the country's chart, else ListenBrainz's.
 export const popularSongs = async (): Promise<MusicTrack[]> => {
     const c = await chart();
+    list(c?.songs).forEach((r) => { if (r.mbid && typeof r.appleUrl === 'string') appleLinks.set(String(r.mbid), r.appleUrl); });
     const fromChart = list(c?.songs).filter((r) => r.mbid && r.title).slice(0, 25).map((r): MusicTrack => ({
         id: `mbid:${r.mbid}`, mbid: String(r.mbid), title: String(r.title), artist: String(r.artist ?? ''), album: r.album ?? null,
         artworkURL: r.releaseMbid ? releaseCoverUrl(String(r.releaseMbid)) : null, artistMbid: r.artistMbid ?? null,

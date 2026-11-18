@@ -247,6 +247,15 @@ final class MusicKit {
                 }
             });
         }
+        if (com.codio.tv.music.Discovery.appleMusicUrl(t) != null) {
+            labels.add("Listen on Apple Music");
+            acts.add(new Runnable() {
+                @Override
+                public void run() {
+                    if (!com.codio.tv.music.Discovery.openAppleMusic(ui.getContext(), t)) ui.toast("Nothing on this phone can open Apple Music links");
+                }
+            });
+        }
         labels.add("Not interested");
         acts.add(new Runnable() {
             @Override

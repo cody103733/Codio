@@ -4,8 +4,9 @@
 //   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
 //   GET /api/music/lb?p=/1/user/<name>/playlists/createdfor?... and /1/playlist/<mbid>   playlists made for you (Daily Jams), cached
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
-//   GET /api/music/chart?cc=us                             the country's most played songs (Apple Music chart) matched to
-//                                                           MusicBrainz ids, plus the artists in it: { songs, artists }
+//   GET /api/music/chart?cc=us&country=United%20States     the country's most played songs (Apple Music chart, or Last.fm's
+//                                                           with header X-Lastfm-Key) matched to MusicBrainz ids, plus the
+//                                                           artists in it: { source, songs, artists }. The key is never logged.
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
 //   GET /api/music/artist-img?id=<artist mbid>&name=...    a picture of the artist, kept on disk
@@ -199,6 +200,7 @@ const deezerPicture = async (name) => {
 // thousand listeners, which leans heavily towards a handful of very active fans (mostly J-pop and K-pop), so the
 // Popular rows looked nothing like what people actually play. The chart is kept 6 hours, each lookup a month.
 const CHART = process.env.CODIO_TEST_CHART || 'https://rss.applemarketingtools.com';
+const LASTFM = process.env.CODIO_TEST_CHART || 'https://ws.audioscrobbler.com';
 const charts = new Map();
 
 const lookupSong = async (artist, title) => {
@@ -217,20 +219,42 @@ const lookupSong = async (artist, title) => {
 // "Artist A & Artist B", "A, B & C", "A feat. B": the first name is who the song is by.
 const leadArtist = (name) => String(name || '').split(/\s+(?:&|feat\.?|ft\.?|featuring|with|x)\s+|,\s+(?!the\s)/i)[0].trim();
 
-const buildChart = async (cc) => {
+// Last.fm's chart for the country (your own API key). Cached under an address without the key.
+const lastfmFeed = async (country, key) => {
+    const p = `/2.0/?method=geo.gettoptracks&country=${encodeURIComponent(country)}&limit=50&format=json`;
+    let body = readCache(LASTFM + p, 6 * 3600 * 1000);
+    if (!body) {
+        const res = await fetchUrl(`${LASTFM}${p}&api_key=${encodeURIComponent(key)}`);
+        if (res.status !== 200) throw new Error(`lastfm ${res.status}`);
+        body = res.body;
+        const j = JSON.parse(body.toString('utf8'));
+        if (!j || !j.tracks) throw new Error('lastfm error');
+        writeCache(LASTFM + p, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    const list = j && j.tracks && Array.isArray(j.tracks.track) ? j.tracks.track : [];
+    return list.map((t) => ({ artistName: t && t.artist ? String(t.artist.name || '') : '', name: String((t && t.name) || '') }));
+};
+
+const appleFeed = async (cc) => {
     const url = `${CHART}/api/v2/${cc}/music/most-played/50/songs.json`;
     let body = readCache(url, 6 * 3600 * 1000);
     if (!body) {
         const res = await fetchUrl(url);
         if (res.status !== 200) {
-            if (cc !== 'us') return buildChart('us');
+            if (cc !== 'us') return appleFeed('us');
             throw new Error(`chart ${res.status}`);
         }
         body = res.body;
         writeCache(url, body);
     }
     const feed = JSON.parse(body.toString('utf8'));
-    const items = (feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : []).slice(0, 40);
+    return feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
+};
+
+const buildChart = async (cc, country, key) => {
+    const source = key ? 'lastfm' : 'apple';
+    const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 40);
     const found = await Promise.all(items.map((r) => lookupSong(String(r.artistName || ''), String(r.name || '')).catch(() => null)));
     const songs = [];
     const artists = [];
@@ -243,21 +267,23 @@ const buildChart = async (cc) => {
         songs.push({
             mbid: m.recording_mbid, title: String(m.recording_name || r.name || ''), artist: credit, album: m.release_name || null,
             releaseMbid: m.release_mbid || null, artistMbid: ids[0] || null,
+            appleUrl: typeof r.url === 'string' && /^https:\/\/music\.apple\.com\//.test(r.url) ? r.url : null,
         });
         if (ids[0] && !seen.has(ids[0])) {
             seen.add(ids[0]);
             artists.push({ id: ids[0], name: ids.length === 1 ? credit : leadArtist(credit) });
         }
     });
-    return JSON.stringify({ country: cc, songs, artists });
+    return JSON.stringify({ country: cc, source, songs, artists });
 };
 
-const chartFor = (cc) => {
-    const known = charts.get(cc);
+const chartFor = (cc, country, key) => {
+    const id = `${cc}|${key ? crypto.createHash('sha1').update(key).digest('hex') : ''}`;
+    const known = charts.get(id);
     if (known && Date.now() - known.at < 30 * 60 * 1000) return known.job;
-    const job = buildChart(cc);
-    charts.set(cc, { at: Date.now(), job });
-    job.catch(() => charts.delete(cc));
+    const job = buildChart(cc, country, key);
+    charts.set(id, { at: Date.now(), job });
+    job.catch(() => charts.delete(id));
     return job;
 };
 
@@ -389,7 +415,9 @@ const handle = (request, response, pathname) => {
     }
     if (pathname === '/api/music/chart') {
         const cc = String(url.searchParams.get('cc') || 'us').toLowerCase();
-        chartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
+        const key = String(request.headers['x-lastfm-key'] || '').trim();
+        const country = String(url.searchParams.get('country') || 'United States').slice(0, 80);
+        chartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us', country, /^[A-Za-z0-9]{16,64}$/.test(key) ? key : '').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
         return true;
     }
     if (pathname === '/api/music/img') {

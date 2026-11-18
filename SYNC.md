@@ -16,6 +16,7 @@ Same rules on every app: Windows `windows/src/routes/Codio/vault.ts`, Android TV
 | `musicAddons` | `[{url, manifest}]`, in order | `codioMusicAddons` / `music_addons_v1` |
 | `listenBrainz` | `{token, user}` or `null` | `codioListenBrainz` / iPhone keychain |
 | `musicBrainzServer` | MusicBrainz mirror address, `""` for the default | `codioMusicSettings.mbBase` / `mbBase` / `music_mb_base` |
+| `lastfmKey` | your Last.fm API key, `""` for none (Popular rows then use Apple's chart) | `codioMusicSettings.lastfmKey` / `lastfmKey` / `music_lastfm_key` |
 
 Unknown items in a box are kept as they are, so a newer app can add items without older ones dropping them.
 

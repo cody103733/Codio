@@ -6,20 +6,24 @@ import type { MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types
 
 const SETTINGS_KEY = 'codioMusicSettings';
 
-export type MusicSettings = { mbBase: string };
+// lastfmKey: your own Last.fm API key. With one, the Popular rows use Last.fm's chart for your country instead of Apple's.
+export type MusicSettings = { mbBase: string, lastfmKey: string };
 
 export const loadMusicSettings = (): MusicSettings => {
     try {
         const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? '{}');
-        return { mbBase: typeof saved.mbBase === 'string' && saved.mbBase.length > 0 ? saved.mbBase : '' };
+        return {
+            mbBase: typeof saved.mbBase === 'string' && saved.mbBase.length > 0 ? saved.mbBase : '',
+            lastfmKey: typeof saved.lastfmKey === 'string' ? saved.lastfmKey.trim() : '',
+        };
     } catch (_e) {
-        return { mbBase: '' };
+        return { mbBase: '', lastfmKey: '' };
     }
 };
 
-export const saveMusicSettings = (settings: MusicSettings) => {
+export const saveMusicSettings = (settings: Partial<MusicSettings>) => {
     try {
-        window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadMusicSettings(), ...settings }));
     } catch (_e) { /* storage full or off */ }
 };
 

@@ -498,6 +498,8 @@ final class PhoneMusic extends PhoneUi.Page {
         if (!top.isEmpty()) {
             content.addView(PhoneUi.sectionTitle(c, "Popular songs"));
             List<Track> ten = new ArrayList<>(top.subList(0, Math.min(10, top.size())));
+            if (com.codio.tv.music.Discovery.appleMusicUrl(ten.get(0)) != null) content.addView(MusicKit.note(c, "Chart from Apple Music. Tap ⋯ on a song to listen there."));
+            else if ("lastfm".equals(com.codio.tv.music.Discovery.chartSource())) content.addView(MusicKit.note(c, "Chart data from Last.fm"));
             MusicKit.trackList(ui, content, ten, true);
         }
         addArtists(c, "Popular artists", artists);

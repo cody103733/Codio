@@ -365,8 +365,30 @@ actor Chart {
 
     private var job: Task<Result, Never>?
     private var at = Date.distantPast
+    private var keyUsed = ""
+
+    static let lastfmHost = "https://ws.audioscrobbler.com"
+    static let lastfmDefaultsKey = "music_lastfm_key"
+
+    /// Your own Last.fm API key; with one, the Popular rows use Last.fm's chart instead of Apple's.
+    static var lastfmKey: String {
+        get { (UserDefaults.standard.string(forKey: lastfmDefaultsKey) ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        set {
+            let k = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if k.isEmpty { UserDefaults.standard.removeObject(forKey: lastfmDefaultsKey) } else { UserDefaults.standard.set(k, forKey: lastfmDefaultsKey) }
+        }
+    }
+
+    /// "lastfm" when your Last.fm key is set (its chart replaces Apple's), else "apple".
+    static var source: String { lastfmKey.isEmpty ? "apple" : "lastfm" }
 
     func get() async -> Result {
+        let key = Chart.lastfmKey
+        if key != keyUsed {
+            keyUsed = key
+            job = nil
+            AppleLinks.clear()
+        }
         if let job, Date().timeIntervalSince(at) < 1800 { return await job.value }
         let task = Task { await Chart.build() }
         job = task
@@ -385,6 +407,31 @@ actor Chart {
         let reply = await MusicNet.metadata("\(host)/api/v2/\(cc)/music/most-played/50/songs.json", ttl: 6 * 3600, server: host, gap: 0)
         if reply.status != 200 && cc != "us" { return await feed("us") }
         return marr(((reply.json as? JSON)?["feed"] as? JSON)?["results"])
+    }
+
+    /// Last.fm's chart for the country (your own key), as Apple-shaped items. Cached under an address without the key.
+    private static func lastfmFeed(_ cc: String, key: String) async -> [JSON] {
+        let name = Locale(identifier: "en_US").localizedString(forRegionCode: cc.uppercased()) ?? "United States"
+        var c = URLComponents(string: lastfmHost + "/2.0/")!
+        c.queryItems = [URLQueryItem(name: "method", value: "geo.gettoptracks"), URLQueryItem(name: "country", value: name),
+                        URLQueryItem(name: "limit", value: "50"), URLQueryItem(name: "format", value: "json")]
+        guard let plain = c.url?.absoluteString else { return [] }
+        var data = MusicNet.readCache(plain, ttl: 6 * 3600)
+        if data == nil {
+            c.queryItems?.append(URLQueryItem(name: "api_key", value: key))
+            guard let u = c.url else { return [] }
+            var request = URLRequest(url: u)
+            request.setValue(MusicNet.agent, forHTTPHeaderField: "User-Agent")
+            let answer = try? await MusicNet.session.data(for: request)
+            if let d = answer?.0, (answer?.1 as? HTTPURLResponse)?.statusCode == 200, (MusicNet.parse(d) as? JSON)?["tracks"] is JSON {
+                MusicNet.writeCache(plain, d)
+                data = d
+            }
+        }
+        guard let d = data, let j = MusicNet.parse(d) as? JSON else { return [] }
+        return marr((j["tracks"] as? JSON)?["track"]).map { t in
+            ["name": mstr(t["name"]) ?? "", "artistName": mstr((t["artist"] as? JSON)?["name"]) ?? ""] as JSON
+        }
     }
 
     private static func lookup(_ artist: String, _ title: String) async -> JSON? {
@@ -406,7 +453,8 @@ actor Chart {
     }
 
     static func build() async -> Result {
-        let items = Array(await feed(country).prefix(40))
+        let key = lastfmKey
+        let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(40))
         let found: [JSON?] = await withTaskGroup(of: (Int, JSON?).self) { group in
             for (i, r) in items.enumerated() {
                 let artist = mstr(r["artistName"]) ?? "", title = mstr(r["name"]) ?? ""
@@ -422,6 +470,7 @@ actor Chart {
             guard let m = found[i], let mbid = mstr(m["recording_mbid"]) else { continue }
             let ids = ((m["artist_mbids"] as? [Any]) ?? []).compactMap { $0 as? String }
             let credit = mstr(m["artist_credit_name"]) ?? mstr(r["artistName"]) ?? ""
+            if let link = mstr(r["url"]), link.hasPrefix("https://music.apple.com/") { AppleLinks.set(mbid, link) }
             result.songs.append(MusicTrack(id: "mbid:" + mbid, title: mstr(m["recording_name"]) ?? mstr(r["name"]) ?? "", artist: credit,
                                            album: mstr(m["release_name"]), durationMs: nil,
                                            artworkURL: mstr(m["release_mbid"]).map { MB.releaseCoverURL($0) }, isrc: nil, mbid: mbid,
@@ -432,5 +481,25 @@ actor Chart {
             }
         }
         return result
+    }
+}
+
+/// The song's page on Apple Music, for songs from Apple's chart (the chart is meant to send people there).
+enum AppleLinks {
+    private static let lock = NSLock()
+    private static var links: [String: String] = [:]
+
+    static func clear() {
+        lock.lock(); links.removeAll(); lock.unlock()
+    }
+
+    static func set(_ mbid: String, _ url: String) {
+        lock.lock(); links[mbid] = url; lock.unlock()
+    }
+
+    static func url(_ track: MusicTrack) -> URL? {
+        guard let id = track.mbid else { return nil }
+        lock.lock(); defer { lock.unlock() }
+        return links[id].flatMap { URL(string: $0) }
     }
 }

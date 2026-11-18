@@ -12,6 +12,7 @@ struct MusicSettingsView: View {
     @State private var signingIn = false
     @State private var signInError: String?
     @State private var server = UserDefaults.standard.string(forKey: MB.baseKey) ?? ""
+    @State private var lastfm = Chart.lastfmKey
     @State private var sure = false
     @State private var syncing = false
 
@@ -29,6 +30,16 @@ struct MusicSettingsView: View {
                 Text("Music information")
             } footer: {
                 Text("Artists, albums and covers come from MusicBrainz. If you run your own MusicBrainz server, put its address here. Leave it empty to use musicbrainz.org.")
+            }
+            Section {
+                TextField("Last.fm API key", text: $lastfm)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .onSubmit { Chart.lastfmKey = lastfm }
+                    .onDisappear { Chart.lastfmKey = lastfm }
+            } header: {
+                Text("Charts")
+            } footer: {
+                Text("Popular songs and artists come from Apple Music's chart for your country, with a way to listen there. Paste your own Last.fm API key (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode.")
             }
         }
         .scrollContentBackground(.hidden)

@@ -25,7 +25,7 @@ import java.util.Map;
 /** Music addons, the music information server, the ListenBrainz account and what Codio has learned about your taste. */
 final class PhoneMusicAddons extends PhoneUi.Page {
     private LinearLayout addonsBox, accountBox, tasteBox;
-    private EditText link, server, token;
+    private EditText link, server, token, lastfm;
     private TextView error, accountError;
     private boolean busy, sure;
     private final Runnable tasteChanged = new Runnable() {
@@ -99,6 +99,20 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         sl.setMargins(dp(16), dp(4), dp(16), dp(4));
         body.addView(server, sl);
 
+        body.addView(heading("CHARTS"));
+        body.addView(footer("Popular songs and artists come from Apple Music's chart for your country, with a way to listen there. Paste your own Last.fm API key (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode."));
+        lastfm = input("Last.fm API key", false);
+        lastfm.setText(MusicNet.lastfmKey());
+        lastfm.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean focus) {
+                if (!focus) MusicNet.setLastfmKey(lastfm.getText().toString());
+            }
+        });
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, dp(40));
+        ll.setMargins(dp(16), dp(4), dp(16), dp(4));
+        body.addView(lastfm, ll);
+
         body.addView(heading("YOUR ACCOUNT (LISTENBRAINZ)"));
         accountBox = new LinearLayout(c);
         accountBox.setOrientation(LinearLayout.VERTICAL);
@@ -124,6 +138,7 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         Taste.listeners.remove(tasteChanged);
         ListenBrainz.listeners.remove(accountChanged);
         if (server != null) MusicNet.setMbBase(server.getText().toString());
+        if (lastfm != null) MusicNet.setLastfmKey(lastfm.getText().toString());
     }
 
     // ---- small pieces

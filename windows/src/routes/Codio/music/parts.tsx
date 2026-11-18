@@ -26,7 +26,7 @@ export const HeartButton = ({ liked, onClick, className }: { liked: boolean, onC
     </button>
 );
 
-export const TrackRow = ({ track, number, current, onPlay, canHide = false }: { track: MusicTrack, number?: number, current?: boolean, onPlay: () => void, canHide?: boolean }) => {
+export const TrackRow = ({ track, number, current, onPlay, canHide = false, link }: { track: MusicTrack, number?: number, current?: boolean, onPlay: () => void, canHide?: boolean, link?: { label: string, onOpen: () => void } | null }) => {
     const taste = useTaste();
     const liked = isLikedTrack(taste, track);
     return (
@@ -47,6 +47,7 @@ export const TrackRow = ({ track, number, current, onPlay, canHide = false }: { 
                 <button className={styles['mini-button']} onClick={(e) => { e.stopPropagation(); addToQueue(track); }}>Add to queue</button>
                 {canHide ? <button className={styles['mini-button']} onClick={(e) => { e.stopPropagation(); hideTrack(track); }}>Not interested</button> : null}
             </div>
+            {link ? <button className={classnames(styles['mini-button'], styles['link-button'])} onClick={(e) => { e.stopPropagation(); link.onOpen(); }}>{link.label}</button> : null}
             <HeartButton liked={liked} onClick={() => toggleLikeTrack(track)} className={styles['row-heart']} />
             <span className={styles['track-time']}>{track.durationMs ? formatTime(track.durationMs / 1000) : ''}</span>
         </div>

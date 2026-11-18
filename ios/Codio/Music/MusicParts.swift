@@ -126,6 +126,9 @@ struct TrackMenuItems: View {
                 Label("Go to artist", systemImage: "music.mic")
             }
         }
+        if let apple = AppleLinks.url(track) {
+            Link(destination: apple) { Label("Listen on Apple Music", systemImage: "applelogo") }
+        }
         Button(role: .destructive) { taste.hide(track) } label: { Label("Not interested", systemImage: "hand.thumbsdown") }
     }
 }

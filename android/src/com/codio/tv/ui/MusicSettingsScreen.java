@@ -134,6 +134,20 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
         });
         server.head = "Music information";
         server.note = "Artists, albums and covers come from MusicBrainz.";
+        String lf = MusicNet.lastfmKey();
+        Item charts = item("Last.fm API key", lf.length() > 0 ? "Set: Popular rows use Last.fm" : "Not set: Popular rows use Apple Music", new Runnable() {
+            @Override
+            public void run() {
+                tv.push(new TextEntryScreen(tv, "Last.fm API key", "Your own key from last.fm/api. Popular songs and artists then use Last.fm's chart instead of Apple's. Leave it empty for Apple's.", MusicNet.lastfmKey(), false, new TextEntryScreen.Done() {
+                    @Override
+                    public void done(String text) {
+                        MusicNet.setLastfmKey(text);
+                        fill();
+                    }
+                }));
+            }
+        });
+        charts.note = "Syncs with your Sync passcode.";
 
         final ListenBrainz.Account account = ListenBrainz.account();
         if (account == null) {

@@ -254,6 +254,15 @@ struct MusicView: View {
         let top = Array(t.visible(home.popularSongs ?? []).prefix(10))
         if !top.isEmpty {
             MusicSectionHead(title: "Songs people are playing")
+            if AppleLinks.url(top[0]) != nil {
+                Text("Chart from Apple Music. Tap ⋯ on a song to listen there.")
+                    .font(.footnote).foregroundColor(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
+            } else if Chart.source == "lastfm" {
+                Text("Chart data from Last.fm")
+                    .font(.footnote).foregroundColor(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
+            }
             ForEach(Array(top.enumerated()), id: \.offset) { i, track in
                 TrackRow(track: track, number: i + 1) { player.play(top, at: i) }
             }

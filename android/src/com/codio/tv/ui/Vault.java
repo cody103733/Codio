@@ -244,7 +244,7 @@ public final class Vault {
 
     // ------------------------------------------------------------------ what is synced, as it is on this device
 
-    static final String[] NAMES = {"tmdbKey", "musicAddons", "listenBrainz", "musicBrainzServer"};
+    static final String[] NAMES = {"tmdbKey", "musicAddons", "listenBrainz", "musicBrainzServer", "lastfmKey"};
 
     static Object read(String name) {
         try {
@@ -262,6 +262,8 @@ public final class Vault {
                 }
                 case "musicBrainzServer":
                     return MusicNet.mbBase();
+                case "lastfmKey":
+                    return MusicNet.lastfmKey();
             }
         } catch (Exception ignored) {
         }
@@ -332,6 +334,9 @@ public final class Vault {
                 break;
             case "musicBrainzServer":
                 MusicNet.setMbBase(v instanceof String ? (String) v : "");
+                break;
+            case "lastfmKey":
+                MusicNet.setLastfmKey(v instanceof String ? (String) v : "");
                 break;
         }
     }

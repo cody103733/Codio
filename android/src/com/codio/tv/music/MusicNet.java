@@ -271,6 +271,16 @@ public final class MusicNet {
         prefs.edit().putString("mbBase", s == null ? "" : s.trim()).apply();
     }
 
+    /** Your own Last.fm API key; with one, the Popular rows use Last.fm's chart instead of Apple's. */
+    public static String lastfmKey() {
+        String s = prefs.getString("lastfmKey", "");
+        return s == null ? "" : s.trim();
+    }
+
+    public static void setLastfmKey(String s) {
+        prefs.edit().putString("lastfmKey", s == null ? "" : s.trim()).apply();
+    }
+
     /** Result callback, always delivered on the main thread. */
     public interface Done<T> {
         void done(T value, Exception error);

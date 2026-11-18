@@ -275,6 +275,13 @@ final class TvMusicKit {
                     tv.push(new MusicArtistScreen(tv, t.artistMbid, t.artist, null));
                 }
             });
+            final String apple = com.codio.tv.music.Discovery.appleMusicUrl(t);
+            if (apple != null) menu.add("Listen on Apple Music", new Runnable() {
+                @Override
+                public void run() {
+                    if (!com.codio.tv.music.Discovery.openAppleMusic(tv.getContext(), t)) tv.toast("Apple Music isn't on this TV. Find it at music.apple.com");
+                }
+            });
             menu.add("Not interested", new Runnable() {
                 @Override
                 public void run() {

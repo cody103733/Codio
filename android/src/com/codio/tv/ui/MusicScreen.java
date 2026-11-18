@@ -280,7 +280,12 @@ final class MusicScreen extends MusicPage {
         row(out, "Liked artists", new ArrayList<Model.Artist>(Taste.likedArtists()));
         if (popular != null) row(out, "Popular right now", favor(Taste.visibleAlbums(popular), liked));
         row(out, "New releases", first(favor(freshShown, liked), 30));
-        if (songs != null) row(out, "Songs people are playing", Taste.visibleTracks(songs));
+        if (songs != null) {
+            List<Model.Track> shown = Taste.visibleTracks(songs);
+            boolean apple = !shown.isEmpty() && com.codio.tv.music.Discovery.appleMusicUrl(shown.get(0)) != null;
+            boolean lastfm = "lastfm".equals(com.codio.tv.music.Discovery.chartSource());
+            row(out, apple ? "Songs people are playing (Apple Music chart, hold OK to open there)" : lastfm ? "Songs people are playing (data from Last.fm)" : "Songs people are playing", shown);
+        }
         if (artists != null) row(out, "Popular artists", Taste.visibleArtists(artists));
         if (catalogs != null) {
             for (Addons.CatalogRow r : catalogs) {

@@ -108,6 +108,37 @@ public final class Discovery {
     // MusicBrainz ids with ListenBrainz's name lookup. ListenBrainz's own sitewide charts only reflect its few thousand
     // listeners, which leans heavily towards a handful of very active fans (mostly J-pop and K-pop).
     static final String CHART = "https://rss.applemarketingtools.com";
+    static final String LASTFM = "https://ws.audioscrobbler.com";
+    private static String chartKey = "";
+
+    /** "lastfm" when your Last.fm key is set (its chart replaces Apple's), else "apple". */
+    public static String chartSource() {
+        return MusicNet.lastfmKey().isEmpty() ? "apple" : "lastfm";
+    }
+
+    // Last.fm's chart for the country (your own key), as Apple-shaped items. Cached under an address without the key.
+    private static JSONArray lastfmFeed(String cc, String key) throws Exception {
+        String name = new Locale("", cc.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.ENGLISH);
+        if (name == null || name.isEmpty() || name.equalsIgnoreCase(cc)) name = "United States";
+        String p = "/2.0/?method=geo.gettoptracks&country=" + java.net.URLEncoder.encode(name, "UTF-8") + "&limit=50&format=json";
+        byte[] body = MusicNet.readCache(LASTFM + p, HOURS6);
+        if (body == null) {
+            MusicNet.Reply r = MusicNet.get(LASTFM + p + "&api_key=" + java.net.URLEncoder.encode(key, "UTF-8"), 15000);
+            if (r.status != 200) return new JSONArray();
+            body = r.body;
+            if (new JSONObject(new String(body, "UTF-8")).optJSONObject("tracks") == null) return new JSONArray();
+            MusicNet.writeCache(LASTFM + p, body);
+        }
+        JSONArray l = list(new JSONObject(new String(body, "UTF-8")), "tracks", "track");
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < l.length(); i++) {
+            JSONObject t = l.optJSONObject(i);
+            if (t == null) continue;
+            JSONObject a = t.optJSONObject("artist");
+            out.put(new JSONObject().put("name", t.optString("name", "")).put("artistName", a == null ? "" : a.optString("name", "")));
+        }
+        return out;
+    }
     private static final ExecutorService LOOKUPS = Executors.newFixedThreadPool(6);
     private static final Pattern LEAD = Pattern.compile("\\s+(?:&|feat\\.?|ft\\.?|featuring|with|x)\\s+|,\\s+(?!the\\s)", Pattern.CASE_INSENSITIVE);
     private static final Pattern MBID = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
@@ -115,6 +146,26 @@ public final class Discovery {
     private static List<Track> chartSongs;
     private static List<Artist> chartArtists;
     private static long chartAt;
+    private static final java.util.Map<String, String> APPLE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The song's page on Apple Music, for songs from Apple's chart (the chart is meant to send people there). */
+    public static String appleMusicUrl(Track t) {
+        return t == null || t.mbid == null ? null : APPLE.get(t.mbid);
+    }
+
+    /** Opens the song on Apple Music (its app, else the browser). False if nothing on the device can open it. */
+    public static boolean openAppleMusic(android.content.Context c, Track t) {
+        String url = appleMusicUrl(t);
+        if (url == null) return false;
+        try {
+            android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            c.startActivity(i);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     static String country() {
         String c = Locale.getDefault().getCountry();
@@ -157,11 +208,17 @@ public final class Discovery {
 
     private static void loadChart() {
         synchronized (CHART_LOCK) {
+            String key = MusicNet.lastfmKey();
+            if (!key.equals(chartKey)) {
+                chartKey = key;
+                chartSongs = null;
+                APPLE.clear();
+            }
             if (chartSongs != null && System.currentTimeMillis() - chartAt < 30 * 60 * 1000L) return;
             List<Track> songs = new ArrayList<>();
             List<Artist> artists = new ArrayList<>();
             try {
-                JSONArray items = chartFeed(country());
+                JSONArray items = key.isEmpty() ? chartFeed(country()) : lastfmFeed(country(), key);
                 int n = Math.min(items.length(), 40);
                 List<Future<JSONObject>> jobs = new ArrayList<>();
                 for (int i = 0; i < n; i++) {
@@ -191,6 +248,8 @@ public final class Discovery {
                     t.artworkURL = Model.str(m, "release_mbid") != null ? MusicBrainz.releaseCoverUrl(m.optString("release_mbid")) : null;
                     t.artistMbid = ids.isEmpty() ? null : ids.get(0);
                     songs.add(t);
+                    String link = r != null ? r.optString("url", "") : "";
+                    if (link.startsWith("https://music.apple.com/")) APPLE.put(t.mbid, link);
                     if (!ids.isEmpty() && seen.add(ids.get(0))) {
                         Artist a = new Artist();
                         a.id = ids.get(0);
