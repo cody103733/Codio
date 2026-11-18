@@ -1,1 +1,1 @@
-Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts.
+Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up.

@@ -11,11 +11,11 @@ enum MB {
         return b.hasPrefix("http") ? b : "https://musicbrainz.org"
     }
 
-    private static func get(_ path: String) async -> Any? {
+    private static func get(_ path: String, background: Bool = false) async -> Any? {
         let b = base
         let url = b + path + (path.contains("fmt=") ? "" : (path.contains("?") ? "&" : "?") + "fmt=json")
         let isSearch = path.contains("query=")
-        let reply = await MusicNet.metadata(url, ttl: isSearch ? MusicNet.day : 7 * MusicNet.day, server: b)
+        let reply = await MusicNet.metadata(url, ttl: isSearch ? MusicNet.day : 7 * MusicNet.day, server: b, background: background)
         return reply.status == 200 ? reply.json : nil
     }
 
@@ -28,7 +28,7 @@ enum MB {
     static func artistId(named name: String) async -> String? {
         let q = "artist:\"" + name.replacingOccurrences(of: "\"", with: "") + "\""
         guard let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
-              let j = await get("/ws/2/artist?query=\(enc)&limit=5") as? JSON else { return nil }
+              let j = await get("/ws/2/artist?query=\(enc)&limit=5", background: true) as? JSON else { return nil }
         let wanted = plain(name)
         return marr(j["artists"]).filter { a in
             guard let id = mstr(a["id"]), isMbid(id) else { return false }
@@ -42,7 +42,7 @@ enum MB {
         let clean = title.replacingOccurrences(of: "\\s+-\\s+(Single|EP|single|ep)$", with: "", options: .regularExpression).replacingOccurrences(of: "\"", with: "")
         let q = "releasegroup:\"\(clean)\" AND artist:\"\(artist.replacingOccurrences(of: "\"", with: ""))\""
         guard let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
-              let j = await get("/ws/2/release-group?query=\(enc)&limit=5") as? JSON else { return nil }
+              let j = await get("/ws/2/release-group?query=\(enc)&limit=5", background: true) as? JSON else { return nil }
         let wanted = plain(clean)
         guard let g = marr(j["release-groups"]).filter({ isMbid(mstr($0["id"])) && plain(mstr($0["title"]) ?? "") == wanted })
             .max(by: { (mint($0["score"]) ?? 0) < (mint($1["score"]) ?? 0) }) else { return nil }
@@ -297,7 +297,7 @@ enum LBData {
 
     /// Artists people are playing now: the ones in the country's chart, else ListenBrainz's.
     static func popularArtists() async -> [MusicArtist] {
-        return Array(await Chart.shared.get().artists.prefix(20))
+        return Array(await Chart.shared.artists().prefix(20))
     }
 
     /// Artists ListenBrainz's listeners played this month (no longer shown).
@@ -542,41 +542,24 @@ actor Chart {
         return String(name[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
     }
 
+    /// The chart's songs, straight from the chart: no matching needed (an addon finds a song by title and artist), so
+    /// the row shows at once. Apple gives covers; for Last.fm's chart (no real pictures) Deezer's cover is looked up.
     static func build() async -> Result {
         let key = activeKey
         let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(100))
-        let found: [JSON?] = await withTaskGroup(of: (Int, JSON?).self) { group in
-            for (i, r) in items.enumerated() {
-                let artist = mstr(r["artistName"]) ?? "", title = mstr(r["name"]) ?? ""
-                group.addTask { (i, await lookup(artist, title)) }
-            }
-            var out = [JSON?](repeating: nil, count: items.count)
-            for await (i, j) in group { out[i] = j }
-            return out
-        }
-        // Every chart song is shown (an addon finds it by title and artist); the MusicBrainz match only adds ids and
-        // covers. The artists row needs ids: from the match, else an exact-name MusicBrainz search.
         var result = Result()
-        var people: [(name: String, id: String?)] = []
-        for (i, r) in items.enumerated() {
-            let m = found[i]
-            let ids = ((m?["artist_mbids"] as? [Any]) ?? []).compactMap { $0 as? String }.filter { isMbid($0) }
-            let credit = mstr(m?["artist_credit_name"]) ?? mstr(r["artistName"]) ?? ""
-            let title = mstr(m?["recording_name"]) ?? mstr(r["name"]) ?? ""
-            guard !credit.isEmpty, !title.isEmpty else { continue }
-            let mbid = mstr(m?["recording_mbid"])
-            let id = mbid.map { "mbid:" + $0 } ?? "chart:\(credit.lowercased())|\(title.lowercased())"
+        for r in items {
+            let artist = mstr(r["artistName"]) ?? "", title = mstr(r["name"]) ?? ""
+            guard !artist.isEmpty, !title.isEmpty else { continue }
+            let id = "chart:\(artist.lowercased())|\(title.lowercased())"
             if let link = mstr(r["url"]), link.hasPrefix("https://music.apple.com/") { AppleLinks.set(id, link) }
-            var art = mstr(m?["release_mbid"]).map { MB.releaseCoverURL($0) }
-            if art == nil, let a = mstr(r["artworkUrl100"]), a.hasPrefix("https://"), a.contains(".mzstatic.com/") {
+            var art: String?
+            if let a = mstr(r["artworkUrl100"]), a.hasPrefix("https://"), a.contains(".mzstatic.com/") {
                 art = a.replacingOccurrences(of: "100x100bb", with: "400x400bb")
             }
-            result.songs.append(MusicTrack(id: id, title: title, artist: credit, album: mstr(m?["release_name"]), durationMs: nil,
-                                           artworkURL: art, isrc: nil, mbid: mbid, artistMbid: ids.first, addon: nil, streamURL: nil))
-            let name = ids.count == 1 ? credit : lead(credit)
-            if !people.contains(where: { $0.name.lowercased() == name.lowercased() }) { people.append((name, ids.first)) }
+            result.songs.append(MusicTrack(id: id, title: title, artist: artist, album: nil, durationMs: nil,
+                                           artworkURL: art, isrc: nil, mbid: nil, artistMbid: nil, addon: nil, streamURL: nil))
         }
-        // Songs with no cover yet (Last.fm sends no real pictures): Deezer's cover of that song.
         let covers: [Int: String] = await withTaskGroup(of: (Int, String?).self) { group in
             for (i, s) in result.songs.enumerated() where s.artworkURL == nil {
                 let artist = s.artist, title = s.title
@@ -587,15 +570,58 @@ actor Chart {
             return out
         }
         for (i, c) in covers { result.songs[i].artworkURL = c }
+        return result
+    }
+
+    private var artistJob: Task<[MusicArtist], Never>?
+    private var artistAt = Date.distantPast
+    private var artistKey = ""
+
+    /// The chart's artists, in chart order (a separate, slower job: their ids are looked up).
+    func artists() async -> [MusicArtist] {
+        let key = Chart.activeKey
+        if key != artistKey { artistKey = key; artistJob = nil }
+        if let artistJob, Date().timeIntervalSince(artistAt) < 1800 { return await artistJob.value }
+        let task = Task { await Chart.buildArtists() }
+        artistJob = task
+        artistAt = Date()
+        let r = await task.value
+        if r.isEmpty { artistJob = nil }
+        return r
+    }
+
+    /// Ids from ListenBrainz's name lookup, else an exact-name MusicBrainz search in the background lane.
+    static func buildArtists() async -> [MusicArtist] {
+        let key = activeKey
+        let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(60))
+        var people: [(name: String, full: String, song: String)] = []
+        for r in items where people.count < 20 {
+            let full = mstr(r["artistName"]) ?? ""
+            let name = lead(full)
+            if !name.isEmpty, !people.contains(where: { plainName($0.name) == plainName(name) }) { people.append((name, full, mstr(r["name"]) ?? "")) }
+        }
+        let ids: [Int: String] = await withTaskGroup(of: (Int, String?).self) { group in
+            for (i, p) in people.enumerated() {
+                let full = p.full, song = p.song
+                group.addTask {
+                    let m = await lookup(full, song)
+                    return (i, ((m?["artist_mbids"] as? [Any]) ?? []).compactMap { $0 as? String }.first { isMbid($0) })
+                }
+            }
+            var out: [Int: String] = [:]
+            for await (i, id) in group { if let id { out[i] = id } }
+            return out
+        }
+        var out: [MusicArtist] = []
         var seen = Set<String>()
-        for p in people.prefix(30) {
-            var id = p.id
+        for (i, p) in people.enumerated() {
+            var id = ids[i]
             if id == nil { id = await MB.artistId(named: p.name) }
             guard let found = id, !seen.contains(found) else { continue }
             seen.insert(found)
-            result.artists.append(MusicArtist(id: found, name: p.name, detail: nil, artworkURL: nil, addon: nil))
+            out.append(MusicArtist(id: found, name: p.name, detail: nil, artworkURL: nil, addon: nil))
         }
-        return result
+        return out
     }
 }
 
@@ -658,13 +684,13 @@ actor AlbumChart {
         for (i, r) in items.enumerated() {
             let date = mstr(r["releaseDate"]) ?? ""
             let isRecent = day.date(from: String(date.prefix(10))).map { $0 >= cutoff } ?? false
-            if i >= 30 && !isRecent { continue }
+            if i >= 24 && !isRecent { continue }
             guard var a = await MB.album(named: mstr(r["name"]) ?? "", artist: mstr(r["artistName"]) ?? "") else { continue }
             if date.count >= 4 { a.year = String(date.prefix(4)) }
             if let art = mstr(r["artworkUrl100"]), art.hasPrefix("https://"), art.contains(".mzstatic.com/") {
                 a.artworkURL = art.replacingOccurrences(of: "100x100bb", with: "400x400bb")
             }
-            if i < 30 { result.popular.append(a) }
+            if i < 24 { result.popular.append(a) }
             if isRecent { recent.append((date, a)) }
         }
         result.recent = recent.sorted { $0.0 > $1.0 }.map { $0.1 }

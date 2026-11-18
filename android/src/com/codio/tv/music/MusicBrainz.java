@@ -34,13 +34,22 @@ public final class MusicBrainz {
     }
 
     private static Object mb(String path) throws Exception {
+        return mb(path, false);
+    }
+
+    /** Matching chart albums and artists: in the background lane, behind anything you opened. */
+    private static Object mbBg(String path) throws Exception {
+        return mb(path, true);
+    }
+
+    private static Object mb(String path, boolean background) throws Exception {
         String base = MusicNet.mbBase();
         if (base.length() == 0) base = DEFAULT;
         base = base.replaceAll("/+$", "");
         if (!base.matches("(?i)^https?://.*")) base = "https://" + base;
         String p = path.contains("fmt=") ? path : path + (path.contains("?") ? "&" : "?") + "fmt=json";
         boolean search = path.matches("^/ws/2/[a-z-]+\\?(?:.*&)?query=.*");
-        return MusicNet.metadata(base, p, search ? MusicNet.DAY : 7 * MusicNet.DAY);
+        return MusicNet.metadata(base, p, search ? MusicNet.DAY : 7 * MusicNet.DAY, background);
     }
 
     private static String plain(String s) {
@@ -52,7 +61,7 @@ public final class MusicBrainz {
     /** An artist's id by exact name (or alias), best score first; null if none. Cached a day like every search. */
     public static String artistIdByName(String name) {
         try {
-            JSONObject j = MusicNet.obj(mb("/ws/2/artist?query=" + enc("artist:\"" + name.replace("\"", "") + "\"") + "&limit=5"));
+            JSONObject j = MusicNet.obj(mbBg("/ws/2/artist?query=" + enc("artist:\"" + name.replace("\"", "") + "\"") + "&limit=5"));
             JSONArray list = j.optJSONArray("artists");
             String wanted = plain(name);
             String best = null;
@@ -79,7 +88,7 @@ public final class MusicBrainz {
         try {
             String clean = title.replaceAll("(?i)\\s+-\\s+(single|ep)$", "").replace("\"", "");
             String q = "releasegroup:\"" + clean + "\" AND artist:\"" + artist.replace("\"", "") + "\"";
-            JSONObject j = MusicNet.obj(mb("/ws/2/release-group?query=" + enc(q) + "&limit=5"));
+            JSONObject j = MusicNet.obj(mbBg("/ws/2/release-group?query=" + enc(q) + "&limit=5"));
             JSONArray list = j.optJSONArray("release-groups");
             String wanted = plain(clean);
             JSONObject best = null;

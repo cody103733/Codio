@@ -13,6 +13,20 @@ actor MusicSpacer {
         let delay = at.timeIntervalSince(now)
         if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
     }
+
+    private var backgroundBusy: Set<String> = []
+
+    /// Background work (matching chart albums and artists): one at a time, and only once nothing else is waiting for
+    /// that server, so a page you open goes first.
+    func waitBackground(_ key: String, gap: TimeInterval) async {
+        while backgroundBusy.contains(key) { try? await Task.sleep(nanoseconds: 200_000_000) }
+        backgroundBusy.insert(key)
+        while let n = next[key], n > Date() {
+            try? await Task.sleep(nanoseconds: UInt64(max(0.01, n.timeIntervalSinceNow) * 1_000_000_000))
+        }
+        await wait(key, gap: gap)
+        backgroundBusy.remove(key)
+    }
 }
 
 struct MusicReply {
@@ -62,14 +76,14 @@ enum MusicNet {
     }
 
     /// A metadata GET: kept on disk for `ttl`, started at least `gap` seconds after the last one to the same server.
-    static func metadata(_ url: String, ttl: TimeInterval, server: String, gap: TimeInterval = 1.0) async -> MusicReply {
+    static func metadata(_ url: String, ttl: TimeInterval, server: String, gap: TimeInterval = 1.0, background: Bool = false) async -> MusicReply {
         if let data = readCache(url, ttl: ttl), let json = parse(data) {
             return MusicReply(status: 200, retryAfter: nil, json: json)
         }
         guard let u = URL(string: url) else { return MusicReply(status: 0, retryAfter: nil, json: nil) }
         var last = MusicReply(status: 0, retryAfter: nil, json: nil)
         for attempt in 0..<3 {
-            await MusicSpacer.shared.wait(server, gap: gap)
+            if background { await MusicSpacer.shared.waitBackground(server, gap: gap) } else { await MusicSpacer.shared.wait(server, gap: gap) }
             var request = URLRequest(url: u)
             request.setValue(agent, forHTTPHeaderField: "User-Agent")
             request.setValue("application/json", forHTTPHeaderField: "Accept")

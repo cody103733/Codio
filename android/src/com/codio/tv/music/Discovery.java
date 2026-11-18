@@ -89,13 +89,13 @@ public final class Discovery {
                         isRecent = date.length() >= 10 && day.parse(date.substring(0, 10)).getTime() >= cutoff;
                     } catch (Exception ignored) {
                     }
-                    if (i >= 30 && !isRecent) continue;
+                    if (i >= 24 && !isRecent) continue;
                     Album a = MusicBrainz.albumByName(r.optString("name", ""), r.optString("artistName", ""));
                     if (a == null) continue;
                     a.year = date.length() >= 4 ? date.substring(0, 4) : null;
                     String art = r.optString("artworkUrl100", "");
                     if (art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*")) a.artworkURL = art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.");
-                    if (i < 30) popular.add(a);
+                    if (i < 24) popular.add(a);
                     if (isRecent) {
                         int at = 0;
                         while (at < recentDates.size() && recentDates.get(at).compareTo(date) >= 0) at++;
@@ -320,104 +320,119 @@ public final class Discovery {
         return list(new JSONObject(new String(body, "UTF-8")), "feed", "results");
     }
 
+    private static JSONArray feedNow(String key) throws Exception {
+        return key.isEmpty() ? chartFeed(country()) : lastfmFeed(country(), key);
+    }
+
+    /**
+     * The chart's songs, straight from the chart: no matching needed (an addon finds a song by title and artist), so the
+     * row shows at once. Apple gives covers; for Last.fm's chart (no real pictures) Deezer's cover is looked up.
+     */
     private static void loadChart() {
         synchronized (CHART_LOCK) {
             String key = MusicNet.activeLastfmKey();
             if (!key.equals(chartKey)) {
                 chartKey = key;
                 chartSongs = null;
+                chartArtists = null;
                 APPLE.clear();
             }
             if (chartSongs != null && System.currentTimeMillis() - chartAt < 30 * 60 * 1000L) return;
             List<Track> songs = new ArrayList<>();
-            List<Artist> artists = new ArrayList<>();
             try {
-                JSONArray items = key.isEmpty() ? chartFeed(country()) : lastfmFeed(country(), key);
-                int n = Math.min(items.length(), 100);
-                List<Future<JSONObject>> jobs = new ArrayList<>();
-                for (int i = 0; i < n; i++) {
-                    final JSONObject r = items.optJSONObject(i);
-                    jobs.add(LOOKUPS.submit(() -> r == null ? null : lookupSong(r.optString("artistName", ""), r.optString("name", ""))));
-                }
-                // Every chart song is shown (an addon finds it by title and artist); the MusicBrainz match only adds ids
-                // and covers. The artists row needs ids: from the match, else an exact-name MusicBrainz search.
-                List<String> names = new ArrayList<>();
-                List<String> nameIds = new ArrayList<>();
-                for (int i = 0; i < n; i++) {
-                    JSONObject m;
-                    try {
-                        m = jobs.get(i).get();
-                    } catch (Exception e) {
-                        m = null;
-                    }
+                JSONArray items = feedNow(key);
+                for (int i = 0; i < items.length() && i < 100; i++) {
                     JSONObject r = items.optJSONObject(i);
                     if (r == null) continue;
-                    JSONArray idsRaw = m == null ? null : m.optJSONArray("artist_mbids");
-                    List<String> ids = new ArrayList<>();
-                    for (int k = 0; idsRaw != null && k < idsRaw.length(); k++) if (MBID.matcher(idsRaw.optString(k)).matches()) ids.add(idsRaw.optString(k));
-                    String credit = m != null && Model.str(m, "artist_credit_name") != null ? m.optString("artist_credit_name") : r.optString("artistName", "");
-                    String title = m != null && Model.str(m, "recording_name") != null ? m.optString("recording_name") : r.optString("name", "");
-                    if (credit.isEmpty() || title.isEmpty()) continue;
+                    String artist = r.optString("artistName", ""), title = r.optString("name", "");
+                    if (artist.isEmpty() || title.isEmpty()) continue;
                     Track t = new Track();
-                    t.mbid = m == null ? null : Model.str(m, "recording_mbid");
-                    t.id = t.mbid != null ? "mbid:" + t.mbid : "chart:" + credit.toLowerCase(Locale.ROOT) + "|" + title.toLowerCase(Locale.ROOT);
+                    t.id = "chart:" + artist.toLowerCase(Locale.ROOT) + "|" + title.toLowerCase(Locale.ROOT);
                     t.title = title;
-                    t.artist = credit;
-                    t.album = m == null ? null : Model.str(m, "release_name");
-                    String rel = m == null ? null : Model.str(m, "release_mbid");
+                    t.artist = artist;
                     String art = r.optString("artworkUrl100", "");
-                    t.artworkURL = rel != null ? MusicBrainz.releaseCoverUrl(rel) : art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*") ? art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.") : null;
-                    t.artistMbid = ids.isEmpty() ? null : ids.get(0);
-                    songs.add(t);
+                    t.artworkURL = art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*") ? art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.") : null;
                     String link = r.optString("url", "");
                     if (link.startsWith("https://music.apple.com/")) APPLE.put(t.id, link);
-                    String name = ids.size() <= 1 ? credit : LEAD.split(credit)[0].trim();
-                    if (ids.isEmpty()) name = LEAD.split(credit)[0].trim();
-                    boolean known = false;
-                    for (String x : names) known |= x.equalsIgnoreCase(name);
-                    if (!known) {
-                        names.add(name);
-                        nameIds.add(ids.isEmpty() ? null : ids.get(0));
-                    }
+                    songs.add(t);
                 }
-                // Songs with no cover yet (Last.fm sends no real pictures): Deezer's cover of that song.
                 List<Future<String>> covers = new ArrayList<>();
-                for (final Track t : songs) {
-                    covers.add(t.artworkURL != null ? null : LOOKUPS.submit(() -> deezerCover(t.artist, t.title)));
-                }
+                for (final Track t : songs) covers.add(t.artworkURL != null ? null : LOOKUPS.submit(() -> deezerCover(t.artist, t.title)));
                 for (int i = 0; i < songs.size(); i++) {
                     try {
                         if (covers.get(i) != null) songs.get(i).artworkURL = covers.get(i).get();
                     } catch (Exception ignored) {
                     }
                 }
-                Set<String> seen = new HashSet<>();
-                for (int i = 0; i < names.size() && i < 30; i++) {
-                    String id = nameIds.get(i) != null ? nameIds.get(i) : MusicBrainz.artistIdByName(names.get(i));
-                    if (id == null || !seen.add(id)) continue;
-                    Artist a = new Artist();
-                    a.id = id;
-                    a.name = names.get(i);
-                    artists.add(a);
-                }
             } catch (Exception ignored) {
-                // nothing from the chart: the rows stay empty
+                // nothing from the chart: the row stays empty
             }
             chartSongs = songs;
-            chartArtists = artists;
             chartAt = songs.isEmpty() ? 0 : System.currentTimeMillis();
         }
     }
 
-    /** Songs people are playing this week: the country's chart, else ListenBrainz's. */
+    private static final Object ARTIST_LOCK = new Object();
+    private static long artistsAt;
+    private static String artistsKey = "";
+
+    /**
+     * The chart's artists, in chart order. Their MusicBrainz ids come from ListenBrainz's name lookup, else an exact-name
+     * MusicBrainz search made in the background lane (so pages you open never wait behind it).
+     */
+    private static void loadArtists() {
+        synchronized (ARTIST_LOCK) {
+            String key = MusicNet.activeLastfmKey();
+            if (chartArtists != null && key.equals(artistsKey) && System.currentTimeMillis() - artistsAt < 30 * 60 * 1000L) return;
+            artistsKey = key;
+            List<Artist> artists = new ArrayList<>();
+            try {
+                JSONArray items = feedNow(key);
+                final List<String[]> people = new ArrayList<>();
+                for (int i = 0; i < items.length() && i < 60 && people.size() < 20; i++) {
+                    JSONObject r = items.optJSONObject(i);
+                    if (r == null) continue;
+                    String full = r.optString("artistName", "");
+                    String name = LEAD.split(full)[0].trim();
+                    boolean known = name.isEmpty();
+                    for (String[] p : people) known |= plainName(p[0]).equals(plainName(name));
+                    if (!known) people.add(new String[]{name, full, r.optString("name", "")});
+                }
+                List<Future<JSONObject>> jobs = new ArrayList<>();
+                for (final String[] p : people) jobs.add(LOOKUPS.submit(() -> lookupSong(p[1], p[2])));
+                Set<String> seen = new HashSet<>();
+                for (int i = 0; i < people.size(); i++) {
+                    String id = null;
+                    try {
+                        JSONObject m = jobs.get(i).get();
+                        JSONArray ids = m == null ? null : m.optJSONArray("artist_mbids");
+                        if (ids != null && ids.length() > 0 && MBID.matcher(ids.optString(0)).matches()) id = ids.optString(0);
+                    } catch (Exception ignored) {
+                    }
+                    if (id == null) id = MusicBrainz.artistIdByName(people.get(i)[0]);
+                    if (id == null || !seen.add(id)) continue;
+                    Artist a = new Artist();
+                    a.id = id;
+                    a.name = people.get(i)[0];
+                    artists.add(a);
+                }
+            } catch (Exception ignored) {
+                // the row stays empty
+            }
+            chartArtists = artists;
+            artistsAt = artists.isEmpty() ? 0 : System.currentTimeMillis();
+        }
+    }
+
+    /** Songs people are playing now: the country's chart (Apple's, or Last.fm's when you picked it). */
     public static List<Track> popularSongs() {
         loadChart();
         return new ArrayList<>(chartSongs.subList(0, Math.min(100, chartSongs.size())));
     }
 
-    /** Artists people are playing now: the ones in the country's chart, else ListenBrainz's. */
+    /** Artists in the country's chart. */
     public static List<Artist> popularArtists() {
-        loadChart();
+        loadArtists();
         return new ArrayList<>(chartArtists.subList(0, Math.min(20, chartArtists.size())));
     }
 

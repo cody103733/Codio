@@ -125,9 +125,13 @@ export const popularSongs = async (): Promise<MusicTrack[]> => {
     });
 };
 
-// Artists in the country's chart.
+// Artists in the country's chart (a separate, slower call: their ids are looked up).
 export const popularArtists = async (): Promise<MusicArtist[]> => {
-    const c = await chart();
+    const key = activeLastfmKey();
+    const cc = country();
+    const headers: Record<string, string> = { 'X-Codio': '1' };
+    if (key) headers['X-Lastfm-Key'] = key;
+    const c = await fetch(`/api/music/chart-artists?cc=${cc}&country=${enc(countryName(cc))}`, { headers }).then((r) => r.ok ? r.json() : null).catch(() => null);
     return list(c?.artists).filter((a) => a.id && a.name).slice(0, 20).map((a): MusicArtist => ({ id: String(a.id), name: String(a.name), detail: null }));
 };
 

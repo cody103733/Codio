@@ -170,6 +170,31 @@ public final class MusicNet {
         }
     }
 
+    private static final Object BG = new Object();
+
+    /**
+     * Background work (matching chart albums and artists): one at a time, and only once nothing else is waiting for that
+     * server, so a page you open goes first.
+     */
+    public static void spacedBackground(String origin, long gapMs) {
+        synchronized (BG) {
+            for (;;) {
+                long wait;
+                synchronized (NEXT) {
+                    Long next = NEXT.get(origin);
+                    wait = next == null ? 0 : next - System.currentTimeMillis();
+                }
+                if (wait <= 0) break;
+                try {
+                    Thread.sleep(wait);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+            spaced(origin, gapMs);
+        }
+    }
+
     // ---- disk cache
 
     private static File cacheFile(String key, String ext) {
@@ -224,6 +249,10 @@ public final class MusicNet {
      * (a JSONObject or JSONArray), or null for an empty answer (204).
      */
     public static Object metadata(String origin, String path, long ttl) throws IOException {
+        return metadata(origin, path, ttl, false);
+    }
+
+    public static Object metadata(String origin, String path, long ttl, boolean background) throws IOException {
         String url = origin + path;
         byte[] cached = readCache(url, ttl);
         if (cached != null) {
@@ -233,7 +262,8 @@ public final class MusicNet {
             }
         }
         for (int attempt = 0; attempt < 3; attempt++) {
-            spaced(origin, 1000);
+            if (background) spacedBackground(origin, 1000);
+            else spaced(origin, 1000);
             Reply r = get(url, 15000);
             if (r.status == 200) {
                 writeCache(url, r.body);

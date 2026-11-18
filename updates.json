@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.6",
-    "versionCode": 72,
+    "version": "1.6.7",
+    "versionCode": 73,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts."
+    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
   },
   "phone": {
-    "version": "1.2.6",
-    "versionCode": 31,
+    "version": "1.2.7",
+    "versionCode": 32,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts."
+    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
   },
   "windows": {
     "version": "1.10.6",

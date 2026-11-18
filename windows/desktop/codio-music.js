@@ -80,6 +80,21 @@ const spaced = (origin, job, gap = GAP_MS) => new Promise((resolve, reject) => {
     setTimeout(() => job().then(resolve, reject), at - Date.now());
 });
 
+// Background work (matching chart albums and artists) waits for a free moment, so a page you open goes first.
+const bgChains = new Map();
+const spacedBg = (origin, job, gap = GAP_MS) => {
+    const run = (bgChains.get(origin) || Promise.resolve()).then(async () => {
+        for (;;) {
+            const wait = (nextStart.get(origin) || 0) - Date.now();
+            if (wait <= 0) break;
+            await new Promise((resolve) => setTimeout(resolve, wait));
+        }
+        return spaced(origin, job, gap);
+    });
+    bgChains.set(origin, run.catch(() => null));
+    return run;
+};
+
 const cacheFile = (url) => path.join(CACHE_DIR, crypto.createHash('sha1').update(url).digest('hex') + '.json');
 const readCache = (url, ttl) => {
     try {
@@ -259,7 +274,7 @@ const artistByName = async (name) => {
     const url = `${DEFAULT_MB}/ws/2/artist?query=${encodeURIComponent(`artist:"${name.replace(/"/g, '')}"`)}&limit=5&fmt=json`;
     let body = readCache(url, 30 * DAY);
     if (!body) {
-        const res = await spaced(DEFAULT_MB, () => fetchUrl(url));
+        const res = await spacedBg(DEFAULT_MB, () => fetchUrl(url));
         if (res.status !== 200) return null;
         body = res.body;
         writeCache(url, body);
@@ -295,37 +310,52 @@ const appleArt = (r) => typeof r.artworkUrl100 === 'string' && /^https:\/\/is\d+
 // Every chart song is shown (an addon finds it by title and artist); the MusicBrainz match only adds ids and covers. The
 // artists row needs ids: from the song match, else an exact-name MusicBrainz search. ListenBrainz's own charts are never
 // mixed in.
+// The chart's songs, straight from the chart: no matching needed (an addon finds a song by title and artist), so the
+// row shows at once. Apple gives covers; for Last.fm's chart (no real pictures) Deezer's cover is looked up.
 const buildChart = async (cc, country, key) => {
     const source = key ? 'lastfm' : 'apple';
     const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 100);
-    const found = await Promise.all(items.map((r) => lookupSong(String(r.artistName || ''), String(r.name || '')).catch(() => null)));
-    const songs = [];
+    const songs = items.map((r) => ({
+        mbid: null, title: String(r.name || ''), artist: String(r.artistName || ''), album: null, releaseMbid: null, artistMbid: null,
+        art: appleArt(r), appleUrl: typeof r.url === 'string' && /^https:\/\/music\.apple\.com\//.test(r.url) ? r.url : null,
+    })).filter((x) => x.title && x.artist);
+    await Promise.all(songs.map(async (x) => {
+        if (!x.art) x.art = await deezerCover(x.artist, x.title).catch(() => null);
+    }));
+    return JSON.stringify({ country: cc, source, songs });
+};
+
+// The chart's artists, in chart order. Their MusicBrainz ids come from ListenBrainz's name lookup, else an exact-name
+// MusicBrainz search made in the background lane (so pages you open never wait behind it). Answers are kept a month.
+const buildArtists = async (cc, country, key) => {
+    const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 60);
     const people = [];
-    items.forEach((r, i) => {
-        const m = found[i];
-        const ids = m && Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((x) => MBID.test(x)) : [];
-        const credit = String((m && m.artist_credit_name) || r.artistName || '');
-        const title = String((m && m.recording_name) || r.name || '');
-        if (!title || !credit) return;
-        songs.push({
-            mbid: m ? m.recording_mbid : null, title, artist: credit, album: (m && m.release_name) || null,
-            releaseMbid: (m && m.release_mbid) || null, artistMbid: ids[0] || null, art: m && m.release_mbid ? null : appleArt(r),
-            appleUrl: typeof r.url === 'string' && /^https:\/\/music\.apple\.com\//.test(r.url) ? r.url : null,
-        });
-        const name = ids.length === 1 ? credit : leadArtist(credit);
-        if (!people.some((p) => plain(p.name) === plain(name))) people.push({ id: ids[0] || null, name });
-    });
-    await Promise.all(songs.map(async (s) => {
-        if (!s.releaseMbid && !s.art) s.art = await deezerCover(s.artist, s.title).catch(() => null);
+    for (const r of items) {
+        const name = leadArtist(String(r.artistName || ''));
+        if (name && !people.some((x) => plain(x.name) === plain(name))) people.push({ name, song: String(r.name || ''), full: String(r.artistName || '') });
+        if (people.length >= 20) break;
+    }
+    const ids = await Promise.all(people.map(async (x) => {
+        const m = await lookupSong(x.full, x.song).catch(() => null);
+        const list = m && Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((id) => MBID.test(id)) : [];
+        return list[0] || null;
     }));
     const artists = [];
-    for (const p of people.slice(0, 30)) {
-        const id = p.id || await artistByName(p.name).catch(() => null);
-        if (id && !artists.some((a) => a.id === id)) artists.push({ id, name: p.name });
+    for (let i = 0; i < people.length; i++) {
+        const id = ids[i] || await artistByName(people[i].name).catch(() => null);
+        if (id && !artists.some((a) => a.id === id)) artists.push({ id, name: people[i].name });
     }
-    const matched = found.filter(Boolean).length;
-    if (items.length > 0 && matched < items.length / 2) console.warn(`[music] chart: only ${matched} of ${items.length} songs matched to MusicBrainz`);
-    return JSON.stringify({ country: cc, source, songs, artists });
+    return JSON.stringify({ country: cc, artists });
+};
+const artistCharts = new Map();
+const artistsFor = (cc, country, key) => {
+    const id = `${cc}|${key ? crypto.createHash('sha1').update(key).digest('hex') : ''}`;
+    const known = artistCharts.get(id);
+    if (known && Date.now() - known.at < 30 * 60 * 1000) return known.job;
+    const job = buildArtists(cc, country, key);
+    artistCharts.set(id, { at: Date.now(), job });
+    job.catch(() => artistCharts.delete(id));
+    return job;
 };
 
 // An album's MusicBrainz release group by title and artist (Apple adds " - Single" / " - EP"). Kept a month.
@@ -335,7 +365,7 @@ const albumByName = async (title, artist) => {
     const url = `${DEFAULT_MB}/ws/2/release-group?query=${encodeURIComponent(q)}&limit=5&fmt=json`;
     let body = readCache(url, 30 * DAY);
     if (!body) {
-        const res = await spaced(DEFAULT_MB, () => fetchUrl(url));
+        const res = await spacedBg(DEFAULT_MB, () => fetchUrl(url));
         if (res.status !== 200) return null;
         body = res.body;
         writeCache(url, body);
@@ -367,8 +397,8 @@ const buildAlbums = async (cc) => {
     const items = feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
     const cutoff = Date.now() - 56 * DAY;
     const recent = items.filter((r) => Date.parse(r.releaseDate || '') >= cutoff);
-    // The top 30, plus every recent one further down, each looked up once (MusicBrainz asks for one call a second).
-    const wanted = items.slice(0, 30).concat(recent.filter((r) => items.indexOf(r) >= 30));
+    // The top 24, plus every recent one further down, each looked up once (MusicBrainz asks for one call a second).
+    const wanted = items.slice(0, 24).concat(recent.filter((r) => items.indexOf(r) >= 24));
     const found = new Map();
     for (const r of wanted) {
         const m = await albumByName(r.name || '', r.artistName || '').catch(() => null);
@@ -377,7 +407,7 @@ const buildAlbums = async (cc) => {
     const pick = (list) => list.map((r) => found.get(r)).filter(Boolean);
     return JSON.stringify({
         country: cc,
-        popular: pick(items.slice(0, 30)),
+        popular: pick(items.slice(0, 24)),
         recent: pick(recent).sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate))),
     });
 };
@@ -548,6 +578,14 @@ const handle = (request, response, pathname) => {
             else if (j && (j.error === 10 || j.error === 26 || j.error === 4)) send(response, 200, JSON.stringify({ ok: false }));
             else fail(response, 502, 'Couldn\'t reach Last.fm');
         }, () => fail(response, 502, 'Couldn\'t reach Last.fm'));
+        return true;
+    }
+    if (pathname === '/api/music/chart-artists') {
+        const cc = String(url.searchParams.get('cc') || 'us').toLowerCase();
+        const key = String(request.headers['x-lastfm-key'] || '').trim();
+        const country = String(url.searchParams.get('country') || 'United States').slice(0, 80);
+        artistsFor(/^[a-z]{2}$/.test(cc) ? cc : 'us', country, /^[A-Za-z0-9]{16,64}$/.test(key) ? key : '')
+            .then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
         return true;
     }
     if (pathname === '/api/music/chart-albums') {
