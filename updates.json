@@ -12,10 +12,10 @@
     "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
   },
   "windows": {
-    "version": "1.10.6",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.6/CodioSetup-1.10.6.exe",
-    "size": 66170935,
-    "sha256": "558e5b109365082b346ea06d22a4bad3bccb06052e5c8db89cb35d7af5bb57c0",
-    "notes": "Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts."
+    "version": "1.10.7",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.7/CodioSetup-1.10.7.exe",
+    "size": 66169682,
+    "sha256": "538e115a4a68d92b26bba9b8a002c75ad66384316be73bc4bf69abfa4520f4cc",
+    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
   }
 }
