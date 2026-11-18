@@ -156,11 +156,22 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
                 }
             });
         }
-        String lfSub = lf.length() == 0 ? "Not set: Popular rows use Apple Music" : lastfmState == 1 ? "✔ Connected: Popular rows use Last.fm" : lastfmState == 0 ? "Last.fm didn't accept this key (use the API key, not the shared secret)" : lastfmState == 2 ? "Checking the key…" : "Couldn't reach Last.fm to check the key";
+        item("Chart", MusicNet.chartLastfm() && lf.length() > 0 ? "Last.fm (what Last.fm users track)" : "Apple Music (US streaming, closest to Billboard)", new Runnable() {
+            @Override
+            public void run() {
+                if (MusicNet.lastfmKey().isEmpty()) {
+                    tv.toast("Add a Last.fm API key first");
+                    return;
+                }
+                MusicNet.setChartLastfm(!MusicNet.chartLastfm());
+                fill();
+            }
+        }).head = "Charts";
+        String lfSub = lf.length() == 0 ? "Not set" : lastfmState == 1 ? "✔ Connected" : lastfmState == 0 ? "Last.fm didn't accept this key (use the API key, not the shared secret)" : lastfmState == 2 ? "Checking the key…" : "Couldn't reach Last.fm to check the key";
         Item charts = item("Last.fm API key", lfSub, new Runnable() {
             @Override
             public void run() {
-                tv.push(new TextEntryScreen(tv, "Last.fm API key", "Your own key from last.fm/api. Popular songs and artists then use Last.fm's chart instead of Apple's. Leave it empty for Apple's.", MusicNet.lastfmKey(), false, new TextEntryScreen.Done() {
+                tv.push(new TextEntryScreen(tv, "Last.fm API key", "Your own key from last.fm/api. Then pick Last.fm under Chart to use Last.fm's chart.", MusicNet.lastfmKey(), false, new TextEntryScreen.Done() {
                     @Override
                     public void done(String text) {
                         MusicNet.setLastfmKey(text);

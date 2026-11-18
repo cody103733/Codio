@@ -225,6 +225,8 @@ const AddonsPanel = () => {
     const [error, setError] = useState<string | null>(null);
     const [server, setServer] = useState(loadMusicSettings().mbBase);
     const [lastfm, setLastfm] = useState(loadMusicSettings().lastfmKey);
+    const [chartPick, setChartPick] = useState(loadMusicSettings().chart);
+    const pickChart = (c: 'apple' | 'lastfm') => { setChartPick(c); saveMusicSettings({ chart: c }); };
     const platform = usePlatform() as any;
 
     const add = async () => {
@@ -297,8 +299,12 @@ const AddonsPanel = () => {
             </div>
             <div className={m['section-title']}>Charts</div>
             <div className={m['note']}>
-                Popular songs and artists come from Apple Music's chart for your country, with a button to listen there. Paste your own Last.fm API key
-                (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode.
+                Popular songs, artists and the Top 100 follow Apple Music's chart for your country (real streaming, the closest to Billboard), with a button to listen there.
+                Last.fm's chart follows what Last.fm users track instead, which leans indie and alternative. To use it, paste your own Last.fm API key (free) and pick Last.fm. The key syncs with your Sync passcode.
+            </div>
+            <div className={m['addon-box']}>
+                <button className={classnames(m['mini-button'], { [m['picked']]: chartPick === 'apple' })} onClick={() => pickChart('apple')}>Apple Music chart</button>
+                <button className={classnames(m['mini-button'], { [m['picked']]: chartPick === 'lastfm' })} disabled={lastfm.trim().length === 0} onClick={() => pickChart('lastfm')}>Last.fm chart</button>
             </div>
             <div className={m['addon-box']}>
                 <input
@@ -311,7 +317,7 @@ const AddonsPanel = () => {
                 />
                 {lastfm.trim().length === 0 ? <button className={m['mini-button']} onClick={() => platform.openExternal?.('https://www.last.fm/api/account/create')}>Get a key</button> : null}
             </div>
-            {lastfmState === 'ok' ? <div className={m['key-ok']}>✔ Connected. Popular songs and artists use Last.fm.</div> : null}
+            {lastfmState === 'ok' ? <div className={m['key-ok']}>✔ Connected.</div> : null}
             {lastfmState === 'bad' ? <div className={m['error']}>Last.fm didn't accept this key. Check that you copied the API key, not the shared secret.</div> : null}
             {lastfmState === 'checking' ? <div className={m['note']}>Checking the key…</div> : null}
             {lastfmState === 'offline' ? <div className={m['note']}>Couldn't reach Last.fm to check the key.</div> : null}
@@ -389,7 +395,7 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
     const freshAll = useRow('new-releases', newReleases);
     const chartFresh = useRow('chart-new-releases', chartNewReleases);
     const [allTop, setAllTop] = useState(false);
-    const source = loadMusicSettings().lastfmKey;
+    const source = chartSource();
     const songs = useRow(`popular-songs-${source}`, popularSongs);
     const artists = useRow(`popular-artists-${source}`, popularArtists);
     const loading = [albums, freshAll, songs, artists].every((r) => r === null);

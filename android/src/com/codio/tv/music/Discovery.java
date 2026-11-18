@@ -171,7 +171,7 @@ public final class Discovery {
 
     /** "lastfm" when your Last.fm key is set (its chart replaces Apple's), else "apple". */
     public static String chartSource() {
-        return MusicNet.lastfmKey().isEmpty() ? "apple" : "lastfm";
+        return MusicNet.activeLastfmKey().isEmpty() ? "apple" : "lastfm";
     }
 
     /** Is this Last.fm key accepted? 1 yes, 0 no (Last.fm said so), -1 couldn't ask. Blocking. */
@@ -322,7 +322,7 @@ public final class Discovery {
 
     private static void loadChart() {
         synchronized (CHART_LOCK) {
-            String key = MusicNet.lastfmKey();
+            String key = MusicNet.activeLastfmKey();
             if (!key.equals(chartKey)) {
                 chartKey = key;
                 chartSongs = null;

@@ -7,7 +7,8 @@ import type { MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types
 const SETTINGS_KEY = 'codioMusicSettings';
 
 // lastfmKey: your own Last.fm API key. With one, the Popular rows use Last.fm's chart for your country instead of Apple's.
-export type MusicSettings = { mbBase: string, lastfmKey: string };
+// chart: which chart the Popular songs/artists rows follow. Apple's (US streaming) unless you pick Last.fm and have a key.
+export type MusicSettings = { mbBase: string, lastfmKey: string, chart: 'apple' | 'lastfm' };
 
 export const loadMusicSettings = (): MusicSettings => {
     try {
@@ -15,11 +16,15 @@ export const loadMusicSettings = (): MusicSettings => {
         return {
             mbBase: typeof saved.mbBase === 'string' && saved.mbBase.length > 0 ? saved.mbBase : '',
             lastfmKey: typeof saved.lastfmKey === 'string' ? saved.lastfmKey.trim() : '',
+            chart: saved.chart === 'lastfm' ? 'lastfm' : 'apple',
         };
     } catch (_e) {
-        return { mbBase: '', lastfmKey: '' };
+        return { mbBase: '', lastfmKey: '', chart: 'apple' };
     }
 };
+
+// The Last.fm key in use for the charts: only when you picked Last.fm.
+export const activeLastfmKey = (): string => { const s = loadMusicSettings(); return s.chart === 'lastfm' ? s.lastfmKey : ''; };
 
 export const saveMusicSettings = (settings: Partial<MusicSettings>) => {
     try {

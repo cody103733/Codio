@@ -102,7 +102,29 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         body.addView(server, sl);
 
         body.addView(heading("CHARTS"));
-        body.addView(footer("Popular songs and artists come from Apple Music's chart for your country, with a way to listen there. Paste your own Last.fm API key (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode."));
+        body.addView(footer("Popular songs, artists and the Top 100 follow Apple Music's chart for your country (real streaming, the closest to Billboard). Last.fm's chart follows what Last.fm users track, which leans indie and alternative. To use it, paste your own Last.fm API key (free) and pick Last.fm. The key syncs with your Sync passcode."));
+        final TextView chartPick = PhoneKit.link(c, "", Theme.RED);
+        chartPick.setPadding(dp(16), dp(10), dp(16), dp(10));
+        final Runnable showPick = new Runnable() {
+            @Override
+            public void run() {
+                chartPick.setText(MusicNet.chartLastfm() ? "Chart: Last.fm  (tap for Apple Music)" : "Chart: Apple Music  (tap for Last.fm)");
+            }
+        };
+        showPick.run();
+        chartPick.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (lastfm != null) MusicNet.setLastfmKey(lastfm.getText().toString());
+                if (!MusicNet.chartLastfm() && MusicNet.lastfmKey().isEmpty()) {
+                    ui.toast("Add a Last.fm API key first");
+                    return;
+                }
+                MusicNet.setChartLastfm(!MusicNet.chartLastfm());
+                showPick.run();
+            }
+        });
+        body.addView(chartPick);
         lastfm = input("Last.fm API key", false);
         lastfm.setText(MusicNet.lastfmKey());
         lastfm.setOnFocusChangeListener(new View.OnFocusChangeListener() {
@@ -433,7 +455,7 @@ final class PhoneMusicAddons extends PhoneUi.Page {
             public void done(Integer v, Exception e) {
                 if (gen != lastfmGen) return;
                 int st = v == null ? -1 : v;
-                lastfmStatus.setText(st == 1 ? "✔  Connected. Popular songs and artists use Last.fm." : st == 0 ? "Last.fm didn't accept this key. Use the API key, not the shared secret." : "Couldn't reach Last.fm to check the key.");
+                lastfmStatus.setText(st == 1 ? "✔  Connected." : st == 0 ? "Last.fm didn't accept this key. Use the API key, not the shared secret." : "Couldn't reach Last.fm to check the key.");
                 lastfmStatus.setTextColor(st == 1 ? 0xFF46D369 : st == 0 ? PhoneKit.DESTRUCTIVE : PhoneKit.GRAY);
             }
         });

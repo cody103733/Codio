@@ -281,6 +281,20 @@ public final class MusicNet {
         prefs.edit().putString("lastfmKey", s == null ? "" : s.trim()).apply();
     }
 
+    /** True when you picked Last.fm's chart (Apple's, the closest to Billboard, is the default). */
+    public static boolean chartLastfm() {
+        return prefs.getBoolean("chartLastfm", false);
+    }
+
+    public static void setChartLastfm(boolean on) {
+        prefs.edit().putBoolean("chartLastfm", on).apply();
+    }
+
+    /** The Last.fm key in use for the charts: only when you picked Last.fm. */
+    public static String activeLastfmKey() {
+        return chartLastfm() ? lastfmKey() : "";
+    }
+
     /** Result callback, always delivered on the main thread. */
     public interface Done<T> {
         void done(T value, Exception error);

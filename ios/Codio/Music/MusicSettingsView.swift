@@ -13,6 +13,7 @@ struct MusicSettingsView: View {
     @State private var signInError: String?
     @State private var server = UserDefaults.standard.string(forKey: MB.baseKey) ?? ""
     @State private var lastfm = Chart.lastfmKey
+    @State private var useLastfm = Chart.useLastfm
     @State private var lastfmOK: Bool??
     @State private var lastfmChecking = false
     @State private var sure = false
@@ -34,6 +35,15 @@ struct MusicSettingsView: View {
                 Text("Artists, albums and covers come from MusicBrainz. If you run your own MusicBrainz server, put its address here. Leave it empty to use musicbrainz.org.")
             }
             Section {
+                Picker("Chart", selection: $useLastfm) {
+                    Text("Apple Music").tag(false)
+                    Text("Last.fm").tag(true)
+                }
+                .onChange(of: useLastfm) { on in
+                    if on && lastfm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { useLastfm = false; return }
+                    Chart.useLastfm = on
+                    MusicHome.shared.reloadCharts()
+                }
                 TextField("Last.fm API key", text: $lastfm)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .onSubmit { saveLastfm() }
@@ -43,7 +53,7 @@ struct MusicSettingsView: View {
                     Text("Checking the key…").foregroundColor(Theme.dim)
                 } else if let ok = lastfmOK, !lastfm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     if ok == true {
-                        Label("Connected. Popular songs and artists use Last.fm.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+                        Label("Connected.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
                     } else if ok == false {
                         Label("Last.fm didn't accept this key. Use the API key, not the shared secret.", systemImage: "xmark.circle.fill").foregroundColor(Theme.redSoft)
                     } else {
@@ -56,7 +66,7 @@ struct MusicSettingsView: View {
             } header: {
                 Text("Charts")
             } footer: {
-                Text("Popular songs and artists come from Apple Music's chart for your country, with a way to listen there. Paste your own Last.fm API key (free at last.fm/api) to use Last.fm's chart instead. Leave it empty for Apple's. It syncs with your Sync passcode.")
+                Text("Popular songs, artists and the Top 100 follow Apple Music's chart for your country (real streaming, the closest to Billboard). Last.fm's chart follows what Last.fm users track, which leans indie and alternative. To use it, paste your own Last.fm API key (free) and pick Last.fm. The key syncs with your Sync passcode.")
             }
         }
         .scrollContentBackground(.hidden)

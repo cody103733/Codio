@@ -3,7 +3,7 @@
 // is made once and kept by Codio's server for hours or days, so the Music page opens fast after the first time.
 
 import type { MusicAlbum, MusicArtist, MusicTrack } from './types';
-import { artUrl, coverUrl, loadMusicSettings, releaseCoverUrl } from './musicbrainz';
+import { activeLastfmKey, artUrl, coverUrl, releaseCoverUrl } from './musicbrainz';
 
 const enc = encodeURIComponent;
 
@@ -82,11 +82,11 @@ const countryName = (cc: string): string => {
     }
 };
 // 'lastfm' when your Last.fm key is set (its chart replaces Apple's), else 'apple'.
-export const chartSource = (): 'lastfm' | 'apple' => loadMusicSettings().lastfmKey ? 'lastfm' : 'apple';
+export const chartSource = (): 'lastfm' | 'apple' => activeLastfmKey() ? 'lastfm' : 'apple';
 let chartJob: Promise<any> | null = null;
 let chartFor = '';
 const chart = (): Promise<any> => {
-    const key = loadMusicSettings().lastfmKey;
+    const key = activeLastfmKey();
     if (chartFor !== key) {
         chartFor = key;
         chartJob = null;

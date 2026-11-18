@@ -428,10 +428,19 @@ actor Chart {
     }
 
     /// "lastfm" when your Last.fm key is set (its chart replaces Apple's), else "apple".
-    static var source: String { lastfmKey.isEmpty ? "apple" : "lastfm" }
+    static var source: String { activeKey.isEmpty ? "apple" : "lastfm" }
+
+    /// True when you picked Last.fm's chart (Apple's, the closest to Billboard, is the default).
+    static var useLastfm: Bool {
+        get { UserDefaults.standard.bool(forKey: "music_chart_lastfm") }
+        set { UserDefaults.standard.set(newValue, forKey: "music_chart_lastfm") }
+    }
+
+    /// The Last.fm key in use for the charts: only when you picked Last.fm.
+    static var activeKey: String { useLastfm ? lastfmKey : "" }
 
     func get() async -> Result {
-        let key = Chart.lastfmKey
+        let key = Chart.activeKey
         if key != keyUsed {
             keyUsed = key
             job = nil
@@ -534,7 +543,7 @@ actor Chart {
     }
 
     static func build() async -> Result {
-        let key = lastfmKey
+        let key = activeKey
         let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(100))
         let found: [JSON?] = await withTaskGroup(of: (Int, JSON?).self) { group in
             for (i, r) in items.enumerated() {
