@@ -12,10 +12,10 @@
     "notes": "Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it."
   },
   "windows": {
-    "version": "1.10.4",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.4/CodioSetup-1.10.4.exe",
-    "size": 66164962,
-    "sha256": "3de514852114973a782036f5401d3b129053dddb99e83db13eea12c5327d3bc4",
-    "notes": "Music > Addons: a Get a key button for Last.fm, shown until you enter one."
+    "version": "1.10.5",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.5/CodioSetup-1.10.5.exe",
+    "size": 66166458,
+    "sha256": "ad6225fa5d7711ed4745d5ce3e31d84ba8369cd9f9bed19dfbaba5c30ef976c6",
+    "notes": "Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it."
   }
 }
