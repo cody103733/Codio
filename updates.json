@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.2",
-    "versionCode": 68,
+    "version": "1.6.3",
+    "versionCode": 69,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Popular songs from Apple's chart now have Listen on Apple Music. Or paste your own Last.fm API key in Music settings to use Last.fm's chart instead."
+    "notes": "Popular songs and artists now always show your country's chart. Before, if songs couldn't be matched, the old ListenBrainz list came back."
   },
   "phone": {
-    "version": "1.2.2",
-    "versionCode": 27,
+    "version": "1.2.3",
+    "versionCode": 28,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Popular songs from Apple's chart now have Listen on Apple Music. Or paste your own Last.fm API key in Music settings to use Last.fm's chart instead."
+    "notes": "Popular songs and artists now always show your country's chart. Before, if songs couldn't be matched, the old ListenBrainz list came back."
   },
   "windows": {
     "version": "1.10.2",

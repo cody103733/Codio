@@ -1,1 +1,1 @@
-Popular songs from Apple's chart now have Listen on Apple Music. Or paste your own Last.fm API key in Music settings to use Last.fm's chart instead.
+Popular songs and artists now always show your country's chart. Before, if songs couldn't be matched, the old ListenBrainz list came back.

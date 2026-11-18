@@ -130,7 +130,7 @@ const metadata = async (response, origin, p, ttl) => {
 };
 
 // Cover art: fetched once, kept on disk (a miss is remembered for a day), so every later look is instant.
-const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org|([a-z0-9-]+\.)*dzcdn\.net)$/;
+const IMAGE_HOSTS = /^(coverartarchive\.org|([a-z0-9-]+\.)*archive\.org|([a-z0-9-]+\.)*dzcdn\.net|is\d+-ssl\.mzstatic\.com)$/;
 const image = async (response, target) => {
     let u;
     try {
@@ -252,28 +252,56 @@ const appleFeed = async (cc) => {
     return feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
 };
 
+// An artist's MusicBrainz id by exact name (for chart songs the name lookup missed). Kept a month.
+const artistByName = async (name) => {
+    const url = `${DEFAULT_MB}/ws/2/artist?query=${encodeURIComponent(`artist:"${name.replace(/"/g, '')}"`)}&limit=5&fmt=json`;
+    let body = readCache(url, 30 * DAY);
+    if (!body) {
+        const res = await spaced(DEFAULT_MB, () => fetchUrl(url));
+        if (res.status !== 200) return null;
+        body = res.body;
+        writeCache(url, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    const wanted = plain(name);
+    const hit = (j && Array.isArray(j.artists) ? j.artists : []).filter((a) => a && MBID.test(a.id) && (plain(a.name) === wanted || (Array.isArray(a.aliases) && a.aliases.some((x) => plain(x && x.name) === wanted))))
+        .sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+    return hit ? hit.id : null;
+};
+
+// Apple's 100px artwork, bigger.
+const appleArt = (r) => typeof r.artworkUrl100 === 'string' && /^https:\/\/is\d+-ssl\.mzstatic\.com\//.test(r.artworkUrl100) ? r.artworkUrl100.replace(/\/\d+x\d+bb\./, '/400x400bb.') : null;
+
+// Every chart song is shown (an addon finds it by title and artist); the MusicBrainz match only adds ids and covers. The
+// artists row needs ids: from the song match, else an exact-name MusicBrainz search. ListenBrainz's own charts are never
+// mixed in.
 const buildChart = async (cc, country, key) => {
     const source = key ? 'lastfm' : 'apple';
     const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 40);
     const found = await Promise.all(items.map((r) => lookupSong(String(r.artistName || ''), String(r.name || '')).catch(() => null)));
     const songs = [];
-    const artists = [];
-    const seen = new Set();
+    const people = [];
     items.forEach((r, i) => {
         const m = found[i];
-        if (!m) return;
-        const ids = Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((x) => MBID.test(x)) : [];
-        const credit = String(m.artist_credit_name || r.artistName || '');
+        const ids = m && Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((x) => MBID.test(x)) : [];
+        const credit = String((m && m.artist_credit_name) || r.artistName || '');
+        const title = String((m && m.recording_name) || r.name || '');
+        if (!title || !credit) return;
         songs.push({
-            mbid: m.recording_mbid, title: String(m.recording_name || r.name || ''), artist: credit, album: m.release_name || null,
-            releaseMbid: m.release_mbid || null, artistMbid: ids[0] || null,
+            mbid: m ? m.recording_mbid : null, title, artist: credit, album: (m && m.release_name) || null,
+            releaseMbid: (m && m.release_mbid) || null, artistMbid: ids[0] || null, art: m && m.release_mbid ? null : appleArt(r),
             appleUrl: typeof r.url === 'string' && /^https:\/\/music\.apple\.com\//.test(r.url) ? r.url : null,
         });
-        if (ids[0] && !seen.has(ids[0])) {
-            seen.add(ids[0]);
-            artists.push({ id: ids[0], name: ids.length === 1 ? credit : leadArtist(credit) });
-        }
+        const name = ids.length === 1 ? credit : leadArtist(credit);
+        if (!people.some((p) => plain(p.name) === plain(name))) people.push({ id: ids[0] || null, name });
     });
+    const artists = [];
+    for (const p of people.slice(0, 24)) {
+        const id = p.id || await artistByName(p.name).catch(() => null);
+        if (id && !artists.some((a) => a.id === id)) artists.push({ id, name: p.name });
+    }
+    const matched = found.filter(Boolean).length;
+    if (items.length > 0 && matched < items.length / 2) console.warn(`[music] chart: only ${matched} of ${items.length} songs matched to MusicBrainz`);
     return JSON.stringify({ country: cc, source, songs, artists });
 };
 

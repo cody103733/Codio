@@ -43,6 +43,37 @@ public final class MusicBrainz {
         return MusicNet.metadata(base, p, search ? MusicNet.DAY : 7 * MusicNet.DAY);
     }
 
+    private static String plain(String s) {
+        if (s == null) return "";
+        return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFKD).replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT)
+                .replace("&", "and").replaceAll("[^a-z0-9]+", "");
+    }
+
+    /** An artist's id by exact name (or alias), best score first; null if none. Cached a day like every search. */
+    public static String artistIdByName(String name) {
+        try {
+            JSONObject j = MusicNet.obj(mb("/ws/2/artist?query=" + enc("artist:\"" + name.replace("\"", "") + "\"") + "&limit=5"));
+            JSONArray list = j.optJSONArray("artists");
+            String wanted = plain(name);
+            String best = null;
+            int bestScore = -1;
+            for (int i = 0; list != null && i < list.length(); i++) {
+                JSONObject a = list.optJSONObject(i);
+                if (a == null || !isMbid(a.optString("id"))) continue;
+                boolean same = plain(a.optString("name")).equals(wanted);
+                JSONArray al = a.optJSONArray("aliases");
+                for (int k = 0; !same && al != null && k < al.length(); k++) same = al.optJSONObject(k) != null && plain(al.optJSONObject(k).optString("name")).equals(wanted);
+                if (same && a.optInt("score", 0) > bestScore) {
+                    best = a.optString("id");
+                    bestScore = a.optInt("score", 0);
+                }
+            }
+            return best;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Lucene special characters in a search must be escaped. */
     static String lucene(String text) {
         return text.replaceAll("([+\\-&|!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1").trim();

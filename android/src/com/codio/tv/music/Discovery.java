@@ -150,7 +150,7 @@ public final class Discovery {
 
     /** The song's page on Apple Music, for songs from Apple's chart (the chart is meant to send people there). */
     public static String appleMusicUrl(Track t) {
-        return t == null || t.mbid == null ? null : APPLE.get(t.mbid);
+        return t == null || t.id == null ? null : APPLE.get(t.id);
     }
 
     /** Opens the song on Apple Music (its app, else the browser). False if nothing on the device can open it. */
@@ -225,7 +225,10 @@ public final class Discovery {
                     final JSONObject r = items.optJSONObject(i);
                     jobs.add(LOOKUPS.submit(() -> r == null ? null : lookupSong(r.optString("artistName", ""), r.optString("name", ""))));
                 }
-                Set<String> seen = new HashSet<>();
+                // Every chart song is shown (an addon finds it by title and artist); the MusicBrainz match only adds ids
+                // and covers. The artists row needs ids: from the match, else an exact-name MusicBrainz search.
+                List<String> names = new ArrayList<>();
+                List<String> nameIds = new ArrayList<>();
                 for (int i = 0; i < n; i++) {
                     JSONObject m;
                     try {
@@ -233,32 +236,47 @@ public final class Discovery {
                     } catch (Exception e) {
                         m = null;
                     }
-                    if (m == null) continue;
                     JSONObject r = items.optJSONObject(i);
-                    JSONArray idsRaw = m.optJSONArray("artist_mbids");
+                    if (r == null) continue;
+                    JSONArray idsRaw = m == null ? null : m.optJSONArray("artist_mbids");
                     List<String> ids = new ArrayList<>();
                     for (int k = 0; idsRaw != null && k < idsRaw.length(); k++) if (MBID.matcher(idsRaw.optString(k)).matches()) ids.add(idsRaw.optString(k));
-                    String credit = m.optString("artist_credit_name", r != null ? r.optString("artistName", "") : "");
+                    String credit = m != null && Model.str(m, "artist_credit_name") != null ? m.optString("artist_credit_name") : r.optString("artistName", "");
+                    String title = m != null && Model.str(m, "recording_name") != null ? m.optString("recording_name") : r.optString("name", "");
+                    if (credit.isEmpty() || title.isEmpty()) continue;
                     Track t = new Track();
-                    t.mbid = m.optString("recording_mbid");
-                    t.id = "mbid:" + t.mbid;
-                    t.title = m.optString("recording_name", r != null ? r.optString("name", "") : "");
+                    t.mbid = m == null ? null : Model.str(m, "recording_mbid");
+                    t.id = t.mbid != null ? "mbid:" + t.mbid : "chart:" + credit.toLowerCase(Locale.ROOT) + "|" + title.toLowerCase(Locale.ROOT);
+                    t.title = title;
                     t.artist = credit;
-                    t.album = Model.str(m, "release_name");
-                    t.artworkURL = Model.str(m, "release_mbid") != null ? MusicBrainz.releaseCoverUrl(m.optString("release_mbid")) : null;
+                    t.album = m == null ? null : Model.str(m, "release_name");
+                    String rel = m == null ? null : Model.str(m, "release_mbid");
+                    String art = r.optString("artworkUrl100", "");
+                    t.artworkURL = rel != null ? MusicBrainz.releaseCoverUrl(rel) : art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*") ? art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.") : null;
                     t.artistMbid = ids.isEmpty() ? null : ids.get(0);
                     songs.add(t);
-                    String link = r != null ? r.optString("url", "") : "";
-                    if (link.startsWith("https://music.apple.com/")) APPLE.put(t.mbid, link);
-                    if (!ids.isEmpty() && seen.add(ids.get(0))) {
-                        Artist a = new Artist();
-                        a.id = ids.get(0);
-                        a.name = ids.size() == 1 ? credit : LEAD.split(credit)[0].trim();
-                        artists.add(a);
+                    String link = r.optString("url", "");
+                    if (link.startsWith("https://music.apple.com/")) APPLE.put(t.id, link);
+                    String name = ids.size() <= 1 ? credit : LEAD.split(credit)[0].trim();
+                    if (ids.isEmpty()) name = LEAD.split(credit)[0].trim();
+                    boolean known = false;
+                    for (String x : names) known |= x.equalsIgnoreCase(name);
+                    if (!known) {
+                        names.add(name);
+                        nameIds.add(ids.isEmpty() ? null : ids.get(0));
                     }
                 }
+                Set<String> seen = new HashSet<>();
+                for (int i = 0; i < names.size() && i < 24; i++) {
+                    String id = nameIds.get(i) != null ? nameIds.get(i) : MusicBrainz.artistIdByName(names.get(i));
+                    if (id == null || !seen.add(id)) continue;
+                    Artist a = new Artist();
+                    a.id = id;
+                    a.name = names.get(i);
+                    artists.add(a);
+                }
             } catch (Exception ignored) {
-                // falls back to ListenBrainz's charts
+                // nothing from the chart: the rows stay empty
             }
             chartSongs = songs;
             chartArtists = artists;
@@ -269,15 +287,13 @@ public final class Discovery {
     /** Songs people are playing this week: the country's chart, else ListenBrainz's. */
     public static List<Track> popularSongs() {
         loadChart();
-        if (chartSongs.size() >= 5) return new ArrayList<>(chartSongs.subList(0, Math.min(25, chartSongs.size())));
-        return sitewideSongs();
+        return new ArrayList<>(chartSongs.subList(0, Math.min(25, chartSongs.size())));
     }
 
     /** Artists people are playing now: the ones in the country's chart, else ListenBrainz's. */
     public static List<Artist> popularArtists() {
         loadChart();
-        if (chartArtists.size() >= 5) return new ArrayList<>(chartArtists.subList(0, Math.min(20, chartArtists.size())));
-        return sitewideArtists();
+        return new ArrayList<>(chartArtists.subList(0, Math.min(20, chartArtists.size())));
     }
 
     /** Songs ListenBrainz's listeners played this week. */

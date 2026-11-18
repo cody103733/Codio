@@ -92,33 +92,26 @@ const chart = (): Promise<any> => {
 
 // The song's page on Apple Music, for songs that came from Apple's chart (the chart is meant to send people there).
 const appleLinks = new Map<string, string>();
-export const appleMusicUrl = (t: MusicTrack): string | null => t.mbid ? appleLinks.get(t.mbid) ?? null : null;
+export const appleMusicUrl = (t: MusicTrack): string | null => appleLinks.get(t.id) ?? null;
 
-// Songs people are playing this week: the country's chart, else ListenBrainz's.
+// Songs people are playing now: the country's chart (Apple's, or Last.fm's with your key). A song the music database
+// didn't match still plays: the addons find it by title and artist.
 export const popularSongs = async (): Promise<MusicTrack[]> => {
     const c = await chart();
-    list(c?.songs).forEach((r) => { if (r.mbid && typeof r.appleUrl === 'string') appleLinks.set(String(r.mbid), r.appleUrl); });
-    const fromChart = list(c?.songs).filter((r) => r.mbid && r.title).slice(0, 25).map((r): MusicTrack => ({
-        id: `mbid:${r.mbid}`, mbid: String(r.mbid), title: String(r.title), artist: String(r.artist ?? ''), album: r.album ?? null,
-        artworkURL: r.releaseMbid ? releaseCoverUrl(String(r.releaseMbid)) : null, artistMbid: r.artistMbid ?? null,
-    }));
-    if (fromChart.length >= 5) return fromChart;
-    const j = await lb('/1/stats/sitewide/recordings?range=week&count=25');
-    return list(j?.payload?.recordings).filter((r) => r.recording_mbid && r.track_name).map((r): MusicTrack => ({
-        id: `mbid:${r.recording_mbid}`, mbid: String(r.recording_mbid), title: String(r.track_name), artist: String(r.artist_name ?? ''), album: r.release_name ?? null,
-        artworkURL: r.release_mbid ? releaseCoverUrl(String(r.release_mbid)) : null, artistMbid: first(r.artist_mbids),
-    }));
+    return list(c?.songs).filter((r) => r.title && r.artist).slice(0, 25).map((r): MusicTrack => {
+        const id = r.mbid ? `mbid:${r.mbid}` : `chart:${String(r.artist).toLowerCase()}|${String(r.title).toLowerCase()}`;
+        if (typeof r.appleUrl === 'string') appleLinks.set(id, r.appleUrl);
+        return {
+            id, mbid: r.mbid ? String(r.mbid) : null, title: String(r.title), artist: String(r.artist), album: r.album ?? null,
+            artworkURL: r.releaseMbid ? releaseCoverUrl(String(r.releaseMbid)) : r.art ? artUrl(String(r.art)) : null, artistMbid: r.artistMbid ?? null,
+        };
+    });
 };
 
-// Artists people are playing now: the ones in the country's chart, else ListenBrainz's.
+// Artists in the country's chart.
 export const popularArtists = async (): Promise<MusicArtist[]> => {
     const c = await chart();
-    const fromChart = list(c?.artists).filter((a) => a.id && a.name).slice(0, 20).map((a): MusicArtist => ({ id: String(a.id), name: String(a.name), detail: null }));
-    if (fromChart.length >= 5) return fromChart;
-    const j = await lb('/1/stats/sitewide/artists?range=month&count=30');
-    return list(j?.payload?.artists).filter((a) => a.artist_mbid && a.artist_name).slice(0, 20).map((a): MusicArtist => ({
-        id: String(a.artist_mbid), name: String(a.artist_name), detail: null,
-    }));
+    return list(c?.artists).filter((a) => a.id && a.name).slice(0, 20).map((a): MusicArtist => ({ id: String(a.id), name: String(a.name), detail: null }));
 };
 
 const SIMILAR = 'session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30';
