@@ -12,7 +12,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 
 /**
  * What to listen to, without any account: what is popular right now, new releases, and artists like the ones you played
@@ -98,8 +103,126 @@ public final class Discovery {
         return out;
     }
 
-    /** Songs people are playing this week. */
+    // ---- the country's chart (windows/desktop/codio-music.js buildChart)
+    // Apple Music's public "most played" chart for the device's country (no account or key), each song matched to
+    // MusicBrainz ids with ListenBrainz's name lookup. ListenBrainz's own sitewide charts only reflect its few thousand
+    // listeners, which leans heavily towards a handful of very active fans (mostly J-pop and K-pop).
+    static final String CHART = "https://rss.applemarketingtools.com";
+    private static final ExecutorService LOOKUPS = Executors.newFixedThreadPool(6);
+    private static final Pattern LEAD = Pattern.compile("\\s+(?:&|feat\\.?|ft\\.?|featuring|with|x)\\s+|,\\s+(?!the\\s)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MBID = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    private static final Object CHART_LOCK = new Object();
+    private static List<Track> chartSongs;
+    private static List<Artist> chartArtists;
+    private static long chartAt;
+
+    static String country() {
+        String c = Locale.getDefault().getCountry();
+        return c != null && c.matches("[A-Za-z]{2}") ? c.toLowerCase(Locale.ROOT) : "us";
+    }
+
+    private static JSONObject lookupSong(String artist, String title) {
+        try {
+            String url = LB + "/1/metadata/lookup/?artist_name=" + java.net.URLEncoder.encode(artist, "UTF-8")
+                    + "&recording_name=" + java.net.URLEncoder.encode(title, "UTF-8");
+            byte[] body = MusicNet.readCache(url, 30 * MusicNet.DAY);
+            if (body == null) {
+                MusicNet.spaced(LB + "#lookup", 150);
+                MusicNet.Reply r = MusicNet.get(url, 15000);
+                if (r.status != 200) return null;
+                body = r.body;
+                MusicNet.writeCache(url, body);
+            }
+            JSONObject j = new JSONObject(new String(body, "UTF-8"));
+            return Model.str(j, "recording_mbid") != null ? j : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static JSONArray chartFeed(String cc) throws Exception {
+        String url = CHART + "/api/v2/" + cc + "/music/most-played/50/songs.json";
+        byte[] body = MusicNet.readCache(url, HOURS6);
+        if (body == null) {
+            MusicNet.Reply r = MusicNet.get(url, 15000);
+            if (r.status != 200) {
+                if (!cc.equals("us")) return chartFeed("us");
+                return new JSONArray();
+            }
+            body = r.body;
+            MusicNet.writeCache(url, body);
+        }
+        return list(new JSONObject(new String(body, "UTF-8")), "feed", "results");
+    }
+
+    private static void loadChart() {
+        synchronized (CHART_LOCK) {
+            if (chartSongs != null && System.currentTimeMillis() - chartAt < 30 * 60 * 1000L) return;
+            List<Track> songs = new ArrayList<>();
+            List<Artist> artists = new ArrayList<>();
+            try {
+                JSONArray items = chartFeed(country());
+                int n = Math.min(items.length(), 40);
+                List<Future<JSONObject>> jobs = new ArrayList<>();
+                for (int i = 0; i < n; i++) {
+                    final JSONObject r = items.optJSONObject(i);
+                    jobs.add(LOOKUPS.submit(() -> r == null ? null : lookupSong(r.optString("artistName", ""), r.optString("name", ""))));
+                }
+                Set<String> seen = new HashSet<>();
+                for (int i = 0; i < n; i++) {
+                    JSONObject m;
+                    try {
+                        m = jobs.get(i).get();
+                    } catch (Exception e) {
+                        m = null;
+                    }
+                    if (m == null) continue;
+                    JSONObject r = items.optJSONObject(i);
+                    JSONArray idsRaw = m.optJSONArray("artist_mbids");
+                    List<String> ids = new ArrayList<>();
+                    for (int k = 0; idsRaw != null && k < idsRaw.length(); k++) if (MBID.matcher(idsRaw.optString(k)).matches()) ids.add(idsRaw.optString(k));
+                    String credit = m.optString("artist_credit_name", r != null ? r.optString("artistName", "") : "");
+                    Track t = new Track();
+                    t.mbid = m.optString("recording_mbid");
+                    t.id = "mbid:" + t.mbid;
+                    t.title = m.optString("recording_name", r != null ? r.optString("name", "") : "");
+                    t.artist = credit;
+                    t.album = Model.str(m, "release_name");
+                    t.artworkURL = Model.str(m, "release_mbid") != null ? MusicBrainz.releaseCoverUrl(m.optString("release_mbid")) : null;
+                    t.artistMbid = ids.isEmpty() ? null : ids.get(0);
+                    songs.add(t);
+                    if (!ids.isEmpty() && seen.add(ids.get(0))) {
+                        Artist a = new Artist();
+                        a.id = ids.get(0);
+                        a.name = ids.size() == 1 ? credit : LEAD.split(credit)[0].trim();
+                        artists.add(a);
+                    }
+                }
+            } catch (Exception ignored) {
+                // falls back to ListenBrainz's charts
+            }
+            chartSongs = songs;
+            chartArtists = artists;
+            chartAt = songs.isEmpty() ? 0 : System.currentTimeMillis();
+        }
+    }
+
+    /** Songs people are playing this week: the country's chart, else ListenBrainz's. */
     public static List<Track> popularSongs() {
+        loadChart();
+        if (chartSongs.size() >= 5) return new ArrayList<>(chartSongs.subList(0, Math.min(25, chartSongs.size())));
+        return sitewideSongs();
+    }
+
+    /** Artists people are playing now: the ones in the country's chart, else ListenBrainz's. */
+    public static List<Artist> popularArtists() {
+        loadChart();
+        if (chartArtists.size() >= 5) return new ArrayList<>(chartArtists.subList(0, Math.min(20, chartArtists.size())));
+        return sitewideArtists();
+    }
+
+    /** Songs ListenBrainz's listeners played this week. */
+    private static List<Track> sitewideSongs() {
         JSONArray l = list(lb("/1/stats/sitewide/recordings?range=week&count=25", false), "payload", "recordings");
         List<Track> out = new ArrayList<>();
         for (int i = 0; i < l.length(); i++) {
@@ -118,8 +241,8 @@ public final class Discovery {
         return out;
     }
 
-    /** Artists people are playing this month. */
-    public static List<Artist> popularArtists() {
+    /** Artists ListenBrainz's listeners played this month. */
+    private static List<Artist> sitewideArtists() {
         JSONArray l = list(lb("/1/stats/sitewide/artists?range=month&count=30", false), "payload", "artists");
         List<Artist> out = new ArrayList<>();
         for (int i = 0; i < l.length() && out.size() < 20; i++) {

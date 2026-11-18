@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.0",
-    "versionCode": 66,
+    "version": "1.6.1",
+    "versionCode": 67,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave the device."
+    "notes": "Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base."
   },
   "phone": {
-    "version": "1.2.0",
-    "versionCode": 25,
+    "version": "1.2.1",
+    "versionCode": 26,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave the device."
+    "notes": "Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base."
   },
   "windows": {
     "version": "1.10.0",

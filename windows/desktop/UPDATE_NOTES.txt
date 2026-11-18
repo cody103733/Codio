@@ -1,1 +1,1 @@
-New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave this PC.
+Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base.

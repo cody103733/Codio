@@ -236,8 +236,10 @@ enum LBData {
         return out
     }
 
-    /// Songs people are playing this week.
+    /// Songs people are playing this week: the country's chart, else ListenBrainz's.
     static func popularSongs() async -> [MusicTrack] {
+        let chart = await Chart.shared.get()
+        if chart.songs.count >= 5 { return Array(chart.songs.prefix(25)) }
         let j = await get("/1/stats/sitewide/recordings?range=week&count=25", ttl: 6 * 3600) as? JSON
         let payload = j?["payload"] as? JSON
         return marr(payload?["recordings"]).compactMap { r in
@@ -248,8 +250,10 @@ enum LBData {
         }
     }
 
-    /// Artists people are playing this month.
+    /// Artists people are playing now: the ones in the country's chart, else ListenBrainz's.
     static func popularArtists() async -> [MusicArtist] {
+        let chart = await Chart.shared.get()
+        if chart.artists.count >= 5 { return Array(chart.artists.prefix(20)) }
         let j = await get("/1/stats/sitewide/artists?range=month&count=30", ttl: 6 * 3600) as? JSON
         let payload = j?["payload"] as? JSON
         return marr(payload?["artists"]).compactMap { a in
@@ -343,5 +347,90 @@ actor ArtistPhotos {
         running[id] = nil
         memory[id] = found
         return found
+    }
+}
+
+/// What the country is playing (windows/desktop/codio-music.js buildChart): Apple Music's public "most played" chart for
+/// the phone's region (no account or key), each song matched to MusicBrainz ids with ListenBrainz's name lookup.
+/// ListenBrainz's own sitewide charts only reflect its few thousand listeners, which leans heavily towards a handful of
+/// very active fans (mostly J-pop and K-pop). The chart is kept 6 hours, each lookup a month.
+actor Chart {
+    static let shared = Chart()
+    static let host = "https://rss.applemarketingtools.com"
+
+    struct Result {
+        var songs: [MusicTrack] = []
+        var artists: [MusicArtist] = []
+    }
+
+    private var job: Task<Result, Never>?
+    private var at = Date.distantPast
+
+    func get() async -> Result {
+        if let job, Date().timeIntervalSince(at) < 1800 { return await job.value }
+        let task = Task { await Chart.build() }
+        job = task
+        at = Date()
+        let r = await task.value
+        if r.songs.isEmpty { job = nil }
+        return r
+    }
+
+    static var country: String {
+        let c = (Locale.current.region?.identifier ?? "US").lowercased()
+        return c.range(of: "^[a-z]{2}$", options: .regularExpression) != nil ? c : "us"
+    }
+
+    private static func feed(_ cc: String) async -> [JSON] {
+        let reply = await MusicNet.metadata("\(host)/api/v2/\(cc)/music/most-played/50/songs.json", ttl: 6 * 3600, server: host, gap: 0)
+        if reply.status != 200 && cc != "us" { return await feed("us") }
+        return marr(((reply.json as? JSON)?["feed"] as? JSON)?["results"])
+    }
+
+    private static func lookup(_ artist: String, _ title: String) async -> JSON? {
+        var c = URLComponents(string: LBData.api + "/1/metadata/lookup/")!
+        c.queryItems = [URLQueryItem(name: "artist_name", value: artist), URLQueryItem(name: "recording_name", value: title)]
+        guard let url = c.url?.absoluteString else { return nil }
+        let reply = await MusicNet.metadata(url, ttl: 30 * MusicNet.day, server: LBData.api + "#lookup", gap: 0.15)
+        guard reply.status == 200, let j = reply.json as? JSON, mstr(j["recording_mbid"]) != nil else { return nil }
+        return j
+    }
+
+    /// "Artist A & Artist B", "A, B & C", "A feat. B": the first name is who the song is by.
+    static func lead(_ name: String) -> String {
+        let pattern = "\\s+(?:&|feat\\.?|ft\\.?|featuring|with|x)\\s+|,\\s+(?!the\\s)"
+        guard let r = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let m = r.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)),
+              let range = Range(m.range, in: name) else { return name }
+        return String(name[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+    }
+
+    static func build() async -> Result {
+        let items = Array(await feed(country).prefix(40))
+        let found: [JSON?] = await withTaskGroup(of: (Int, JSON?).self) { group in
+            for (i, r) in items.enumerated() {
+                let artist = mstr(r["artistName"]) ?? "", title = mstr(r["name"]) ?? ""
+                group.addTask { (i, await lookup(artist, title)) }
+            }
+            var out = [JSON?](repeating: nil, count: items.count)
+            for await (i, j) in group { out[i] = j }
+            return out
+        }
+        var result = Result()
+        var seen = Set<String>()
+        for (i, r) in items.enumerated() {
+            guard let m = found[i], let mbid = mstr(m["recording_mbid"]) else { continue }
+            let ids = ((m["artist_mbids"] as? [Any]) ?? []).compactMap { $0 as? String }
+            let credit = mstr(m["artist_credit_name"]) ?? mstr(r["artistName"]) ?? ""
+            result.songs.append(MusicTrack(id: "mbid:" + mbid, title: mstr(m["recording_name"]) ?? mstr(r["name"]) ?? "", artist: credit,
+                                           album: mstr(m["release_name"]), durationMs: nil,
+                                           artworkURL: mstr(m["release_mbid"]).map { MB.releaseCoverURL($0) }, isrc: nil, mbid: mbid,
+                                           artistMbid: ids.first, addon: nil, streamURL: nil))
+            if let id = ids.first, !seen.contains(id) {
+                seen.insert(id)
+                result.artists.append(MusicArtist(id: id, name: ids.count == 1 ? credit : lead(credit), detail: nil, artworkURL: nil, addon: nil))
+            }
+        }
+        return result
     }
 }

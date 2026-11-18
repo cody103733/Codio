@@ -45,8 +45,39 @@ export const newReleases = async (): Promise<MusicAlbum[]> => {
         }));
 };
 
-// Songs people are playing this week.
+// The country's chart (Apple Music's most played, matched to MusicBrainz by Codio's server). The country comes from
+// Windows' region setting, US if it has none.
+const country = (): string => {
+    try {
+        const tag = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || '';
+        const m = /[-_]([A-Za-z]{2})(?:[-_]|$)/.exec(tag);
+        return m ? m[1].toLowerCase() : 'us';
+    } catch (_e) {
+        return 'us';
+    }
+};
+let chartJob: Promise<any> | null = null;
+const chart = (): Promise<any> => {
+    if (!chartJob) {
+        chartJob = fetch(`/api/music/chart?cc=${country()}`, { headers: { 'X-Codio': '1' } })
+            .then((r) => r.ok ? r.json() : null)
+            .catch(() => null)
+            .then((j) => {
+                if (!j) chartJob = null;
+                return j;
+            });
+    }
+    return chartJob;
+};
+
+// Songs people are playing this week: the country's chart, else ListenBrainz's.
 export const popularSongs = async (): Promise<MusicTrack[]> => {
+    const c = await chart();
+    const fromChart = list(c?.songs).filter((r) => r.mbid && r.title).slice(0, 25).map((r): MusicTrack => ({
+        id: `mbid:${r.mbid}`, mbid: String(r.mbid), title: String(r.title), artist: String(r.artist ?? ''), album: r.album ?? null,
+        artworkURL: r.releaseMbid ? releaseCoverUrl(String(r.releaseMbid)) : null, artistMbid: r.artistMbid ?? null,
+    }));
+    if (fromChart.length >= 5) return fromChart;
     const j = await lb('/1/stats/sitewide/recordings?range=week&count=25');
     return list(j?.payload?.recordings).filter((r) => r.recording_mbid && r.track_name).map((r): MusicTrack => ({
         id: `mbid:${r.recording_mbid}`, mbid: String(r.recording_mbid), title: String(r.track_name), artist: String(r.artist_name ?? ''), album: r.release_name ?? null,
@@ -54,8 +85,11 @@ export const popularSongs = async (): Promise<MusicTrack[]> => {
     }));
 };
 
-// Artists people are playing this month.
+// Artists people are playing now: the ones in the country's chart, else ListenBrainz's.
 export const popularArtists = async (): Promise<MusicArtist[]> => {
+    const c = await chart();
+    const fromChart = list(c?.artists).filter((a) => a.id && a.name).slice(0, 20).map((a): MusicArtist => ({ id: String(a.id), name: String(a.name), detail: null }));
+    if (fromChart.length >= 5) return fromChart;
     const j = await lb('/1/stats/sitewide/artists?range=month&count=30');
     return list(j?.payload?.artists).filter((a) => a.artist_mbid && a.artist_name).slice(0, 20).map((a): MusicArtist => ({
         id: String(a.artist_mbid), name: String(a.artist_name), detail: null,

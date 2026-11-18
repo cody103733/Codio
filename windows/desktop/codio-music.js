@@ -4,6 +4,8 @@
 //   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
 //   GET /api/music/lb?p=/1/user/<name>/playlists/createdfor?... and /1/playlist/<mbid>   playlists made for you (Daily Jams), cached
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
+//   GET /api/music/chart?cc=us                             the country's most played songs (Apple Music chart) matched to
+//                                                           MusicBrainz ids, plus the artists in it: { songs, artists }
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
 //   GET /api/music/artist-img?id=<artist mbid>&name=...    a picture of the artist, kept on disk
@@ -192,6 +194,73 @@ const deezerPicture = async (name) => {
     return typeof url === 'string' && url.startsWith('https://') && !url.includes('/artist//') ? url : null;
 };
 
+// What a country is playing: Apple Music's public "most played" chart for that storefront (no account or key), each song
+// matched to MusicBrainz ids with ListenBrainz's name lookup. ListenBrainz's own sitewide charts only reflect its few
+// thousand listeners, which leans heavily towards a handful of very active fans (mostly J-pop and K-pop), so the
+// Popular rows looked nothing like what people actually play. The chart is kept 6 hours, each lookup a month.
+const CHART = process.env.CODIO_TEST_CHART || 'https://rss.applemarketingtools.com';
+const charts = new Map();
+
+const lookupSong = async (artist, title) => {
+    const url = `${LB}/1/metadata/lookup/?artist_name=${encodeURIComponent(artist)}&recording_name=${encodeURIComponent(title)}`;
+    let body = readCache(url, 30 * DAY);
+    if (!body) {
+        const res = await spaced(LB, () => fetchUrl(url), 150);
+        if (res.status !== 200) return null;
+        body = res.body;
+        writeCache(url, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    return j && j.recording_mbid ? j : null;
+};
+
+// "Artist A & Artist B", "A, B & C", "A feat. B": the first name is who the song is by.
+const leadArtist = (name) => String(name || '').split(/\s+(?:&|feat\.?|ft\.?|featuring|with|x)\s+|,\s+(?!the\s)/i)[0].trim();
+
+const buildChart = async (cc) => {
+    const url = `${CHART}/api/v2/${cc}/music/most-played/50/songs.json`;
+    let body = readCache(url, 6 * 3600 * 1000);
+    if (!body) {
+        const res = await fetchUrl(url);
+        if (res.status !== 200) {
+            if (cc !== 'us') return buildChart('us');
+            throw new Error(`chart ${res.status}`);
+        }
+        body = res.body;
+        writeCache(url, body);
+    }
+    const feed = JSON.parse(body.toString('utf8'));
+    const items = (feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : []).slice(0, 40);
+    const found = await Promise.all(items.map((r) => lookupSong(String(r.artistName || ''), String(r.name || '')).catch(() => null)));
+    const songs = [];
+    const artists = [];
+    const seen = new Set();
+    items.forEach((r, i) => {
+        const m = found[i];
+        if (!m) return;
+        const ids = Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((x) => MBID.test(x)) : [];
+        const credit = String(m.artist_credit_name || r.artistName || '');
+        songs.push({
+            mbid: m.recording_mbid, title: String(m.recording_name || r.name || ''), artist: credit, album: m.release_name || null,
+            releaseMbid: m.release_mbid || null, artistMbid: ids[0] || null,
+        });
+        if (ids[0] && !seen.has(ids[0])) {
+            seen.add(ids[0]);
+            artists.push({ id: ids[0], name: ids.length === 1 ? credit : leadArtist(credit) });
+        }
+    });
+    return JSON.stringify({ country: cc, songs, artists });
+};
+
+const chartFor = (cc) => {
+    const known = charts.get(cc);
+    if (known && Date.now() - known.at < 30 * 60 * 1000) return known.job;
+    const job = buildChart(cc);
+    charts.set(cc, { at: Date.now(), job });
+    job.catch(() => charts.delete(cc));
+    return job;
+};
+
 const albumPicture = async (id) => {
     const res = await spaced(LB, () => fetchUrl(`${LB}/1/popularity/top-release-groups-for-artist/${id}`));
     if (res.status !== 200) return null;
@@ -316,6 +385,11 @@ const handle = (request, response, pathname) => {
             return true;
         }
         metadata(response, LABS, p, 7 * DAY);
+        return true;
+    }
+    if (pathname === '/api/music/chart') {
+        const cc = String(url.searchParams.get('cc') || 'us').toLowerCase();
+        chartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
         return true;
     }
     if (pathname === '/api/music/img') {
