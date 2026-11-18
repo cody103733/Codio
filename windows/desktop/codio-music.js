@@ -269,23 +269,6 @@ const appleFeed = async (cc) => {
     return feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
 };
 
-// An artist's MusicBrainz id by exact name (for chart songs the name lookup missed). Kept a month.
-const artistByName = async (name) => {
-    const url = `${DEFAULT_MB}/ws/2/artist?query=${encodeURIComponent(`artist:"${name.replace(/"/g, '')}"`)}&limit=5&fmt=json`;
-    let body = readCache(url, 30 * DAY);
-    if (!body) {
-        const res = await spacedBg(DEFAULT_MB, () => fetchUrl(url));
-        if (res.status !== 200) return null;
-        body = res.body;
-        writeCache(url, body);
-    }
-    const j = JSON.parse(body.toString('utf8'));
-    const wanted = plain(name);
-    const hit = (j && Array.isArray(j.artists) ? j.artists : []).filter((a) => a && MBID.test(a.id) && (plain(a.name) === wanted || (Array.isArray(a.aliases) && a.aliases.some((x) => plain(x && x.name) === wanted))))
-        .sort((a, b) => (b.score || 0) - (a.score || 0))[0];
-    return hit ? hit.id : null;
-};
-
 // A song's cover from Deezer (Last.fm sends no real pictures, and not every song matches MusicBrainz). Kept a month.
 const deezerCover = async (artist, title) => {
     const url = `${DEEZER}/search/track?q=${encodeURIComponent(`artist:"${String(artist).replace(/"/g, '')}" track:"${String(title).replace(/"/g, '')}"`)}&limit=5`;
@@ -325,8 +308,8 @@ const buildChart = async (cc, country, key) => {
     return JSON.stringify({ country: cc, source, songs });
 };
 
-// The chart's artists, in chart order. Their MusicBrainz ids come from ListenBrainz's name lookup, else an exact-name
-// MusicBrainz search made in the background lane (so pages you open never wait behind it). Answers are kept a month.
+// The chart's artists, in chart order, matched to MusicBrainz by exact name in a batch or two (in the background lane,
+// so pages you open never wait behind it).
 const buildArtists = async (cc, country, key) => {
     const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 60);
     const people = [];
@@ -335,16 +318,11 @@ const buildArtists = async (cc, country, key) => {
         if (name && !people.some((x) => plain(x.name) === plain(name))) people.push({ name, song: String(r.name || ''), full: String(r.artistName || '') });
         if (people.length >= 20) break;
     }
-    const ids = await Promise.all(people.map(async (x) => {
-        const m = await lookupSong(x.full, x.song).catch(() => null);
-        const list = m && Array.isArray(m.artist_mbids) ? m.artist_mbids.filter((id) => MBID.test(id)) : [];
-        return list[0] || null;
-    }));
+    const ids = await artistsByName(people.map((x) => x.name));
     const artists = [];
-    for (let i = 0; i < people.length; i++) {
-        const id = ids[i] || await artistByName(people[i].name).catch(() => null);
-        if (id && !artists.some((a) => a.id === id)) artists.push({ id, name: people[i].name });
-    }
+    people.forEach((x, i) => {
+        if (ids[i] && !artists.some((a) => a.id === ids[i])) artists.push({ id: ids[i], name: x.name });
+    });
     return JSON.stringify({ country: cc, artists });
 };
 const artistCharts = new Map();
@@ -358,27 +336,61 @@ const artistsFor = (cc, country, key) => {
     return job;
 };
 
-// An album's MusicBrainz release group by title and artist (Apple adds " - Single" / " - EP"). Kept a month.
-const albumByName = async (title, artist) => {
-    const clean = String(title).replace(/\s+-\s+(single|ep)$/i, '').replace(/"/g, '');
-    const q = `releasegroup:"${clean}" AND artist:"${String(artist).replace(/"/g, '')}"`;
-    const url = `${DEFAULT_MB}/ws/2/release-group?query=${encodeURIComponent(q)}&limit=5&fmt=json`;
-    let body = readCache(url, 30 * DAY);
+// MusicBrainz search can look for many things in one request (a OR b OR ...), so matching a whole chart costs a few
+// requests instead of one per item (MusicBrainz asks for no more than one a second). Kept a day.
+const quoted = (x) => `"${String(x).replace(/["\\]/g, '')}"`;
+const mbSearch = async (entity, query) => {
+    const url = `${DEFAULT_MB}/ws/2/${entity}?query=${encodeURIComponent(query)}&limit=100&fmt=json`;
+    let body = readCache(url, DAY);
     if (!body) {
         const res = await spacedBg(DEFAULT_MB, () => fetchUrl(url));
         if (res.status !== 200) return null;
         body = res.body;
         writeCache(url, body);
     }
-    const j = JSON.parse(body.toString('utf8'));
-    const wanted = plain(clean);
-    const hit = (j && Array.isArray(j['release-groups']) ? j['release-groups'] : [])
-        .filter((g) => g && MBID.test(g.id) && plain(g.title) === wanted)
-        .sort((a, b) => (b.score || 0) - (a.score || 0))[0];
-    if (!hit) return null;
-    const credit = Array.isArray(hit['artist-credit']) ? hit['artist-credit'] : [];
-    const first = credit[0] && credit[0].artist ? credit[0].artist : null;
-    return { id: hit.id, title: hit.title, kind: hit['primary-type'] || null, artist: credit.map((c) => (c.name || '') + (c.joinphrase || '')).join('') || artist, artistMbid: first && MBID.test(first.id) ? first.id : null };
+    return JSON.parse(body.toString('utf8'));
+};
+
+// Artists by exact name (or alias), 25 names a request. Resolves [id or null] in the same order.
+const artistsByName = async (names) => {
+    const out = names.map(() => null);
+    for (let i = 0; i < names.length; i += 25) {
+        const chunk = names.slice(i, i + 25);
+        const j = await mbSearch('artist', chunk.map((n) => `artist:${quoted(n)}`).join(' OR ')).catch(() => null);
+        const list = j && Array.isArray(j.artists) ? j.artists : [];
+        chunk.forEach((n, k) => {
+            const wanted = plain(n);
+            const hit = list.filter((a) => a && MBID.test(a.id) && (plain(a.name) === wanted || (Array.isArray(a.aliases) && a.aliases.some((x) => plain(x && x.name) === wanted))))
+                .sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+            out[i + k] = hit ? hit.id : null;
+        });
+    }
+    return out;
+};
+
+// Albums (release groups) by title and artist, the whole chart in one request (Apple adds " - Single" / " - EP"). Same order, or null.
+const albumsByName = async (wanted) => {
+    const out = wanted.map(() => null);
+    const clean = (t) => String(t).replace(/\s+-\s+(single|ep)$/i, '');
+    for (let i = 0; i < wanted.length; i += 50) {
+        const chunk = wanted.slice(i, i + 50);
+        const q = chunk.map((w) => `(releasegroup:${quoted(clean(w.title))} AND artist:${quoted(leadArtist(w.artist))})`).join(' OR ');
+        const j = await mbSearch('release-group', q).catch(() => null);
+        const list = j && Array.isArray(j['release-groups']) ? j['release-groups'] : [];
+        chunk.forEach((w, k) => {
+            const title = plain(clean(w.title)), who = plain(leadArtist(w.artist));
+            const hit = list.filter((g) => {
+                if (!g || !MBID.test(g.id) || plain(g.title) !== title) return false;
+                const credit = plain((Array.isArray(g['artist-credit']) ? g['artist-credit'] : []).map((c) => c.name || '').join(' '));
+                return credit.includes(who) || who.includes(credit);
+            }).sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+            if (!hit) return;
+            const credit = Array.isArray(hit['artist-credit']) ? hit['artist-credit'] : [];
+            const first = credit[0] && credit[0].artist ? credit[0].artist : null;
+            out[i + k] = { id: hit.id, title: hit.title, kind: hit['primary-type'] || null, artist: credit.map((c) => (c.name || '') + (c.joinphrase || '')).join('') || w.artist, artistMbid: first && MBID.test(first.id) ? first.id : null };
+        });
+    }
+    return out;
 };
 
 const buildAlbums = async (cc) => {
@@ -397,17 +409,18 @@ const buildAlbums = async (cc) => {
     const items = feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
     const cutoff = Date.now() - 56 * DAY;
     const recent = items.filter((r) => Date.parse(r.releaseDate || '') >= cutoff);
-    // The top 24, plus every recent one further down, each looked up once (MusicBrainz asks for one call a second).
-    const wanted = items.slice(0, 24).concat(recent.filter((r) => items.indexOf(r) >= 24));
+    // The top 30, plus every recent one further down, matched in batches.
+    const wanted = items.slice(0, 30).concat(recent.filter((r) => items.indexOf(r) >= 30));
+    const matches = await albumsByName(wanted.map((r) => ({ title: r.name || '', artist: r.artistName || '' })));
     const found = new Map();
-    for (const r of wanted) {
-        const m = await albumByName(r.name || '', r.artistName || '').catch(() => null);
+    wanted.forEach((r, i) => {
+        const m = matches[i];
         if (m) found.set(r, { ...m, year: typeof r.releaseDate === 'string' ? r.releaseDate.slice(0, 4) : null, art: appleArt(r), releaseDate: r.releaseDate || null });
-    }
+    });
     const pick = (list) => list.map((r) => found.get(r)).filter(Boolean);
     return JSON.stringify({
         country: cc,
-        popular: pick(items.slice(0, 24)),
+        popular: pick(items.slice(0, 30)),
         recent: pick(recent).sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate))),
     });
 };

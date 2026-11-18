@@ -58,6 +58,83 @@ public final class MusicBrainz {
                 .replace("&", "and").replaceAll("[^a-z0-9]+", "");
     }
 
+    private static String quoted(String s) {
+        return "\"" + s.replace("\"", "").replace("\\", "") + "\"";
+    }
+
+    private static final java.util.regex.Pattern LEAD = java.util.regex.Pattern.compile("\\s+(?:&|feat\\.?|ft\\.?|featuring|with|x)\\s+|,\\s+(?!the\\s)", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Artists by exact name (or alias), all in one request (a OR b OR ...; MusicBrainz asks for one request a second, so
+     * a chart costs one instead of twenty). Same order as names, null where none.
+     */
+    public static List<String> artistIdsByNames(List<String> names) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) out.add(null);
+        if (names.isEmpty()) return out;
+        try {
+            StringBuilder q = new StringBuilder();
+            for (String n : names) q.append(q.length() > 0 ? " OR " : "").append("artist:").append(quoted(n));
+            JSONArray list = MusicNet.obj(mbBg("/ws/2/artist?query=" + enc(q.toString()) + "&limit=100")).optJSONArray("artists");
+            for (int k = 0; k < names.size(); k++) {
+                String wanted = plain(names.get(k));
+                String best = null;
+                int bestScore = -1;
+                for (int i = 0; list != null && i < list.length(); i++) {
+                    JSONObject a = list.optJSONObject(i);
+                    if (a == null || !isMbid(a.optString("id"))) continue;
+                    boolean same = plain(a.optString("name")).equals(wanted);
+                    JSONArray al = a.optJSONArray("aliases");
+                    for (int j = 0; !same && al != null && j < al.length(); j++) same = al.optJSONObject(j) != null && plain(al.optJSONObject(j).optString("name")).equals(wanted);
+                    if (same && a.optInt("score", 0) > bestScore) {
+                        best = a.optString("id");
+                        bestScore = a.optInt("score", 0);
+                    }
+                }
+                out.set(k, best);
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /** Albums by {title, artist}, the whole chart in one request (Apple adds " - Single" / " - EP"). Same order, or null. */
+    public static List<Album> albumsByNames(List<String[]> wanted) {
+        List<Album> out = new ArrayList<>();
+        for (int i = 0; i < wanted.size(); i++) out.add(null);
+        if (wanted.isEmpty()) return out;
+        try {
+            StringBuilder q = new StringBuilder();
+            for (String[] w : wanted) {
+                String title = w[0].replaceAll("(?i)\\s+-\\s+(single|ep)$", "");
+                q.append(q.length() > 0 ? " OR " : "").append("(releasegroup:").append(quoted(title)).append(" AND artist:").append(quoted(LEAD.split(w[1])[0].trim())).append(")");
+            }
+            JSONArray list = MusicNet.obj(mbBg("/ws/2/release-group?query=" + enc(q.toString()) + "&limit=100")).optJSONArray("release-groups");
+            for (int k = 0; k < wanted.size(); k++) {
+                String title = plain(wanted.get(k)[0].replaceAll("(?i)\\s+-\\s+(single|ep)$", ""));
+                String who = plain(LEAD.split(wanted.get(k)[1])[0]);
+                JSONObject best = null;
+                for (int i = 0; list != null && i < list.length(); i++) {
+                    JSONObject g = list.optJSONObject(i);
+                    if (g == null || !isMbid(g.optString("id")) || !plain(g.optString("title")).equals(title)) continue;
+                    StringBuilder names = new StringBuilder();
+                    JSONArray ac = g.optJSONArray("artist-credit");
+                    for (int j = 0; ac != null && j < ac.length(); j++) if (ac.optJSONObject(j) != null) names.append(ac.optJSONObject(j).optString("name")).append(' ');
+                    String credit = plain(names.toString());
+                    if (!credit.contains(who) && !who.contains(credit)) continue;
+                    if (best == null || g.optInt("score", 0) > best.optInt("score", 0)) best = g;
+                }
+                if (best != null) {
+                    Album a = toAlbum(best);
+                    if (a.artist == null || a.artist.isEmpty()) a.artist = wanted.get(k)[1];
+                    out.set(k, a);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
     /** An artist's id by exact name (or alias), best score first; null if none. Cached a day like every search. */
     public static String artistIdByName(String name) {
         try {
@@ -325,22 +402,48 @@ public final class MusicBrainz {
         public List<Track> tracks = new ArrayList<>();
     }
 
-    /** The earliest official release of the release group, with its tracks and their ISRC codes (two requests). */
-    public static AlbumPage getAlbum(String groupId) throws Exception {
-        JSONObject list = MusicNet.obj(mb("/ws/2/release?release-group=" + groupId + "&status=official&limit=100"));
-        JSONArray rel = list.optJSONArray("releases");
-        if (rel == null || rel.length() == 0) throw new Exception("No release found for this album");
-        String bestId = null, bestDate = "9999";
-        for (int i = 0; i < rel.length(); i++) {
-            JSONObject r = rel.getJSONObject(i);
+    /** Official before anything else, then the earliest date; with withTracks, only releases whose tracks came along. */
+    private static JSONObject earliest(JSONArray rel, boolean withTracks) {
+        JSONObject best = null;
+        String bestKey = null;
+        for (int i = 0; rel != null && i < rel.length(); i++) {
+            JSONObject r = rel.optJSONObject(i);
+            if (r == null) continue;
+            if (withTracks) {
+                JSONArray media = r.optJSONArray("media");
+                boolean has = false;
+                for (int k = 0; media != null && k < media.length(); k++) {
+                    JSONArray t = media.optJSONObject(k) == null ? null : media.optJSONObject(k).optJSONArray("tracks");
+                    has |= t != null && t.length() > 0;
+                }
+                if (!has) continue;
+            }
             String date = r.optString("date", "");
-            if (date.length() == 0) date = "9999";
-            if (bestId == null || date.compareTo(bestDate) < 0) {
-                bestId = r.optString("id");
-                bestDate = date;
+            String key = ("Official".equals(r.optString("status")) ? "0" : "1") + (date.isEmpty() ? "9999" : date);
+            if (best == null || key.compareTo(bestKey) < 0) {
+                best = r;
+                bestKey = key;
             }
         }
-        JSONObject release = MusicNet.obj(mb("/ws/2/release/" + bestId + "?inc=recordings+isrcs+artist-credits+release-groups"));
+        return best;
+    }
+
+    /** The earliest official release of the release group, with its tracks and their ISRC codes (one request). */
+    public static AlbumPage getAlbum(String groupId) throws Exception {
+        // One request: the album's releases with their tracks; the earliest official one is shown.
+        JSONObject release = null;
+        try {
+            JSONArray all = MusicNet.obj(mb("/ws/2/release?release-group=" + groupId + "&inc=recordings+isrcs+artist-credits+release-groups&limit=25")).optJSONArray("releases");
+            release = earliest(all, true);
+        } catch (Exception ignored) {
+            // the two-step way below
+        }
+        if (release == null) {
+            JSONObject list = MusicNet.obj(mb("/ws/2/release?release-group=" + groupId + "&limit=100"));
+            JSONObject best = earliest(list.optJSONArray("releases"), false);
+            if (best == null) throw new Exception("No release found for this album");
+            release = MusicNet.obj(mb("/ws/2/release/" + best.optString("id") + "?inc=recordings+isrcs+artist-credits+release-groups"));
+        }
         JSONObject group = release.optJSONObject("release-group");
         if (group == null) group = new JSONObject();
         AlbumPage p = new AlbumPage();

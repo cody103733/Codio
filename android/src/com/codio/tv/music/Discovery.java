@@ -80,6 +80,8 @@ public final class Discovery {
                 java.text.SimpleDateFormat day = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
                 List<Album> recentFound = new ArrayList<>();
                 List<String> recentDates = new ArrayList<>();
+                List<JSONObject> picked = new ArrayList<>();
+                List<Boolean> isRecentList = new ArrayList<>();
                 for (int i = 0; i < items.length(); i++) {
                     JSONObject r = items.optJSONObject(i);
                     if (r == null) continue;
@@ -89,14 +91,24 @@ public final class Discovery {
                         isRecent = date.length() >= 10 && day.parse(date.substring(0, 10)).getTime() >= cutoff;
                     } catch (Exception ignored) {
                     }
-                    if (i >= 24 && !isRecent) continue;
-                    Album a = MusicBrainz.albumByName(r.optString("name", ""), r.optString("artistName", ""));
+                    if (i >= 30 && !isRecent) continue;
+                    r.put("_top", i < 30);
+                    picked.add(r);
+                    isRecentList.add(isRecent);
+                }
+                List<String[]> wanted = new ArrayList<>();
+                for (JSONObject r : picked) wanted.add(new String[]{r.optString("name", ""), r.optString("artistName", "")});
+                List<Album> matches = MusicBrainz.albumsByNames(wanted);
+                for (int i = 0; i < picked.size(); i++) {
+                    Album a = matches.get(i);
                     if (a == null) continue;
+                    JSONObject r = picked.get(i);
+                    String date = r.optString("releaseDate", "");
                     a.year = date.length() >= 4 ? date.substring(0, 4) : null;
                     String art = r.optString("artworkUrl100", "");
                     if (art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*")) a.artworkURL = art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.");
-                    if (i < 24) popular.add(a);
-                    if (isRecent) {
+                    if (r.optBoolean("_top")) popular.add(a);
+                    if (isRecentList.get(i)) {
                         int at = 0;
                         while (at < recentDates.size() && recentDates.get(at).compareTo(date) >= 0) at++;
                         recentDates.add(at, date);
@@ -398,18 +410,12 @@ public final class Discovery {
                     for (String[] p : people) known |= plainName(p[0]).equals(plainName(name));
                     if (!known) people.add(new String[]{name, full, r.optString("name", "")});
                 }
-                List<Future<JSONObject>> jobs = new ArrayList<>();
-                for (final String[] p : people) jobs.add(LOOKUPS.submit(() -> lookupSong(p[1], p[2])));
+                List<String> names = new ArrayList<>();
+                for (String[] p : people) names.add(p[0]);
+                List<String> ids = MusicBrainz.artistIdsByNames(names);
                 Set<String> seen = new HashSet<>();
                 for (int i = 0; i < people.size(); i++) {
-                    String id = null;
-                    try {
-                        JSONObject m = jobs.get(i).get();
-                        JSONArray ids = m == null ? null : m.optJSONArray("artist_mbids");
-                        if (ids != null && ids.length() > 0 && MBID.matcher(ids.optString(0)).matches()) id = ids.optString(0);
-                    } catch (Exception ignored) {
-                    }
-                    if (id == null) id = MusicBrainz.artistIdByName(people.get(i)[0]);
+                    String id = ids.get(i);
                     if (id == null || !seen.add(id)) continue;
                     Artist a = new Artist();
                     a.id = id;

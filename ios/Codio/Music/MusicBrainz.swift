@@ -24,6 +24,52 @@ enum MB {
             .replacingOccurrences(of: "&", with: "and").filter { $0.isLetter || $0.isNumber }.lowercased()
     }
 
+    private static func quoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\"", with: "").replacingOccurrences(of: "\\", with: "") + "\""
+    }
+
+    private static func q(_ s: String) -> String? {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return s.addingPercentEncoding(withAllowedCharacters: allowed)
+    }
+
+    /// Artists by exact name (or alias), all in one request (a OR b OR ...; MusicBrainz asks for one request a second).
+    /// Same order as names, nil where none.
+    static func artistIds(named names: [String]) async -> [String?] {
+        guard !names.isEmpty, let enc = q(names.map { "artist:" + quoted($0) }.joined(separator: " OR ")),
+              let j = await get("/ws/2/artist?query=\(enc)&limit=100", background: true) as? JSON else { return names.map { _ in nil } }
+        let list = marr(j["artists"])
+        return names.map { name in
+            let wanted = plain(name)
+            return list.filter { a in
+                guard isMbid(mstr(a["id"])) else { return false }
+                if plain(mstr(a["name"]) ?? "") == wanted { return true }
+                return marr(a["aliases"]).contains { plain(mstr($0["name"]) ?? "") == wanted }
+            }.max { (mint($0["score"]) ?? 0) < (mint($1["score"]) ?? 0) }.flatMap { mstr($0["id"]) }
+        }
+    }
+
+    /// Albums by title and artist, the whole chart in one request (Apple adds " - Single" / " - EP"). Same order, or nil.
+    static func albums(named wanted: [(title: String, artist: String)]) async -> [MusicAlbum?] {
+        func clean(_ t: String) -> String { t.replacingOccurrences(of: "\\s+-\\s+(Single|EP|single|ep)$", with: "", options: .regularExpression) }
+        let query = wanted.map { "(releasegroup:\(quoted(clean($0.title))) AND artist:\(quoted(Chart.lead($0.artist))))" }.joined(separator: " OR ")
+        guard !wanted.isEmpty, let enc = q(query),
+              let j = await get("/ws/2/release-group?query=\(enc)&limit=100", background: true) as? JSON else { return wanted.map { _ in nil } }
+        let list = marr(j["release-groups"])
+        return wanted.map { w in
+            let title = plain(clean(w.title)), who = plain(Chart.lead(w.artist))
+            guard let g = list.filter({ g in
+                guard isMbid(mstr(g["id"])), plain(mstr(g["title"]) ?? "") == title else { return false }
+                let credit = plain(marr(g["artist-credit"]).compactMap { mstr($0["name"]) }.joined(separator: " "))
+                return credit.contains(who) || who.contains(credit)
+            }).max(by: { (mint($0["score"]) ?? 0) < (mint($1["score"]) ?? 0) }) else { return nil }
+            var a = toAlbum(g)
+            if a.artist.isEmpty { a.artist = w.artist }
+            return a
+        }
+    }
+
     /// An artist's id by exact name (or alias), best score first; nil if none.
     static func artistId(named name: String) async -> String? {
         let q = "artist:\"" + name.replacingOccurrences(of: "\"", with: "") + "\""
@@ -180,11 +226,18 @@ enum MB {
 
     /// The earliest official release of the release group, with its tracks and their ISRC codes.
     static func album(_ groupId: String) async -> AlbumPage? {
-        guard let list = await get("/ws/2/release?release-group=\(groupId)&status=official&limit=100") as? JSON else { return nil }
-        var releases = marr(list["releases"])
-        releases.sort { (mstr($0["date"]) ?? "9999") < (mstr($1["date"]) ?? "9999") }
-        guard let first = releases.first, let rid = mstr(first["id"]),
-              let release = await get("/ws/2/release/\(rid)?inc=recordings+isrcs+artist-credits+release-groups") as? JSON else { return nil }
+        // One request: the album's releases with their tracks; the earliest official one is shown.
+        func key(_ r: JSON) -> String { (mstr(r["status"]) == "Official" ? "0" : "1") + (mstr(r["date"]).flatMap { $0.isEmpty ? nil : $0 } ?? "9999") }
+        var picked: JSON?
+        if let all = await get("/ws/2/release?release-group=\(groupId)&inc=recordings+isrcs+artist-credits+release-groups&limit=25") as? JSON {
+            picked = marr(all["releases"]).filter { r in marr(r["media"]).contains { !marr($0["tracks"]).isEmpty } }.min { key($0) < key($1) }
+        }
+        if picked == nil {
+            guard let list = await get("/ws/2/release?release-group=\(groupId)&limit=100") as? JSON,
+                  let first = marr(list["releases"]).min(by: { key($0) < key($1) }), let rid = mstr(first["id"]) else { return nil }
+            picked = await get("/ws/2/release/\(rid)?inc=recordings+isrcs+artist-credits+release-groups") as? JSON
+        }
+        guard let release = picked else { return nil }
         let group = release["release-group"] as? JSON
         let art = coverURL(groupId)
         let c = credit(release["artist-credit"])
@@ -600,24 +653,11 @@ actor Chart {
             let name = lead(full)
             if !name.isEmpty, !people.contains(where: { plainName($0.name) == plainName(name) }) { people.append((name, full, mstr(r["name"]) ?? "")) }
         }
-        let ids: [Int: String] = await withTaskGroup(of: (Int, String?).self) { group in
-            for (i, p) in people.enumerated() {
-                let full = p.full, song = p.song
-                group.addTask {
-                    let m = await lookup(full, song)
-                    return (i, ((m?["artist_mbids"] as? [Any]) ?? []).compactMap { $0 as? String }.first { isMbid($0) })
-                }
-            }
-            var out: [Int: String] = [:]
-            for await (i, id) in group { if let id { out[i] = id } }
-            return out
-        }
+        let ids = await MB.artistIds(named: people.map(\.name))
         var out: [MusicArtist] = []
         var seen = Set<String>()
         for (i, p) in people.enumerated() {
-            var id = ids[i]
-            if id == nil { id = await MB.artistId(named: p.name) }
-            guard let found = id, !seen.contains(found) else { continue }
+            guard let found = ids[i], !seen.contains(found) else { continue }
             seen.insert(found)
             out.append(MusicArtist(id: found, name: p.name, detail: nil, artworkURL: nil, addon: nil))
         }
@@ -681,17 +721,22 @@ actor AlbumChart {
         let cutoff = Date().addingTimeInterval(-56 * 24 * 3600)
         var result = Result()
         var recent: [(String, MusicAlbum)] = []
+        var picked: [(item: JSON, top: Bool, recent: Bool, date: String)] = []
         for (i, r) in items.enumerated() {
             let date = mstr(r["releaseDate"]) ?? ""
             let isRecent = day.date(from: String(date.prefix(10))).map { $0 >= cutoff } ?? false
-            if i >= 24 && !isRecent { continue }
-            guard var a = await MB.album(named: mstr(r["name"]) ?? "", artist: mstr(r["artistName"]) ?? "") else { continue }
-            if date.count >= 4 { a.year = String(date.prefix(4)) }
-            if let art = mstr(r["artworkUrl100"]), art.hasPrefix("https://"), art.contains(".mzstatic.com/") {
+            if i >= 30 && !isRecent { continue }
+            picked.append((r, i < 30, isRecent, date))
+        }
+        let matches = await MB.albums(named: picked.map { (title: mstr($0.item["name"]) ?? "", artist: mstr($0.item["artistName"]) ?? "") })
+        for (i, p) in picked.enumerated() {
+            guard var a = matches[i] else { continue }
+            if p.date.count >= 4 { a.year = String(p.date.prefix(4)) }
+            if let art = mstr(p.item["artworkUrl100"]), art.hasPrefix("https://"), art.contains(".mzstatic.com/") {
                 a.artworkURL = art.replacingOccurrences(of: "100x100bb", with: "400x400bb")
             }
-            if i < 24 { result.popular.append(a) }
-            if isRecent { recent.append((date, a)) }
+            if p.top { result.popular.append(a) }
+            if p.recent { recent.append((p.date, a)) }
         }
         result.recent = recent.sorted { $0.0 > $1.0 }.map { $0.1 }
         return result

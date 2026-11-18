@@ -184,11 +184,21 @@ export type AlbumPage = {
 // An album page: the earliest official release of the release group, with its tracks and their ISRC codes.
 // Two requests: which releases there are, then the earliest one in full (it carries the album's own details too).
 export const getAlbum = async (groupId: string): Promise<AlbumPage> => {
-    const list = await mb(`/ws/2/release?release-group=${groupId}&status=official&limit=100`);
-    const releases: any[] = Array.isArray(list.releases) ? list.releases : [];
-    releases.sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')));
-    if (releases.length === 0) throw new Error('No release found for this album');
-    const release = await mb(`/ws/2/release/${releases[0].id}?inc=recordings+isrcs+artist-credits+release-groups`);
+    // One request: the album's releases with their tracks; the earliest official one is shown.
+    const order = (a: any, b: any) => (a.status === 'Official' ? 0 : 1) - (b.status === 'Official' ? 0 : 1) || String(a.date || '9999').localeCompare(String(b.date || '9999'));
+    let release: any = null;
+    try {
+        const all = await mb(`/ws/2/release?release-group=${groupId}&inc=recordings+isrcs+artist-credits+release-groups&limit=25`);
+        const withTracks = (Array.isArray(all.releases) ? all.releases : []).filter((r: any) => Array.isArray(r.media) && r.media.some((m: any) => Array.isArray(m.tracks) && m.tracks.length > 0));
+        release = withTracks.sort(order)[0] ?? null;
+    } catch (_e) { /* the two-step way below */ }
+    if (!release) {
+        const list = await mb(`/ws/2/release?release-group=${groupId}&limit=100`);
+        const releases: any[] = Array.isArray(list.releases) ? list.releases : [];
+        releases.sort(order);
+        if (releases.length === 0) throw new Error('No release found for this album');
+        release = await mb(`/ws/2/release/${releases[0].id}?inc=recordings+isrcs+artist-credits+release-groups`);
+    }
     const group = release['release-group'] ?? {};
     const art = coverUrl(groupId);
     const artist = credit(release['artist-credit']);

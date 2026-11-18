@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.7",
-    "versionCode": 73,
+    "version": "1.6.8",
+    "versionCode": 74,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
+    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
   },
   "phone": {
-    "version": "1.2.7",
-    "versionCode": 32,
+    "version": "1.2.8",
+    "versionCode": 33,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
+    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
   },
   "windows": {
     "version": "1.10.7",
