@@ -12,10 +12,10 @@
     "notes": "Popular songs from Apple's chart now have Listen on Apple Music. Or paste your own Last.fm API key in Music settings to use Last.fm's chart instead."
   },
   "windows": {
-    "version": "1.10.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.1/CodioSetup-1.10.1.exe",
-    "size": 66155372,
-    "sha256": "cdfc62d99f1313a694a8ebcf8980c2f968f6c4052c21170b338a926b66346565",
-    "notes": "Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base."
+    "version": "1.10.2",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.2/CodioSetup-1.10.2.exe",
+    "size": 66160262,
+    "sha256": "7c1efeaed4c864f3fc086e5d752d2f8e3c1ea8a89a55439dc31f98cee6327de9",
+    "notes": "Popular songs from Apple's chart now have Listen on Apple Music. Or paste your own Last.fm API key in Music settings to use Last.fm's chart instead."
   }
 }
