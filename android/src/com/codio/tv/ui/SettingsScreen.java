@@ -274,6 +274,18 @@ final class SettingsScreen extends Screen {
                 }));
             }
         });
+        if (CastInfo.key() == null) rows.add(new Item("Get a TMDB key", "Opens themoviedb.org/settings/api, where you make your free key (sign up first if you have no account).") {
+            @Override
+            String value() {
+                return CastInfo.key() != null ? "Key saved" : "Open";
+            }
+
+            @Override
+            void ok() {
+                if (CastInfo.key() != null) SettingsScreen.this.tv.toast("You already have a TMDB key");
+                else WebLink.openOnTv(SettingsScreen.this.tv, WebLink.TMDB_KEY);
+            }
+        });
         addSyncRows();
         rows.add(Setting.ABOUT);
         rows.add(new Item("Updates", "Codio checks for a newer version when it starts and offers to install it. Press OK to check now.") {

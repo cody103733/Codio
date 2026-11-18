@@ -148,6 +148,12 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             }
         });
         charts.note = "Syncs with your Sync passcode.";
+        if (lf.length() == 0) item("Get a Last.fm key", "last.fm/api/account/create", new Runnable() {
+            @Override
+            public void run() {
+                WebLink.openOnTv(tv, WebLink.LASTFM_KEY);
+            }
+        });
 
         final ListenBrainz.Account account = ListenBrainz.account();
         if (account == null) {
@@ -159,6 +165,12 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             });
             in.head = "Your account";
             in.note = "Sign in and what you play and heart follows you to your other devices. Make a free account at listenbrainz.org and copy your user token from listenbrainz.org/settings. The token is only sent to ListenBrainz, and to your other devices locked with your sync passcode if you set one (Settings).";
+            item("Get my ListenBrainz token", "listenbrainz.org/settings", new Runnable() {
+                @Override
+                public void run() {
+                    WebLink.openOnTv(tv, WebLink.LISTENBRAINZ_TOKEN);
+                }
+            });
         } else {
             String sendError = ListenBrainz.sendError();
             Item who = item("Signed in as " + account.user, sendError != null ? sendError : account.syncError != null ? account.syncError : "Last sync: " + ago(account.lastSync), null);

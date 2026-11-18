@@ -216,6 +216,7 @@ const AddonsPanel = () => {
     const [error, setError] = useState<string | null>(null);
     const [server, setServer] = useState(loadMusicSettings().mbBase);
     const [lastfm, setLastfm] = useState(loadMusicSettings().lastfmKey);
+    const platform = usePlatform() as any;
 
     const add = async () => {
         if (link.trim().length === 0 || busy) return;
@@ -299,6 +300,7 @@ const AddonsPanel = () => {
                     onChange={(e) => setLastfm(e.target.value)}
                     onBlur={() => saveMusicSettings({ lastfmKey: lastfm.trim() })}
                 />
+                {lastfm.trim().length === 0 ? <button className={m['mini-button']} onClick={() => platform.openExternal?.('https://www.last.fm/api/account/create')}>Get a key</button> : null}
             </div>
             <AccountPanel />
             <TastePanel />

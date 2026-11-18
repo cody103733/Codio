@@ -113,6 +113,9 @@ struct SettingsView: View {
                 }
                 .onChange(of: tmdbKey) { _ in scheduleKeyCheck() }
                 keyStatusRow
+                if tmdbKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Link("Get a key", destination: URL(string: "https://www.themoviedb.org/settings/api")!)
+                }
             } header: {
                 Text("Cast, actors & Top Picks")
             } footer: {

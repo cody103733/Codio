@@ -299,6 +299,30 @@ final class PhoneSettings extends PhoneUi.Page {
             }
         });
         r.addView(paste);
+        final TextView get = PhoneKit.link(ctx(), "Get a key", Theme.RED);
+        get.setPadding(dp(8), dp(8), dp(8), dp(8));
+        get.setVisibility(k == null || k.isEmpty() ? View.VISIBLE : View.GONE);
+        get.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!WebLink.open(ctx(), WebLink.TMDB_KEY)) android.widget.Toast.makeText(ctx(), "Couldn't open " + WebLink.TMDB_KEY, android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+        keyField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                get.setVisibility(s.toString().trim().isEmpty() ? View.VISIBLE : View.GONE);
+            }
+        });
+        r.addView(get);
         return r;
     }
 

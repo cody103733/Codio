@@ -1,1 +1,1 @@
-Popular songs and artists now always show your country's chart. Before, if songs couldn't be matched, the old ListenBrainz list came back.
+Music > Addons: a Get a key button for Last.fm, shown until you enter one.

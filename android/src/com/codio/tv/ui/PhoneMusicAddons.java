@@ -112,6 +112,30 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, dp(40));
         ll.setMargins(dp(16), dp(4), dp(16), dp(4));
         body.addView(lastfm, ll);
+        final LinearLayout getRow = new LinearLayout(c);
+        getRow.setPadding(dp(8), dp(2), dp(8), dp(2));
+        getRow.addView(act("Get a key", Theme.RED, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openUrl(WebLink.LASTFM_KEY);
+            }
+        }));
+        getRow.setVisibility(MusicNet.lastfmKey().isEmpty() ? View.VISIBLE : View.GONE);
+        lastfm.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int n) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int n) {
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                getRow.setVisibility(s.toString().trim().isEmpty() ? View.VISIBLE : View.GONE);
+            }
+        });
+        body.addView(getRow);
 
         body.addView(heading("YOUR ACCOUNT (LISTENBRAINZ)"));
         accountBox = new LinearLayout(c);

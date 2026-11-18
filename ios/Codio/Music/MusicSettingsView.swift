@@ -36,6 +36,9 @@ struct MusicSettingsView: View {
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .onSubmit { Chart.lastfmKey = lastfm }
                     .onDisappear { Chart.lastfmKey = lastfm }
+                if lastfm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Link("Get a key", destination: URL(string: "https://www.last.fm/api/account/create")!)
+                }
             } header: {
                 Text("Charts")
             } footer: {
