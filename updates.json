@@ -12,10 +12,10 @@
     "notes": "Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base."
   },
   "windows": {
-    "version": "1.10.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.0/CodioSetup-1.10.0.exe",
-    "size": 66151852,
-    "sha256": "9ea5893f0b9a9291aa80caa966f9559380cb372ab5d998bf7ca28fe1dd9f947f",
-    "notes": "New in Settings: Sync passcode. One passcode, entered once on each device, unlocks your TMDB key, music addons and ListenBrainz sign-in everywhere. They're locked before they leave this PC."
+    "version": "1.10.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.1/CodioSetup-1.10.1.exe",
+    "size": 66155372,
+    "sha256": "cdfc62d99f1313a694a8ebcf8980c2f968f6c4052c21170b338a926b66346565",
+    "notes": "Popular artists and Popular songs on Music now follow what your country is playing (Apple Music's chart), instead of ListenBrainz's small listener base."
   }
 }
