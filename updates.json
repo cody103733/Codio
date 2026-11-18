@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.4",
-    "versionCode": 70,
+    "version": "1.6.5",
+    "versionCode": 71,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Every key you can enter (TMDB, Last.fm, ListenBrainz) now has a Get a key button that opens the page where you make one, until a key is entered."
+    "notes": "Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it."
   },
   "phone": {
-    "version": "1.2.4",
-    "versionCode": 29,
+    "version": "1.2.5",
+    "versionCode": 30,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Every key you can enter (TMDB, Last.fm, ListenBrainz) now has a Get a key button that opens the page where you make one, until a key is entered."
+    "notes": "Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it."
   },
   "windows": {
     "version": "1.10.4",

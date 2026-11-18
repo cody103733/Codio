@@ -50,24 +50,82 @@ public final class Discovery {
     }
 
     /** Albums people are playing this week. */
-    public static List<Album> popularAlbums() {
-        JSONArray l = list(lb("/1/stats/sitewide/release-groups?range=week&count=25", false), "payload", "release_groups");
-        List<Album> out = new ArrayList<>();
-        for (int i = 0; i < l.length(); i++) {
-            JSONObject g = l.optJSONObject(i);
-            if (g == null || Model.str(g, "release_group_mbid") == null) continue;
-            Album a = new Album();
-            a.id = g.optString("release_group_mbid");
-            a.title = g.optString("release_group_name", "");
-            a.artist = g.optString("artist_name", "");
-            a.artworkURL = MusicBrainz.coverUrl(a.id);
-            a.artistMbid = first(g.optJSONArray("artist_mbids"));
-            out.add(a);
+    // ---- the country's album chart (windows/desktop/codio-music.js buildAlbums): Apple's most played albums, matched to
+    // MusicBrainz release groups by title and artist. Last.fm has no albums chart per country, so this is Apple's always.
+    private static final Object ALBUM_LOCK = new Object();
+    private static List<Album> albumPopular, albumRecent;
+    private static long albumAt;
+
+    private static void loadAlbums() {
+        synchronized (ALBUM_LOCK) {
+            if (albumPopular != null && System.currentTimeMillis() - albumAt < 30 * 60 * 1000L) return;
+            List<Album> popular = new ArrayList<>(), recent = new ArrayList<>();
+            try {
+                String cc = country();
+                String url = CHART + "/api/v2/" + cc + "/music/most-played/100/albums.json";
+                byte[] body = MusicNet.readCache(url, HOURS6);
+                if (body == null) {
+                    MusicNet.Reply r = MusicNet.get(url, 15000);
+                    if (r.status != 200 && !cc.equals("us")) {
+                        url = CHART + "/api/v2/us/music/most-played/100/albums.json";
+                        r = MusicNet.get(url, 15000);
+                    }
+                    if (r.status == 200) {
+                        body = r.body;
+                        MusicNet.writeCache(url, body);
+                    }
+                }
+                JSONArray items = body == null ? new JSONArray() : list(new JSONObject(new String(body, "UTF-8")), "feed", "results");
+                long cutoff = System.currentTimeMillis() - 56 * MusicNet.DAY;
+                java.text.SimpleDateFormat day = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                List<Album> recentFound = new ArrayList<>();
+                List<String> recentDates = new ArrayList<>();
+                for (int i = 0; i < items.length(); i++) {
+                    JSONObject r = items.optJSONObject(i);
+                    if (r == null) continue;
+                    String date = r.optString("releaseDate", "");
+                    boolean isRecent = false;
+                    try {
+                        isRecent = date.length() >= 10 && day.parse(date.substring(0, 10)).getTime() >= cutoff;
+                    } catch (Exception ignored) {
+                    }
+                    if (i >= 30 && !isRecent) continue;
+                    Album a = MusicBrainz.albumByName(r.optString("name", ""), r.optString("artistName", ""));
+                    if (a == null) continue;
+                    a.year = date.length() >= 4 ? date.substring(0, 4) : null;
+                    String art = r.optString("artworkUrl100", "");
+                    if (art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*")) a.artworkURL = art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.");
+                    if (i < 30) popular.add(a);
+                    if (isRecent) {
+                        int at = 0;
+                        while (at < recentDates.size() && recentDates.get(at).compareTo(date) >= 0) at++;
+                        recentDates.add(at, date);
+                        recentFound.add(at, a);
+                    }
+                }
+                recent = recentFound;
+            } catch (Exception ignored) {
+                // the rows stay empty
+            }
+            albumPopular = popular;
+            albumRecent = recent;
+            albumAt = popular.isEmpty() ? 0 : System.currentTimeMillis();
         }
-        return out;
     }
 
-    /** Albums out in the last two weeks. */
+    /** Albums people are playing now in your country. */
+    public static List<Album> popularAlbums() {
+        loadAlbums();
+        return new ArrayList<>(albumPopular);
+    }
+
+    /** Popular albums out in the last 8 weeks, newest first. */
+    public static List<Album> chartNewReleases() {
+        loadAlbums();
+        return new ArrayList<>(albumRecent);
+    }
+
+    /** Every album out in the last two weeks (ListenBrainz, worldwide): only used to find new music from artists you like. */
     public static List<Album> newReleases() {
         Object j = lb("/1/explore/fresh-releases/?days=14&past=true&future=false&sort=release_date", false);
         JSONArray items = j instanceof JSONArray ? (JSONArray) j : list(j, "payload", "releases");
@@ -116,11 +174,29 @@ public final class Discovery {
         return MusicNet.lastfmKey().isEmpty() ? "apple" : "lastfm";
     }
 
+    /** Is this Last.fm key accepted? 1 yes, 0 no (Last.fm said so), -1 couldn't ask. Blocking. */
+    public static int checkLastfm(String key) {
+        if (key == null || !key.trim().matches("[A-Za-z0-9]{16,64}")) return 0;
+        try {
+            MusicNet.Reply r = MusicNet.get(LASTFM + "/2.0/?method=geo.gettoptracks&country=United%20States&limit=1&format=json&api_key=" + key.trim(), 15000);
+            JSONObject j = null;
+            try {
+                j = new JSONObject(r.text());
+            } catch (Exception ignored) {
+            }
+            if (r.status == 200 && j != null && j.optJSONObject("tracks") != null) return 1;
+            if (j != null && (j.optInt("error") == 10 || j.optInt("error") == 26 || j.optInt("error") == 4)) return 0;
+            return -1;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     // Last.fm's chart for the country (your own key), as Apple-shaped items. Cached under an address without the key.
     private static JSONArray lastfmFeed(String cc, String key) throws Exception {
         String name = new Locale("", cc.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.ENGLISH);
         if (name == null || name.isEmpty() || name.equalsIgnoreCase(cc)) name = "United States";
-        String p = "/2.0/?method=geo.gettoptracks&country=" + java.net.URLEncoder.encode(name, "UTF-8") + "&limit=50&format=json";
+        String p = "/2.0/?method=geo.gettoptracks&country=" + java.net.URLEncoder.encode(name, "UTF-8") + "&limit=100&format=json";
         byte[] body = MusicNet.readCache(LASTFM + p, HOURS6);
         if (body == null) {
             MusicNet.Reply r = MusicNet.get(LASTFM + p + "&api_key=" + java.net.URLEncoder.encode(key, "UTF-8"), 15000);
@@ -172,6 +248,44 @@ public final class Discovery {
         return c != null && c.matches("[A-Za-z]{2}") ? c.toLowerCase(Locale.ROOT) : "us";
     }
 
+    private static String plainName(String s) {
+        return java.text.Normalizer.normalize(s == null ? "" : s, java.text.Normalizer.Form.NFKD).replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT).replace("&", "and").replaceAll("[^a-z0-9]+", "");
+    }
+
+    /** A song's cover from Deezer, or null. Kept a month. */
+    static String deezerCover(String artist, String title) {
+        try {
+            String q = "artist:\"" + artist.replace("\"", "") + "\" track:\"" + title.replace("\"", "") + "\"";
+            String url = "https://api.deezer.com/search/track?q=" + java.net.URLEncoder.encode(q, "UTF-8") + "&limit=5";
+            byte[] body = MusicNet.readCache(url, 30 * MusicNet.DAY);
+            if (body == null) {
+                MusicNet.spaced("https://api.deezer.com", 120);
+                MusicNet.Reply r = MusicNet.get(url, 15000);
+                if (r.status != 200) return null;
+                body = r.body;
+                MusicNet.writeCache(url, body);
+            }
+            JSONArray list = new JSONObject(new String(body, "UTF-8")).optJSONArray("data");
+            if (list == null || list.length() == 0) return null;
+            String lead = plainName(LEAD.split(artist)[0]);
+            JSONObject hit = list.optJSONObject(0);
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject t = list.optJSONObject(i);
+                JSONObject a = t == null ? null : t.optJSONObject("artist");
+                if (a != null && plainName(a.optString("name")).equals(lead)) {
+                    hit = t;
+                    break;
+                }
+            }
+            JSONObject album = hit == null ? null : hit.optJSONObject("album");
+            String cover = album == null ? "" : album.optString("cover_big", album.optString("cover_medium", ""));
+            return cover.startsWith("https://") && !cover.contains("/cover//") ? cover : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private static JSONObject lookupSong(String artist, String title) {
         try {
             String url = LB + "/1/metadata/lookup/?artist_name=" + java.net.URLEncoder.encode(artist, "UTF-8")
@@ -192,7 +306,7 @@ public final class Discovery {
     }
 
     private static JSONArray chartFeed(String cc) throws Exception {
-        String url = CHART + "/api/v2/" + cc + "/music/most-played/50/songs.json";
+        String url = CHART + "/api/v2/" + cc + "/music/most-played/100/songs.json";
         byte[] body = MusicNet.readCache(url, HOURS6);
         if (body == null) {
             MusicNet.Reply r = MusicNet.get(url, 15000);
@@ -219,7 +333,7 @@ public final class Discovery {
             List<Artist> artists = new ArrayList<>();
             try {
                 JSONArray items = key.isEmpty() ? chartFeed(country()) : lastfmFeed(country(), key);
-                int n = Math.min(items.length(), 40);
+                int n = Math.min(items.length(), 100);
                 List<Future<JSONObject>> jobs = new ArrayList<>();
                 for (int i = 0; i < n; i++) {
                     final JSONObject r = items.optJSONObject(i);
@@ -266,8 +380,19 @@ public final class Discovery {
                         nameIds.add(ids.isEmpty() ? null : ids.get(0));
                     }
                 }
+                // Songs with no cover yet (Last.fm sends no real pictures): Deezer's cover of that song.
+                List<Future<String>> covers = new ArrayList<>();
+                for (final Track t : songs) {
+                    covers.add(t.artworkURL != null ? null : LOOKUPS.submit(() -> deezerCover(t.artist, t.title)));
+                }
+                for (int i = 0; i < songs.size(); i++) {
+                    try {
+                        if (covers.get(i) != null) songs.get(i).artworkURL = covers.get(i).get();
+                    } catch (Exception ignored) {
+                    }
+                }
                 Set<String> seen = new HashSet<>();
-                for (int i = 0; i < names.size() && i < 24; i++) {
+                for (int i = 0; i < names.size() && i < 30; i++) {
                     String id = nameIds.get(i) != null ? nameIds.get(i) : MusicBrainz.artistIdByName(names.get(i));
                     if (id == null || !seen.add(id)) continue;
                     Artist a = new Artist();
@@ -287,7 +412,7 @@ public final class Discovery {
     /** Songs people are playing this week: the country's chart, else ListenBrainz's. */
     public static List<Track> popularSongs() {
         loadChart();
-        return new ArrayList<>(chartSongs.subList(0, Math.min(25, chartSongs.size())));
+        return new ArrayList<>(chartSongs.subList(0, Math.min(100, chartSongs.size())));
     }
 
     /** Artists people are playing now: the ones in the country's chart, else ListenBrainz's. */

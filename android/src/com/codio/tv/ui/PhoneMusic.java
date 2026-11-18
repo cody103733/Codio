@@ -53,7 +53,8 @@ final class PhoneMusic extends PhoneUi.Page {
 
     // What the home rows are made from (filled in as each call answers).
     private int homeGen = 0;
-    private List<Album> albums, freshAll;
+    private List<Album> albums, freshAll, chartFresh;
+    private boolean allTop;
     private List<Track> songs, mixRaw;
     private List<Artist> artists;
     private List<Album> more;
@@ -281,7 +282,7 @@ final class PhoneMusic extends PhoneUi.Page {
 
     private void startHome() {
         final int gen = ++homeGen;
-        albums = freshAll = more = null;
+        albums = freshAll = chartFresh = more = null;
         songs = null;
         mixRaw = DailyMix.saved();
         artists = null;
@@ -301,6 +302,12 @@ final class PhoneMusic extends PhoneUi.Page {
                 return Discovery.newReleases();
             }
         }, 1);
+        fetch(gen, new MusicNet.Job<Object>() {
+            @Override
+            public Object run() {
+                return Discovery.chartNewReleases();
+            }
+        }, 5);
         fetch(gen, new MusicNet.Job<Object>() {
             @Override
             public Object run() {
@@ -375,6 +382,9 @@ final class PhoneMusic extends PhoneUi.Page {
                         break;
                     case 4:
                         more = (List<Album>) (List<?>) list;
+                        break;
+                    case 5:
+                        chartFresh = (List<Album>) (List<?>) list;
                         break;
                     default:
                         if (slot - 10 < sims.size()) sims.set(slot - 10, (List<Artist>) (List<?>) list);
@@ -493,14 +503,26 @@ final class PhoneMusic extends PhoneUi.Page {
         if (seeds.size() > 1) addArtists(c, "Because you played " + seeds.get(1).name, sims.get(1));
         addTracks(c, "Liked songs", new ArrayList<>(Taste.likedTracks()));
         addAlbums(c, "Popular right now", favor(albums, liked, 100));
-        addAlbums(c, "New releases", favor(freshAll, liked, 30));
+        addAlbums(c, "New releases", favor(chartFresh, liked, 30));
         List<Track> top = Taste.visibleTracks(songs == null ? new ArrayList<Track>() : songs);
         if (!top.isEmpty()) {
-            content.addView(PhoneUi.sectionTitle(c, "Popular songs"));
-            List<Track> ten = new ArrayList<>(top.subList(0, Math.min(10, top.size())));
+            content.addView(PhoneUi.sectionTitle(c, allTop ? "Top " + Math.min(100, top.size()) : "Popular songs"));
+            List<Track> ten = new ArrayList<>(top.subList(0, Math.min(allTop ? 100 : 10, top.size())));
             if (com.codio.tv.music.Discovery.appleMusicUrl(ten.get(0)) != null) content.addView(MusicKit.note(c, "Chart from Apple Music. Tap ⋯ on a song to listen there."));
             else if ("lastfm".equals(com.codio.tv.music.Discovery.chartSource())) content.addView(MusicKit.note(c, "Chart data from Last.fm"));
             MusicKit.trackList(ui, content, ten, true);
+            if (top.size() > 10) {
+                TextView more = PhoneKit.link(c, allTop ? "Show less" : "See top " + Math.min(100, top.size()), Theme.RED);
+                more.setPadding(dp(16), dp(10), dp(16), dp(10));
+                more.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        allTop = !allTop;
+                        render();
+                    }
+                });
+                content.addView(more);
+            }
         }
         addArtists(c, "Popular artists", artists);
         for (Addons.CatalogRow row : catalogs) {

@@ -8,7 +8,7 @@ import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { buildDailyMix, savedMix, today } from './dailymix';
-import { appleMusicUrl, chartSource, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
+import { appleMusicUrl, chartNewReleases, chartSource, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
 import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
 import { artistPhotoUrl } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
@@ -106,6 +106,15 @@ const ago = (at: number | null) => {
 const AccountPanel = () => {
     const account = useListenBrainz();
     const platform = usePlatform() as any;
+    const [lastfmState, setLastfmState] = useState<'none' | 'checking' | 'ok' | 'bad' | 'offline'>('none');
+    const checkLastfm = (key: string) => {
+        if (!key) { setLastfmState('none'); return; }
+        setLastfmState('checking');
+        fetch('/api/music/lastfm-check', { headers: { 'X-Codio': '1', 'X-Lastfm-Key': key } })
+            .then((r) => r.ok ? r.json() : null).catch(() => null)
+            .then((j) => setLastfmState(j ? (j.ok ? 'ok' : 'bad') : 'offline'));
+    };
+    useEffect(() => { checkLastfm(loadMusicSettings().lastfmKey); }, []);
     const [token, setToken] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -298,10 +307,14 @@ const AddonsPanel = () => {
                     value={lastfm}
                     spellCheck={false}
                     onChange={(e) => setLastfm(e.target.value)}
-                    onBlur={() => saveMusicSettings({ lastfmKey: lastfm.trim() })}
+                    onBlur={() => { saveMusicSettings({ lastfmKey: lastfm.trim() }); checkLastfm(lastfm.trim()); }}
                 />
                 {lastfm.trim().length === 0 ? <button className={m['mini-button']} onClick={() => platform.openExternal?.('https://www.last.fm/api/account/create')}>Get a key</button> : null}
             </div>
+            {lastfmState === 'ok' ? <div className={m['key-ok']}>✔ Connected. Popular songs and artists use Last.fm.</div> : null}
+            {lastfmState === 'bad' ? <div className={m['error']}>Last.fm didn't accept this key. Check that you copied the API key, not the shared secret.</div> : null}
+            {lastfmState === 'checking' ? <div className={m['note']}>Checking the key…</div> : null}
+            {lastfmState === 'offline' ? <div className={m['note']}>Couldn't reach Last.fm to check the key.</div> : null}
             <AccountPanel />
             <TastePanel />
         </div>
@@ -374,8 +387,11 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
 
     const albums = useRow('popular-albums', popularAlbums);
     const freshAll = useRow('new-releases', newReleases);
-    const songs = useRow('popular-songs', popularSongs);
-    const artists = useRow('popular-artists', popularArtists);
+    const chartFresh = useRow('chart-new-releases', chartNewReleases);
+    const [allTop, setAllTop] = useState(false);
+    const source = loadMusicSettings().lastfmKey;
+    const songs = useRow(`popular-songs-${source}`, popularSongs);
+    const artists = useRow(`popular-artists-${source}`, popularArtists);
     const loading = [albums, freshAll, songs, artists].every((r) => r === null);
 
     // Artists you like and ones like them: popular and new rows lead with their music.
@@ -385,7 +401,7 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
         return [...visible.filter((a) => a.artistMbid && liked.has(a.artistMbid)), ...visible.filter((a) => !(a.artistMbid && liked.has(a.artistMbid)))];
     };
     const forYou = useMemo(() => visibleAlbums(taste, freshAll ?? []).filter((a) => a.artistMbid && liked.has(a.artistMbid)).slice(0, 24), [freshAll, liked, taste.hiddenAlbums, taste.hiddenArtists]);
-    const fresh = useMemo(() => favor(freshAll).slice(0, 30), [freshAll, liked, taste.hiddenAlbums, taste.hiddenArtists]);
+    const fresh = useMemo(() => favor(chartFresh).slice(0, 30), [chartFresh, liked, taste.hiddenAlbums, taste.hiddenArtists]);
     const popular = useMemo(() => favor(albums), [albums, liked, taste.hiddenAlbums, taste.hiddenArtists]);
     const topSongs = visibleTracks(taste, songs ?? []);
     const recentShown = visibleTracks(taste, recent);
@@ -437,10 +453,14 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
             {albumRow('New releases', fresh)}
             {topSongs.length > 0 ? (
                 <>
-                    <div className={m['section-title']}>Songs people are playing</div>
+                    <div className={m['section-head']}>
+                        <div className={m['section-title']}>{allTop ? `Top ${Math.min(100, topSongs.length)}` : 'Songs people are playing'}</div>
+                        <button className={m['mini-button']} onClick={() => playQueue(topSongs, 0, false)}>Play all</button>
+                        {topSongs.length > 10 ? <button className={m['mini-button']} onClick={() => setAllTop(!allTop)}>{allTop ? 'Show less' : `See top ${Math.min(100, topSongs.length)}`}</button> : null}
+                    </div>
                     {topSongs.some((t) => appleMusicUrl(t)) ? <div className={m['chart-credit']}>Chart from Apple Music</div> : chartSource() === 'lastfm' ? <div className={m['chart-credit']}>Chart data from Last.fm</div> : null}
                     <div className={m['tracks']}>
-                        {topSongs.slice(0, 10).map((t, i) => {
+                        {topSongs.slice(0, allTop ? 100 : 10).map((t, i) => {
                             const apple = appleMusicUrl(t);
                             return <TrackRow key={t.id} track={t} number={i + 1} canHide current={current === t.id} onPlay={() => playQueue(topSongs, i)}
                                 link={apple ? { label: 'Listen on Apple Music', onOpen: () => platform.openExternal(apple) } : null} />;

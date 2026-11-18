@@ -37,6 +37,20 @@ enum MB {
         }.max { (mint($0["score"]) ?? 0) < (mint($1["score"]) ?? 0) }.flatMap { mstr($0["id"]) }
     }
 
+    /// An album (release group) by title and artist, for chart albums (Apple adds " - Single" / " - EP"); nil if none.
+    static func album(named title: String, artist: String) async -> MusicAlbum? {
+        let clean = title.replacingOccurrences(of: "\\s+-\\s+(Single|EP|single|ep)$", with: "", options: .regularExpression).replacingOccurrences(of: "\"", with: "")
+        let q = "releasegroup:\"\(clean)\" AND artist:\"\(artist.replacingOccurrences(of: "\"", with: ""))\""
+        guard let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+              let j = await get("/ws/2/release-group?query=\(enc)&limit=5") as? JSON else { return nil }
+        let wanted = plain(clean)
+        guard let g = marr(j["release-groups"]).filter({ isMbid(mstr($0["id"])) && plain(mstr($0["title"]) ?? "") == wanted })
+            .max(by: { (mint($0["score"]) ?? 0) < (mint($1["score"]) ?? 0) }) else { return nil }
+        var a = toAlbum(g)
+        if a.artist.isEmpty { a.artist = artist }
+        return a
+    }
+
     private static func lucene(_ text: String) -> String {
         let special = Set("+-&|!(){}[]^\"~*?:\\/")
         var out = ""
@@ -218,6 +232,16 @@ enum LBData {
 
     /// Albums people are playing this week.
     static func popularAlbums() async -> [MusicAlbum] {
+        await AlbumChart.shared.get().popular
+    }
+
+    /// Popular albums out in the last 8 weeks, newest first.
+    static func chartNewReleases() async -> [MusicAlbum] {
+        await AlbumChart.shared.get().recent
+    }
+
+    /// Albums ListenBrainz's listeners played this week (no longer shown).
+    static func sitewideAlbums() async -> [MusicAlbum] {
         let j = await get("/1/stats/sitewide/release-groups?range=week&count=25", ttl: 6 * 3600) as? JSON
         let payload = j?["payload"] as? JSON
         return marr(payload?["release_groups"]).compactMap { g in
@@ -256,7 +280,7 @@ enum LBData {
 
     /// Songs people are playing now: the country's chart (Apple's, or Last.fm's with your key).
     static func popularSongs() async -> [MusicTrack] {
-        return Array(await Chart.shared.get().songs.prefix(25))
+        return Array(await Chart.shared.get().songs.prefix(100))
     }
 
     /// Songs ListenBrainz's listeners played this week (no longer shown: it leaned on a few very active fans).
@@ -428,7 +452,7 @@ actor Chart {
     }
 
     private static func feed(_ cc: String) async -> [JSON] {
-        let reply = await MusicNet.metadata("\(host)/api/v2/\(cc)/music/most-played/50/songs.json", ttl: 6 * 3600, server: host, gap: 0)
+        let reply = await MusicNet.metadata("\(host)/api/v2/\(cc)/music/most-played/100/songs.json", ttl: 6 * 3600, server: host, gap: 0)
         if reply.status != 200 && cc != "us" { return await feed("us") }
         return marr(((reply.json as? JSON)?["feed"] as? JSON)?["results"])
     }
@@ -438,7 +462,7 @@ actor Chart {
         let name = Locale(identifier: "en_US").localizedString(forRegionCode: cc.uppercased()) ?? "United States"
         var c = URLComponents(string: lastfmHost + "/2.0/")!
         c.queryItems = [URLQueryItem(name: "method", value: "geo.gettoptracks"), URLQueryItem(name: "country", value: name),
-                        URLQueryItem(name: "limit", value: "50"), URLQueryItem(name: "format", value: "json")]
+                        URLQueryItem(name: "limit", value: "100"), URLQueryItem(name: "format", value: "json")]
         guard let plain = c.url?.absoluteString else { return [] }
         var data = MusicNet.readCache(plain, ttl: 6 * 3600)
         if data == nil {
@@ -467,6 +491,39 @@ actor Chart {
         return j
     }
 
+    /// Is this Last.fm key accepted? true / false (Last.fm said no) / nil (couldn't ask).
+    static func check(_ key: String) async -> Bool? {
+        let k = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard k.range(of: "^[A-Za-z0-9]{16,64}$", options: .regularExpression) != nil else { return false }
+        guard let u = URL(string: "\(lastfmHost)/2.0/?method=geo.gettoptracks&country=United%20States&limit=1&format=json&api_key=\(k)") else { return nil }
+        var request = URLRequest(url: u)
+        request.setValue(MusicNet.agent, forHTTPHeaderField: "User-Agent")
+        let answer = try? await URLSession.shared.data(for: request)
+        guard let d = answer?.0 else { return nil }
+        let j = MusicNet.parse(d) as? JSON
+        if (answer?.1 as? HTTPURLResponse)?.statusCode == 200, j?["tracks"] is JSON { return true }
+        if let e = mint(j?["error"]), [4, 10, 26].contains(e) { return false }
+        return nil
+    }
+
+    private static func plainName(_ s: String) -> String {
+        s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US"))
+            .replacingOccurrences(of: "&", with: "and").filter { $0.isLetter || $0.isNumber }.lowercased()
+    }
+
+    /// A song's cover from Deezer, or nil. Kept a month.
+    static func deezerCover(_ artist: String, _ title: String) async -> String? {
+        let q = "artist:\"\(artist.replacingOccurrences(of: "\"", with: ""))\" track:\"\(title.replacingOccurrences(of: "\"", with: ""))\""
+        guard let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return nil }
+        let reply = await MusicNet.metadata("https://api.deezer.com/search/track?q=\(enc)&limit=5", ttl: 30 * MusicNet.day, server: "https://api.deezer.com", gap: 0.12)
+        let list = marr((reply.json as? JSON)?["data"])
+        let wanted = plainName(Chart.lead(artist))
+        let hit = list.first { plainName(mstr(($0["artist"] as? JSON)?["name"]) ?? "") == wanted } ?? list.first
+        let album = hit?["album"] as? JSON
+        guard let cover = mstr(album?["cover_big"]) ?? mstr(album?["cover_medium"]), cover.hasPrefix("https://"), !cover.contains("/cover//") else { return nil }
+        return cover
+    }
+
     /// "Artist A & Artist B", "A, B & C", "A feat. B": the first name is who the song is by.
     static func lead(_ name: String) -> String {
         let pattern = "\\s+(?:&|feat\\.?|ft\\.?|featuring|with|x)\\s+|,\\s+(?!the\\s)"
@@ -478,7 +535,7 @@ actor Chart {
 
     static func build() async -> Result {
         let key = lastfmKey
-        let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(40))
+        let items = Array((key.isEmpty ? await feed(country) : await lastfmFeed(country, key: key)).prefix(100))
         let found: [JSON?] = await withTaskGroup(of: (Int, JSON?).self) { group in
             for (i, r) in items.enumerated() {
                 let artist = mstr(r["artistName"]) ?? "", title = mstr(r["name"]) ?? ""
@@ -510,8 +567,19 @@ actor Chart {
             let name = ids.count == 1 ? credit : lead(credit)
             if !people.contains(where: { $0.name.lowercased() == name.lowercased() }) { people.append((name, ids.first)) }
         }
+        // Songs with no cover yet (Last.fm sends no real pictures): Deezer's cover of that song.
+        let covers: [Int: String] = await withTaskGroup(of: (Int, String?).self) { group in
+            for (i, s) in result.songs.enumerated() where s.artworkURL == nil {
+                let artist = s.artist, title = s.title
+                group.addTask { (i, await deezerCover(artist, title)) }
+            }
+            var out: [Int: String] = [:]
+            for await (i, c) in group { if let c { out[i] = c } }
+            return out
+        }
+        for (i, c) in covers { result.songs[i].artworkURL = c }
         var seen = Set<String>()
-        for p in people.prefix(24) {
+        for p in people.prefix(30) {
             var id = p.id
             if id == nil { id = await MB.artistId(named: p.name) }
             guard let found = id, !seen.contains(found) else { continue }
@@ -538,5 +606,59 @@ enum AppleLinks {
     static func url(_ track: MusicTrack) -> URL? {
         lock.lock(); defer { lock.unlock() }
         return links[track.id].flatMap { URL(string: $0) }
+    }
+}
+
+/// The country's most played albums (Apple's chart; Last.fm has no albums chart per country), matched to MusicBrainz
+/// release groups by title and artist (windows/desktop/codio-music.js buildAlbums). Kept 6 hours, each match a day.
+actor AlbumChart {
+    static let shared = AlbumChart()
+
+    struct Result {
+        var popular: [MusicAlbum] = []
+        var recent: [MusicAlbum] = []
+    }
+
+    private var job: Task<Result, Never>?
+    private var at = Date.distantPast
+
+    func get() async -> Result {
+        if let job, Date().timeIntervalSince(at) < 1800 { return await job.value }
+        let task = Task { await AlbumChart.build() }
+        job = task
+        at = Date()
+        let r = await task.value
+        if r.popular.isEmpty { job = nil }
+        return r
+    }
+
+    private static func feed(_ cc: String) async -> [JSON] {
+        let reply = await MusicNet.metadata("\(Chart.host)/api/v2/\(cc)/music/most-played/100/albums.json", ttl: 6 * 3600, server: Chart.host, gap: 0)
+        if reply.status != 200 && cc != "us" { return await feed("us") }
+        return marr(((reply.json as? JSON)?["feed"] as? JSON)?["results"])
+    }
+
+    static func build() async -> Result {
+        let items = await feed(Chart.country)
+        let day = DateFormatter()
+        day.dateFormat = "yyyy-MM-dd"
+        day.locale = Locale(identifier: "en_US_POSIX")
+        let cutoff = Date().addingTimeInterval(-56 * 24 * 3600)
+        var result = Result()
+        var recent: [(String, MusicAlbum)] = []
+        for (i, r) in items.enumerated() {
+            let date = mstr(r["releaseDate"]) ?? ""
+            let isRecent = day.date(from: String(date.prefix(10))).map { $0 >= cutoff } ?? false
+            if i >= 30 && !isRecent { continue }
+            guard var a = await MB.album(named: mstr(r["name"]) ?? "", artist: mstr(r["artistName"]) ?? "") else { continue }
+            if date.count >= 4 { a.year = String(date.prefix(4)) }
+            if let art = mstr(r["artworkUrl100"]), art.hasPrefix("https://"), art.contains(".mzstatic.com/") {
+                a.artworkURL = art.replacingOccurrences(of: "100x100bb", with: "400x400bb")
+            }
+            if i < 30 { result.popular.append(a) }
+            if isRecent { recent.append((date, a)) }
+        }
+        result.recent = recent.sorted { $0.0 > $1.0 }.map { $0.1 }
+        return result
     }
 }

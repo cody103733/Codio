@@ -74,6 +74,29 @@ public final class MusicBrainz {
         }
     }
 
+    /** An album (release group) by title and artist, for chart albums (Apple adds " - Single" / " - EP"); null if none. */
+    public static Album albumByName(String title, String artist) {
+        try {
+            String clean = title.replaceAll("(?i)\\s+-\\s+(single|ep)$", "").replace("\"", "");
+            String q = "releasegroup:\"" + clean + "\" AND artist:\"" + artist.replace("\"", "") + "\"";
+            JSONObject j = MusicNet.obj(mb("/ws/2/release-group?query=" + enc(q) + "&limit=5"));
+            JSONArray list = j.optJSONArray("release-groups");
+            String wanted = plain(clean);
+            JSONObject best = null;
+            for (int i = 0; list != null && i < list.length(); i++) {
+                JSONObject g = list.optJSONObject(i);
+                if (g == null || !isMbid(g.optString("id")) || !plain(g.optString("title")).equals(wanted)) continue;
+                if (best == null || g.optInt("score", 0) > best.optInt("score", 0)) best = g;
+            }
+            if (best == null) return null;
+            Album a = toAlbum(best);
+            if (a.artist == null || a.artist.isEmpty()) a.artist = artist;
+            return a;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Lucene special characters in a search must be escaped. */
     static String lucene(String text) {
         return text.replaceAll("([+\\-&|!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1").trim();

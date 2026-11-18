@@ -20,15 +20,32 @@ const lb = async (path: string, host: 'lb' | 'labs' = 'lb'): Promise<any> => {
 const list = (x: unknown): any[] => Array.isArray(x) ? x : [];
 const first = (x: unknown): string | null => Array.isArray(x) && typeof x[0] === 'string' ? x[0] : null;
 
-// Albums people are playing this week.
-export const popularAlbums = async (): Promise<MusicAlbum[]> => {
-    const j = await lb('/1/stats/sitewide/release-groups?range=week&count=25');
-    return list(j?.payload?.release_groups).filter((g) => g.release_group_mbid).map((g): MusicAlbum => ({
-        id: String(g.release_group_mbid), title: String(g.release_group_name ?? ''), artist: String(g.artist_name ?? ''), artworkURL: coverUrl(String(g.release_group_mbid)), artistMbid: first(g.artist_mbids),
-    }));
+// The country's most played albums (Apple's chart), matched to MusicBrainz by Codio's server.
+let albumJob: Promise<any> | null = null;
+const albumChart = (): Promise<any> => {
+    if (!albumJob) {
+        albumJob = fetch(`/api/music/chart-albums?cc=${country()}`, { headers: { 'X-Codio': '1' } })
+            .then((r) => r.ok ? r.json() : null)
+            .catch(() => null)
+            .then((j) => {
+                if (!j) albumJob = null;
+                return j;
+            });
+    }
+    return albumJob;
 };
+const chartAlbum = (a: any): MusicAlbum => ({
+    id: String(a.id), title: String(a.title ?? ''), artist: String(a.artist ?? ''), year: a.year ?? null, kind: a.kind ?? null,
+    artworkURL: typeof a.art === 'string' ? artUrl(a.art) : coverUrl(String(a.id)), artistMbid: a.artistMbid ?? null,
+});
 
-// Albums out in the last two weeks.
+// Albums people are playing now in your country.
+export const popularAlbums = async (): Promise<MusicAlbum[]> => list((await albumChart())?.popular).filter((a) => a.id).map(chartAlbum);
+
+// Popular albums out in the last 8 weeks, newest first.
+export const chartNewReleases = async (): Promise<MusicAlbum[]> => list((await albumChart())?.recent).filter((a) => a.id).map(chartAlbum);
+
+// Every album out in the last two weeks (ListenBrainz, worldwide): only used to find new music from artists you like.
 export const newReleases = async (): Promise<MusicAlbum[]> => {
     const j = await lb('/1/explore/fresh-releases/?days=14&past=true&future=false&sort=release_date');
     const items = Array.isArray(j) ? j : list(j?.payload?.releases ?? j?.releases);
@@ -98,7 +115,7 @@ export const appleMusicUrl = (t: MusicTrack): string | null => appleLinks.get(t.
 // didn't match still plays: the addons find it by title and artist.
 export const popularSongs = async (): Promise<MusicTrack[]> => {
     const c = await chart();
-    return list(c?.songs).filter((r) => r.title && r.artist).slice(0, 25).map((r): MusicTrack => {
+    return list(c?.songs).filter((r) => r.title && r.artist).slice(0, 100).map((r): MusicTrack => {
         const id = r.mbid ? `mbid:${r.mbid}` : `chart:${String(r.artist).toLowerCase()}|${String(r.title).toLowerCase()}`;
         if (typeof r.appleUrl === 'string') appleLinks.set(id, r.appleUrl);
         return {

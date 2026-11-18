@@ -1,1 +1,1 @@
-Music > Addons: a Get a key button for Last.fm, shown until you enter one.
+Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it.

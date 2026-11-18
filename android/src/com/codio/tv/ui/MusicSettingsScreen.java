@@ -25,11 +25,15 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
     private static final class Item {
         String title, sub, head, note;
         Runnable action;
+        int subColor;
     }
 
     private final List<Item> items = new ArrayList<Item>();
     private int focus;
     private boolean busy, sure;
+    // The Last.fm key last checked, and what Last.fm said: 1 accepted, 0 not, -1 couldn't ask, 2 checking.
+    private static String lastfmChecked = "";
+    private static int lastfmState = -1;
     private final Smooth scroll = new Smooth(0.1f, 0.4f);
     private final RectF r = new RectF();
 
@@ -134,8 +138,26 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
         });
         server.head = "Music information";
         server.note = "Artists, albums and covers come from MusicBrainz.";
-        String lf = MusicNet.lastfmKey();
-        Item charts = item("Last.fm API key", lf.length() > 0 ? "Set: Popular rows use Last.fm" : "Not set: Popular rows use Apple Music", new Runnable() {
+        final String lf = MusicNet.lastfmKey();
+        if (lf.length() > 0 && !lf.equals(lastfmChecked)) {
+            lastfmChecked = lf;
+            lastfmState = 2;
+            MusicNet.async(new MusicNet.Job<Integer>() {
+                @Override
+                public Integer run() {
+                    return com.codio.tv.music.Discovery.checkLastfm(lf);
+                }
+            }, new MusicNet.Done<Integer>() {
+                @Override
+                public void done(Integer v, Exception e) {
+                    lastfmState = v == null ? -1 : v;
+                    if (v != null && v == -1) lastfmChecked = "";
+                    fill();
+                }
+            });
+        }
+        String lfSub = lf.length() == 0 ? "Not set: Popular rows use Apple Music" : lastfmState == 1 ? "✔ Connected: Popular rows use Last.fm" : lastfmState == 0 ? "Last.fm didn't accept this key (use the API key, not the shared secret)" : lastfmState == 2 ? "Checking the key…" : "Couldn't reach Last.fm to check the key";
+        Item charts = item("Last.fm API key", lfSub, new Runnable() {
             @Override
             public void run() {
                 tv.push(new TextEntryScreen(tv, "Last.fm API key", "Your own key from last.fm/api. Popular songs and artists then use Last.fm's chart instead of Apple's. Leave it empty for Apple's.", MusicNet.lastfmKey(), false, new TextEntryScreen.Done() {
@@ -148,6 +170,8 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             }
         });
         charts.note = "Syncs with your Sync passcode.";
+        if (lf.length() > 0 && lastfmState == 1) charts.subColor = 0xFF46D369;
+        else if (lf.length() > 0 && lastfmState == 0) charts.subColor = Theme.RED;
         if (lf.length() == 0) item("Get a Last.fm key", "last.fm/api/account/create", new Runnable() {
             @Override
             public void run() {
@@ -330,7 +354,7 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             tv.fill.setColor(f ? Theme.FOCUS : Theme.CARD);
             c.drawRoundRect(r, 12, 12, tv.fill);
             tv.tLabel.setColor(f ? Theme.ON_FOCUS : Color.WHITE);
-            tv.tSmall.setColor(f ? Theme.ON_FOCUS_DIM : Theme.TEXT_FAINT);
+            tv.tSmall.setColor(f ? Theme.ON_FOCUS_DIM : it.subColor != 0 ? it.subColor : Theme.TEXT_FAINT);
             if (it.sub != null && it.sub.length() > 0) {
                 c.drawText(tv.fit(it.title, tv.tLabel, W - 60), X + 30, y + 38, tv.tLabel);
                 c.drawText(tv.fit(it.sub, tv.tSmall, W - 60), X + 30, y + 70, tv.tSmall);

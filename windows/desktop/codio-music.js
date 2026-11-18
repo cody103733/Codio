@@ -7,6 +7,8 @@
 //   GET /api/music/chart?cc=us&country=United%20States     the country's most played songs (Apple Music chart, or Last.fm's
 //                                                           with header X-Lastfm-Key) matched to MusicBrainz ids, plus the
 //                                                           artists in it: { source, songs, artists }. The key is never logged.
+//   GET /api/music/chart-albums?cc=us                      the country's most played albums (Apple), matched to MusicBrainz
+//                                                           release groups: { popular, recent } (recent = out in the last 8 weeks)
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
 //   GET /api/music/addon?url=https://addon/...             any music addon call, passed through as it is
 //   GET /api/music/artist-img?id=<artist mbid>&name=...    a picture of the artist, kept on disk
@@ -221,7 +223,7 @@ const leadArtist = (name) => String(name || '').split(/\s+(?:&|feat\.?|ft\.?|fea
 
 // Last.fm's chart for the country (your own API key). Cached under an address without the key.
 const lastfmFeed = async (country, key) => {
-    const p = `/2.0/?method=geo.gettoptracks&country=${encodeURIComponent(country)}&limit=50&format=json`;
+    const p = `/2.0/?method=geo.gettoptracks&country=${encodeURIComponent(country)}&limit=100&format=json`;
     let body = readCache(LASTFM + p, 6 * 3600 * 1000);
     if (!body) {
         const res = await fetchUrl(`${LASTFM}${p}&api_key=${encodeURIComponent(key)}`);
@@ -237,7 +239,7 @@ const lastfmFeed = async (country, key) => {
 };
 
 const appleFeed = async (cc) => {
-    const url = `${CHART}/api/v2/${cc}/music/most-played/50/songs.json`;
+    const url = `${CHART}/api/v2/${cc}/music/most-played/100/songs.json`;
     let body = readCache(url, 6 * 3600 * 1000);
     if (!body) {
         const res = await fetchUrl(url);
@@ -269,6 +271,24 @@ const artistByName = async (name) => {
     return hit ? hit.id : null;
 };
 
+// A song's cover from Deezer (Last.fm sends no real pictures, and not every song matches MusicBrainz). Kept a month.
+const deezerCover = async (artist, title) => {
+    const url = `${DEEZER}/search/track?q=${encodeURIComponent(`artist:"${String(artist).replace(/"/g, '')}" track:"${String(title).replace(/"/g, '')}"`)}&limit=5`;
+    let body = readCache(url, 30 * DAY);
+    if (!body) {
+        const res = await spaced(DEEZER, () => fetchUrl(url), 120);
+        if (res.status !== 200) return null;
+        body = res.body;
+        writeCache(url, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    const list = j && Array.isArray(j.data) ? j.data : [];
+    const lead = plain(leadArtist(artist));
+    const hit = list.find((t) => t && t.artist && plain(t.artist.name) === lead) || list[0];
+    const cover = hit && hit.album ? hit.album.cover_big || hit.album.cover_medium : null;
+    return typeof cover === 'string' && cover.startsWith('https://') && !cover.includes('/cover//') ? cover : null;
+};
+
 // Apple's 100px artwork, bigger.
 const appleArt = (r) => typeof r.artworkUrl100 === 'string' && /^https:\/\/is\d+-ssl\.mzstatic\.com\//.test(r.artworkUrl100) ? r.artworkUrl100.replace(/\/\d+x\d+bb\./, '/400x400bb.') : null;
 
@@ -277,7 +297,7 @@ const appleArt = (r) => typeof r.artworkUrl100 === 'string' && /^https:\/\/is\d+
 // mixed in.
 const buildChart = async (cc, country, key) => {
     const source = key ? 'lastfm' : 'apple';
-    const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 40);
+    const items = (key ? await lastfmFeed(country, key) : await appleFeed(cc)).slice(0, 100);
     const found = await Promise.all(items.map((r) => lookupSong(String(r.artistName || ''), String(r.name || '')).catch(() => null)));
     const songs = [];
     const people = [];
@@ -295,14 +315,80 @@ const buildChart = async (cc, country, key) => {
         const name = ids.length === 1 ? credit : leadArtist(credit);
         if (!people.some((p) => plain(p.name) === plain(name))) people.push({ id: ids[0] || null, name });
     });
+    await Promise.all(songs.map(async (s) => {
+        if (!s.releaseMbid && !s.art) s.art = await deezerCover(s.artist, s.title).catch(() => null);
+    }));
     const artists = [];
-    for (const p of people.slice(0, 24)) {
+    for (const p of people.slice(0, 30)) {
         const id = p.id || await artistByName(p.name).catch(() => null);
         if (id && !artists.some((a) => a.id === id)) artists.push({ id, name: p.name });
     }
     const matched = found.filter(Boolean).length;
     if (items.length > 0 && matched < items.length / 2) console.warn(`[music] chart: only ${matched} of ${items.length} songs matched to MusicBrainz`);
     return JSON.stringify({ country: cc, source, songs, artists });
+};
+
+// An album's MusicBrainz release group by title and artist (Apple adds " - Single" / " - EP"). Kept a month.
+const albumByName = async (title, artist) => {
+    const clean = String(title).replace(/\s+-\s+(single|ep)$/i, '').replace(/"/g, '');
+    const q = `releasegroup:"${clean}" AND artist:"${String(artist).replace(/"/g, '')}"`;
+    const url = `${DEFAULT_MB}/ws/2/release-group?query=${encodeURIComponent(q)}&limit=5&fmt=json`;
+    let body = readCache(url, 30 * DAY);
+    if (!body) {
+        const res = await spaced(DEFAULT_MB, () => fetchUrl(url));
+        if (res.status !== 200) return null;
+        body = res.body;
+        writeCache(url, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    const wanted = plain(clean);
+    const hit = (j && Array.isArray(j['release-groups']) ? j['release-groups'] : [])
+        .filter((g) => g && MBID.test(g.id) && plain(g.title) === wanted)
+        .sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+    if (!hit) return null;
+    const credit = Array.isArray(hit['artist-credit']) ? hit['artist-credit'] : [];
+    const first = credit[0] && credit[0].artist ? credit[0].artist : null;
+    return { id: hit.id, title: hit.title, kind: hit['primary-type'] || null, artist: credit.map((c) => (c.name || '') + (c.joinphrase || '')).join('') || artist, artistMbid: first && MBID.test(first.id) ? first.id : null };
+};
+
+const buildAlbums = async (cc) => {
+    const url = `${CHART}/api/v2/${cc}/music/most-played/100/albums.json`;
+    let body = readCache(url, 6 * 3600 * 1000);
+    if (!body) {
+        const res = await fetchUrl(url);
+        if (res.status !== 200) {
+            if (cc !== 'us') return buildAlbums('us');
+            throw new Error(`albums ${res.status}`);
+        }
+        body = res.body;
+        writeCache(url, body);
+    }
+    const feed = JSON.parse(body.toString('utf8'));
+    const items = feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
+    const cutoff = Date.now() - 56 * DAY;
+    const recent = items.filter((r) => Date.parse(r.releaseDate || '') >= cutoff);
+    // The top 30, plus every recent one further down, each looked up once (MusicBrainz asks for one call a second).
+    const wanted = items.slice(0, 30).concat(recent.filter((r) => items.indexOf(r) >= 30));
+    const found = new Map();
+    for (const r of wanted) {
+        const m = await albumByName(r.name || '', r.artistName || '').catch(() => null);
+        if (m) found.set(r, { ...m, year: typeof r.releaseDate === 'string' ? r.releaseDate.slice(0, 4) : null, art: appleArt(r), releaseDate: r.releaseDate || null });
+    }
+    const pick = (list) => list.map((r) => found.get(r)).filter(Boolean);
+    return JSON.stringify({
+        country: cc,
+        popular: pick(items.slice(0, 30)),
+        recent: pick(recent).sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate))),
+    });
+};
+const albumCharts = new Map();
+const albumsFor = (cc) => {
+    const known = albumCharts.get(cc);
+    if (known && Date.now() - known.at < 30 * 60 * 1000) return known.job;
+    const job = buildAlbums(cc);
+    albumCharts.set(cc, { at: Date.now(), job });
+    job.catch(() => albumCharts.delete(cc));
+    return job;
 };
 
 const chartFor = (cc, country, key) => {
@@ -446,6 +532,27 @@ const handle = (request, response, pathname) => {
         const key = String(request.headers['x-lastfm-key'] || '').trim();
         const country = String(url.searchParams.get('country') || 'United States').slice(0, 80);
         chartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us', country, /^[A-Za-z0-9]{16,64}$/.test(key) ? key : '').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
+        return true;
+    }
+    if (pathname === '/api/music/lastfm-check') {
+        // Is this Last.fm key accepted? { ok: true } / { ok: false } (Last.fm said no) / 502 (couldn't ask). Never cached.
+        const key = String(request.headers['x-lastfm-key'] || '').trim();
+        if (!/^[A-Za-z0-9]{16,64}$/.test(key)) {
+            send(response, 200, JSON.stringify({ ok: false }));
+            return true;
+        }
+        fetchUrl(`${LASTFM}/2.0/?method=geo.gettoptracks&country=United%20States&limit=1&format=json&api_key=${encodeURIComponent(key)}`).then((res) => {
+            let j = null;
+            try { j = JSON.parse(res.body.toString('utf8')); } catch (_e) { /* not JSON */ }
+            if (res.status === 200 && j && j.tracks) send(response, 200, JSON.stringify({ ok: true }));
+            else if (j && (j.error === 10 || j.error === 26 || j.error === 4)) send(response, 200, JSON.stringify({ ok: false }));
+            else fail(response, 502, 'Couldn\'t reach Last.fm');
+        }, () => fail(response, 502, 'Couldn\'t reach Last.fm'));
+        return true;
+    }
+    if (pathname === '/api/music/chart-albums') {
+        const cc = String(url.searchParams.get('cc') || 'us').toLowerCase();
+        albumsFor(/^[a-z]{2}$/.test(cc) ? cc : 'us').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
         return true;
     }
     if (pathname === '/api/music/img') {

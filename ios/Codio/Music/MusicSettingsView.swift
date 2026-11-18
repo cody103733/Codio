@@ -13,6 +13,8 @@ struct MusicSettingsView: View {
     @State private var signInError: String?
     @State private var server = UserDefaults.standard.string(forKey: MB.baseKey) ?? ""
     @State private var lastfm = Chart.lastfmKey
+    @State private var lastfmOK: Bool??
+    @State private var lastfmChecking = false
     @State private var sure = false
     @State private var syncing = false
 
@@ -34,8 +36,20 @@ struct MusicSettingsView: View {
             Section {
                 TextField("Last.fm API key", text: $lastfm)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .onSubmit { Chart.lastfmKey = lastfm }
-                    .onDisappear { Chart.lastfmKey = lastfm }
+                    .onSubmit { saveLastfm() }
+                    .onDisappear { saveLastfm() }
+                    .task { await checkLastfm() }
+                if lastfmChecking {
+                    Text("Checking the key…").foregroundColor(Theme.dim)
+                } else if let ok = lastfmOK, !lastfm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if ok == true {
+                        Label("Connected. Popular songs and artists use Last.fm.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+                    } else if ok == false {
+                        Label("Last.fm didn't accept this key. Use the API key, not the shared secret.", systemImage: "xmark.circle.fill").foregroundColor(Theme.redSoft)
+                    } else {
+                        Text("Couldn't reach Last.fm to check the key.").foregroundColor(Theme.dim)
+                    }
+                }
                 if lastfm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Link("Get a key", destination: URL(string: "https://www.last.fm/api/account/create")!)
                 }
@@ -49,6 +63,24 @@ struct MusicSettingsView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Music")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func saveLastfm() {
+        let changed = Chart.lastfmKey != lastfm.trimmingCharacters(in: .whitespacesAndNewlines)
+        Chart.lastfmKey = lastfm
+        if changed {
+            MusicHome.shared.reloadCharts()
+            Task { await checkLastfm() }
+        }
+    }
+
+    private func checkLastfm() async {
+        let key = Chart.lastfmKey
+        guard !key.isEmpty else { lastfmOK = nil; return }
+        lastfmChecking = true
+        let r = await Chart.check(key)
+        lastfmChecking = false
+        lastfmOK = .some(r)
     }
 
     private func saveServer() {

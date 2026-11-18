@@ -7,6 +7,7 @@ final class MusicHome: ObservableObject {
 
     @Published var popularAlbums: [MusicAlbum]?
     @Published var newReleases: [MusicAlbum]?
+    @Published var chartNew: [MusicAlbum]?
     @Published var popularSongs: [MusicTrack]?
     @Published var popularArtists: [MusicArtist]?
     @Published var similar: [String: [MusicArtist]] = [:]
@@ -24,6 +25,12 @@ final class MusicHome: ObservableObject {
         started = true
         Task { popularAlbums = await LBData.popularAlbums() }
         Task { newReleases = await LBData.newReleases() }
+        Task { chartNew = await LBData.chartNewReleases() }
+        reloadCharts()
+    }
+
+    /// Popular songs and artists again (after the Last.fm key changes).
+    func reloadCharts() {
         Task { popularSongs = await LBData.popularSongs() }
         Task { popularArtists = await LBData.popularArtists() }
     }
@@ -77,6 +84,7 @@ struct MusicView: View {
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
     @State private var searchGen = 0
+    @State private var showAllTop = false
 
     var body: some View {
         ScrollView {
@@ -250,10 +258,12 @@ struct MusicView: View {
         if s.count > 1 { artistRow("Because you played \(s[1].name)", home.similar[s[1].id] ?? []) }
         songRow("Liked songs", t.likedTracks, playAll: true)
         albumRow("Popular right now", fav(home.popularAlbums))
-        albumRow("New releases", Array(fav(home.newReleases).prefix(30)))
-        let top = Array(t.visible(home.popularSongs ?? []).prefix(10))
+        albumRow("New releases", Array(fav(home.chartNew).prefix(30)))
+        let allSongs = t.visible(home.popularSongs ?? [])
+        let top = Array(allSongs.prefix(showAllTop ? 100 : 10))
         if !top.isEmpty {
-            MusicSectionHead(title: "Songs people are playing")
+            MusicSectionHead(title: showAllTop ? "Top \(min(100, allSongs.count))" : "Songs people are playing",
+                             action: allSongs.count > 10 ? (label: showAllTop ? "Show less" : "See top \(min(100, allSongs.count))", run: { showAllTop.toggle() }) : nil)
             if AppleLinks.url(top[0]) != nil {
                 Text("Chart from Apple Music. Tap ⋯ on a song to listen there.")
                     .font(.footnote).foregroundColor(.white.opacity(0.6))

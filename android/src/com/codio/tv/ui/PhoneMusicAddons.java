@@ -26,6 +26,8 @@ import java.util.Map;
 final class PhoneMusicAddons extends PhoneUi.Page {
     private LinearLayout addonsBox, accountBox, tasteBox;
     private EditText link, server, token, lastfm;
+    private TextView lastfmStatus;
+    private int lastfmGen;
     private TextView error, accountError;
     private boolean busy, sure;
     private final Runnable tasteChanged = new Runnable() {
@@ -106,7 +108,10 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         lastfm.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean focus) {
-                if (!focus) MusicNet.setLastfmKey(lastfm.getText().toString());
+                if (!focus) {
+                    MusicNet.setLastfmKey(lastfm.getText().toString());
+                    checkLastfm();
+                }
             }
         });
         LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, dp(40));
@@ -136,6 +141,10 @@ final class PhoneMusicAddons extends PhoneUi.Page {
             }
         });
         body.addView(getRow);
+        lastfmStatus = PhoneKit.text(c, "", 14, PhoneKit.GRAY, PhoneKit.REGULAR);
+        lastfmStatus.setPadding(dp(16), dp(2), dp(16), dp(2));
+        body.addView(lastfmStatus);
+        checkLastfm();
 
         body.addView(heading("YOUR ACCOUNT (LISTENBRAINZ)"));
         accountBox = new LinearLayout(c);
@@ -400,6 +409,32 @@ final class PhoneMusicAddons extends PhoneUi.Page {
                 } else {
                     drawAccount();
                 }
+            }
+        });
+    }
+
+    private void checkLastfm() {
+        final String key = MusicNet.lastfmKey();
+        final int gen = ++lastfmGen;
+        if (key.isEmpty()) {
+            lastfmStatus.setVisibility(View.GONE);
+            return;
+        }
+        lastfmStatus.setVisibility(View.VISIBLE);
+        lastfmStatus.setText("Checking the key…");
+        lastfmStatus.setTextColor(PhoneKit.GRAY);
+        MusicNet.async(new MusicNet.Job<Integer>() {
+            @Override
+            public Integer run() {
+                return com.codio.tv.music.Discovery.checkLastfm(key);
+            }
+        }, new MusicNet.Done<Integer>() {
+            @Override
+            public void done(Integer v, Exception e) {
+                if (gen != lastfmGen) return;
+                int st = v == null ? -1 : v;
+                lastfmStatus.setText(st == 1 ? "✔  Connected. Popular songs and artists use Last.fm." : st == 0 ? "Last.fm didn't accept this key. Use the API key, not the shared secret." : "Couldn't reach Last.fm to check the key.");
+                lastfmStatus.setTextColor(st == 1 ? 0xFF46D369 : st == 0 ? PhoneKit.DESTRUCTIVE : PhoneKit.GRAY);
             }
         });
     }

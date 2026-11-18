@@ -21,7 +21,7 @@ import java.util.Set;
  */
 final class MusicScreen extends MusicPage {
     // What was loaded is kept while the app runs, so coming back to Music is instant.
-    private static List<Model.Album> popular, fresh, more;
+    private static List<Model.Album> popular, fresh, chartFresh, more;
     private static List<Model.Track> songs, mixRaw;
     private static List<Model.Artist> artists;
     private static List<Addons.CatalogRow> catalogs;
@@ -112,6 +112,17 @@ final class MusicScreen extends MusicPage {
                 @Override
                 public void got(List<Model.Album> v) {
                     fresh = Model.list(v);
+                }
+            });
+            ask(new MusicNet.Job<List<Model.Album>>() {
+                @Override
+                public List<Model.Album> run() {
+                    return Discovery.chartNewReleases();
+                }
+            }, new Got<List<Model.Album>>() {
+                @Override
+                public void got(List<Model.Album> v) {
+                    chartFresh = Model.list(v);
                 }
             });
             ask(new MusicNet.Job<List<Model.Track>>() {
@@ -279,12 +290,13 @@ final class MusicScreen extends MusicPage {
         row(out, "Liked albums", new ArrayList<Model.Album>(Taste.likedAlbums()));
         row(out, "Liked artists", new ArrayList<Model.Artist>(Taste.likedArtists()));
         if (popular != null) row(out, "Popular right now", favor(Taste.visibleAlbums(popular), liked));
-        row(out, "New releases", first(favor(freshShown, liked), 30));
+        if (chartFresh != null) row(out, "New releases", first(favor(Taste.visibleAlbums(chartFresh), liked), 30));
         if (songs != null) {
             List<Model.Track> shown = Taste.visibleTracks(songs);
             boolean apple = !shown.isEmpty() && com.codio.tv.music.Discovery.appleMusicUrl(shown.get(0)) != null;
             boolean lastfm = "lastfm".equals(com.codio.tv.music.Discovery.chartSource());
-            row(out, apple ? "Songs people are playing (Apple Music chart, hold OK to open there)" : lastfm ? "Songs people are playing (data from Last.fm)" : "Songs people are playing", shown);
+            String top = "Top " + Math.min(100, shown.size());
+            row(out, apple ? top + " (Apple Music chart, hold OK to open there)" : lastfm ? top + " (data from Last.fm)" : top, shown);
         }
         if (artists != null) row(out, "Popular artists", Taste.visibleArtists(artists));
         if (catalogs != null) {
