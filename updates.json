@@ -12,10 +12,10 @@
     "notes": "Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts."
   },
   "windows": {
-    "version": "1.10.5",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.5/CodioSetup-1.10.5.exe",
-    "size": 66166458,
-    "sha256": "ad6225fa5d7711ed4745d5ce3e31d84ba8369cd9f9bed19dfbaba5c30ef976c6",
-    "notes": "Popular right now and New releases follow your country's album chart. A Top 100 songs list (See top 100). Covers for every chart song. The Last.fm key shows Connected once Last.fm accepts it."
+    "version": "1.10.6",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.6/CodioSetup-1.10.6.exe",
+    "size": 66170935,
+    "sha256": "558e5b109365082b346ea06d22a4bad3bccb06052e5c8db89cb35d7af5bb57c0",
+    "notes": "Popular songs, artists and the Top 100 follow Apple Music's US chart again (closest to Billboard). Last.fm's chart is now a choice in Music settings, under Charts."
   }
 }
