@@ -12,10 +12,10 @@
     "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
   },
   "windows": {
-    "version": "1.10.7",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.7/CodioSetup-1.10.7.exe",
-    "size": 66169682,
-    "sha256": "538e115a4a68d92b26bba9b8a002c75ad66384316be73bc4bf69abfa4520f4cc",
-    "notes": "Songs people are playing loads right away. Album and artist pages no longer wait behind the chart matching, so their songs show up."
+    "version": "1.10.8",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.8/CodioSetup-1.10.8.exe",
+    "size": 66166475,
+    "sha256": "1b9af9d902a1efd1f69eaa90d78b3ae26193d7432722737f59cf95c34f7be2de",
+    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
   }
 }
