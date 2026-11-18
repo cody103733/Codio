@@ -12,10 +12,10 @@
     "notes": "Every key you can enter (TMDB, Last.fm, ListenBrainz) now has a Get a key button that opens the page where you make one, until a key is entered."
   },
   "windows": {
-    "version": "1.10.3",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.3/CodioSetup-1.10.3.exe",
-    "size": 66166360,
-    "sha256": "e48fa7a8836b196a4c9918306ff5b7354166d4f2ae2a8cbce214e5eed8b60bac",
-    "notes": "Popular songs and artists now always show your country's chart. Before, if songs couldn't be matched, the old ListenBrainz list came back."
+    "version": "1.10.4",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.4/CodioSetup-1.10.4.exe",
+    "size": 66164962,
+    "sha256": "3de514852114973a782036f5401d3b129053dddb99e83db13eea12c5327d3bc4",
+    "notes": "Music > Addons: a Get a key button for Last.fm, shown until you enter one."
   }
 }
