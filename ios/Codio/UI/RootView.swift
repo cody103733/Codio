@@ -97,6 +97,7 @@ private extension View {
         navigationDestination(for: Meta.self) { DetailView(meta: $0) }
             .navigationDestination(for: DownloadedShow.self) { DownloadedShowView(show: $0) }
             .navigationDestination(for: DiscoverTarget.self) { DiscoverView(target: $0) }
+            .navigationDestination(for: CalendarTarget.self) { _ in CalendarView() }
             .blackTabBar()
     }
 }

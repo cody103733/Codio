@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.13.0",
-    "versionCode": 83,
+    "version": "1.14.0",
+    "versionCode": 84,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "New: Your stats in Settings, with your hours watched, top shows and movies, and most played songs and artists for this year or all time."
+    "notes": "New Calendar in the Library: see when the next episodes and movies of what you follow come out."
   },
   "phone": {
-    "version": "1.7.0",
-    "versionCode": 40,
+    "version": "1.8.0",
+    "versionCode": 41,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "New: Your stats in Settings, with your hours watched, top shows and movies, and most played songs and artists for this year or all time."
+    "notes": "New Calendar in the Library: see when the next episodes and movies of what you follow come out."
   },
   "windows": {
     "version": "1.15.0",

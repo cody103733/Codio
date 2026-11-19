@@ -683,6 +683,33 @@ public final class Store {
         return new ArrayList<>(library.values());
     }
 
+    /**
+     * The titles the Calendar follows: movies and shows in the Library, plus shows watched since `watchedAfter` (ms);
+     * the most recently watched or added first, at most `max`.
+     */
+    synchronized List<LibraryEntry> calendarTitles(long watchedAfter, int max) {
+        List<LibraryEntry> list = new ArrayList<>();
+        for (LibraryEntry e : library.values()) {
+            boolean movie = "movie".equals(e.type), show = "series".equals(e.type);
+            if (!movie && !show) continue;
+            boolean inLibrary = !e.removed && !e.temp;
+            boolean watching = show && (!e.removed || e.temp) && NewEpisodes.parseIso(e.lastWatched) > watchedAfter;
+            if (inLibrary || watching) list.add(e);
+        }
+        Collections.sort(list, new Comparator<LibraryEntry>() {
+            @Override
+            public int compare(LibraryEntry a, LibraryEntry b) {
+                return key(b).compareTo(key(a));
+            }
+
+            private String key(LibraryEntry e) {
+                String m = e.mtime == null ? "" : e.mtime;
+                return e.lastWatched != null && e.lastWatched.compareTo(m) > 0 ? e.lastWatched : m;
+            }
+        });
+        return new ArrayList<>(list.subList(0, Math.min(max, list.size())));
+    }
+
     public LibraryEntry libraryEntry(String id) {
         return library.get(id);
     }
