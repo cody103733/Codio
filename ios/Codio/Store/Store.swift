@@ -56,6 +56,7 @@ final class Store: ObservableObject {
         Store.readLibrary(all, into: &lib, cw: &cw)
         Store.readLibrary(recent, into: &lib, cw: &cw) // newer, wins
         library = lib
+        WatchStats.observe(lib, profile: signedInEmail)
         continueWatching = cw.values.sorted { $0.1 > $1.1 }.prefix(30).map { $0.0 }
         profileLoaded = true
         if addons.isEmpty { Task { await ensureDefaults() } }
@@ -94,6 +95,7 @@ final class Store: ObservableObject {
             e.mtime = jstr(it, "_mtime") ?? ""
             e.offset = jdouble(st, "timeOffset") ?? 0
             e.duration = jdouble(st, "duration") ?? 0
+            e.overall = jdouble(st, "overallTimeWatched") ?? 0
             e.videoId = jstr(st, "video_id")
             e.lastWatched = jstr(st, "lastWatched")
             e.watched = (jint(st, "timesWatched") ?? 0) > 0 || (jint(st, "flaggedWatched") ?? 0) > 0

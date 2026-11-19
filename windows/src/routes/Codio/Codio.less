@@ -1988,4 +1988,228 @@
         font-weight: 700;
         color: @dim;
     }
+// ---- Your stats (StatsPage.tsx, DESIGN.md "Your stats")
+.stats {
+    padding: calc(@u * 150) calc(@u * 96) calc(@u * 60) calc(@u * 96);
+
+    .stats-top {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 16);
+        margin-bottom: calc(@u * 30);
+    }
+
+    .stats-back {
+        background: none;
+        border: none;
+        color: @dim;
+        font: inherit;
+        font-size: calc(@u * 26);
+        cursor: pointer;
+        padding: calc(@u * 8) calc(@u * 12);
+        border-radius: calc(@u * 10);
+
+        &:hover, &:focus-visible {
+            color: #fff;
+            background: @raised;
+        }
+    }
+
+    .stats-title {
+        font-size: calc(@u * 44);
+        font-weight: 700;
+        color: #fff;
+        margin-right: calc(@u * 24);
+    }
+
+    .stats-tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: calc(@u * 18);
+        margin-bottom: calc(@u * 20);
+    }
+
+    .stats-tile {
+        background: #1C1C1E;
+        border-radius: calc(@u * 16);
+        padding: calc(@u * 22) calc(@u * 26);
+    }
+
+    .stats-value {
+        font-size: calc(@u * 56);
+        font-weight: 700;
+        color: #fff;
+        line-height: 1.1;
+    }
+
+    .stats-label {
+        font-size: calc(@u * 26);
+        font-weight: 600;
+        color: @body;
+        margin-top: calc(@u * 4);
+    }
+
+    .stats-detail {
+        font-size: calc(@u * 22);
+        color: @faint;
+        margin-top: calc(@u * 4);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stats-columns {
+        display: flex;
+        gap: calc(@u * 70);
+    }
+
+    .stats-column {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .stats-head {
+        font-size: calc(@u * 32);
+        font-weight: 700;
+        color: #fff;
+        margin: calc(@u * 30) 0 calc(@u * 16) 0;
+    }
+
+    .stats-empty {
+        font-size: calc(@u * 26);
+        color: @faint;
+    }
+
+    .stats-posters {
+        display: flex;
+    }
+
+    .stats-poster {
+        width: calc(@u * 150);
+        margin-right: calc(@u * 24);
+
+        .poster-cell {
+            width: 100%;
+            margin-right: 0;
+        }
+    }
+
+    .stats-poster-name {
+        font-size: calc(@u * 22);
+        color: @dim;
+        margin-top: calc(@u * 10);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stats-red {
+        font-size: calc(@u * 22);
+        color: @red;
+        white-space: nowrap;
+    }
+
+    .stats-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stats-song {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 18);
+        background: none;
+        border: none;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        padding: calc(@u * 7) calc(@u * 14);
+        border-radius: calc(@u * 14);
+
+        img, .stats-cover {
+            flex: none;
+            width: calc(@u * 64);
+            height: calc(@u * 64);
+            border-radius: calc(@u * 8);
+            object-fit: cover;
+            background: @raised;
+        }
+
+        .stats-cover {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: @faint;
+            font-size: calc(@u * 28);
+        }
+
+        &:hover, &:focus-visible {
+            background: #fff;
+
+            .stats-song-title { color: #111; }
+            .stats-song-artist, .stats-red { color: #444; }
+        }
+    }
+
+    .stats-song-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stats-song-title, .stats-song-artist {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stats-song-title {
+        font-size: calc(@u * 27);
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .stats-song-artist {
+        font-size: calc(@u * 22);
+        color: @dim;
+    }
+
+    .stats-group {
+        background: #1C1C1E;
+        border-radius: calc(@u * 14);
+    }
+
+    .stats-artist {
+        display: flex;
+        align-items: center;
+        height: calc(@u * 60);
+        padding: 0 calc(@u * 24);
+        font-size: calc(@u * 26);
+        color: #fff;
+
+        & + .stats-artist {
+            border-top: calc(@u * 1.5) solid #38383A;
+        }
+    }
+
+    .stats-rank {
+        width: calc(@u * 40);
+        color: @dim;
+        font-size: calc(@u * 22);
+    }
+
+    .stats-artist-name {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stats-foot {
+        margin-top: calc(@u * 40);
+        font-size: calc(@u * 22);
+        color: #8D8D93;
+    }
 }

@@ -46,6 +46,11 @@ export default [
         element: <routes.Codio.Series />,
     },
     {
+        path: '/stats',
+        view: 1,
+        element: <routes.Codio.Stats />,
+    },
+    {
         path: '/preferences',
         view: 1,
         element: <routes.Codio.Settings />,

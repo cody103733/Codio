@@ -187,6 +187,28 @@ The phone apps can keep songs to play offline (Android phone and iPhone; not TV 
 - Code: `android/.../music/MusicDownloads.java` (files/music-downloads.json, app Music folder) + `ui/PhoneMusicDownloads.java`;
   `ios/Codio/Music/MusicDownloads.swift` (Application Support/MusicDownloads, file names stored, not paths) + `MusicExtras.swift`.
 
+## Your stats
+
+A recap page for the profile: "Your 2026" and "All time" (a segmented control at the top). It is opened from Settings,
+the first section ("You": "Your stats", with the hours this year as its value). Everything is worked out on the device;
+nothing new is sent anywhere.
+
+- **Watching** comes from the profile's Stremio library (already synced): each title's `state.overallTimeWatched` (ms).
+  All time adds them all up. For a year, a title counts when it was last watched that year; the first time a device sees
+  the library in a new year it saves every title's time as that year's starting point (per profile), and from then on a
+  title's year time is its time now minus that starting point. A year with no starting point (the year stats came, or a
+  new device) counts the whole time of titles last watched that year. Only movies and shows, temp and removed titles
+  included (they were still watched).
+- **Listening** is a play log kept on the device for each profile, per year: a song counts when it starts playing (any
+  source, downloads too), its length adds to the minutes. Songs are matched by artist + title (lower case, trimmed),
+  artists by name. Up to 2000 songs a year are kept (the least played go first).
+- **The page**, in order: four tiles (Hours watched, Titles watched with "N movies · N shows" under it, Minutes listened,
+  Songs played), then Top shows and Top movies (5 each, poster, name, hours), then Top songs (5: cover, title, artist,
+  plays) and Top artists (5, plays). A section with nothing in it says so in one grey line ("Nothing watched yet this
+  year."). Hours have one decimal under 10. Tapping a show or movie opens it; a song plays it.
+- Code: `android/.../ui/Stats.java` (shared rules) + `PhoneStats.java` + TV `StatsScreen.java`; `ios/Codio/Store/Stats.swift`
+  + `UI/StatsView.swift`; `windows/.../Codio/stats.ts` + `StatsPage.tsx`.
+
 ## Rules that are not about looks
 
 - Only http(s) and debrid sources. No torrents.

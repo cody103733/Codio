@@ -420,6 +420,7 @@ public final class MusicPlayer {
                     if (d > 0) duration = d / 1000.0;
                     remember(t);
                     Taste.recordPlay(t);
+                    com.codio.tv.ui.Stats.record(t);
                     startListening(t);
                     if (wantPlay && takeFocus()) {
                         m.start();
@@ -519,6 +520,7 @@ public final class MusicPlayer {
                                 loading = false;
                                 remember(t);
                                 Taste.recordPlay(t);
+                                com.codio.tv.ui.Stats.record(t);
                                 startListening(t);
                             }
                             if (!wantPlay) {

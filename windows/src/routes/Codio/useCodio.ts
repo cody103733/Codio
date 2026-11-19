@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { useProfile, useModelState, useNotifications } from 'stremio/common';
 import { useCore } from 'stremio/core';
 import { useAutoPlaySettings } from 'stremio/common/AutoPlay';
+import { observeNow } from './stats';
 import { fallbackAddons, toAddon, detailHref, libraryMeta, type Addon, type Meta } from './api';
 
 // The signed-in profile's addons; Cinemeta while there are none (first start).
@@ -30,6 +31,8 @@ export const useContinueWatching = (): Meta[] => {
     const notifications = (useNotifications as any)() as any;
     const [settings] = useAutoPlaySettings();
     const alerts = settings.newEpisodeAlerts !== false;
+    // Your stats: a new year's starting point is saved the first time the library is seen that year.
+    useEffect(() => { observeNow(); }, [preview?.items]);
     return useMemo(() => (Array.isArray(preview?.items) ? preview.items : [])
         .map((item: any): Meta => {
             const meta = libraryMeta(item);

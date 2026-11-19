@@ -1,1 +1,1 @@
-When Codio sits idle, it now shows a slideshow of pictures from your Library and the time. Turn it off or change the wait in Settings, Picture & sound.
+New: Your stats in Settings, with your hours watched, top shows and movies, and most played songs and artists for this year or all time.

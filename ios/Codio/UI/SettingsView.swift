@@ -92,6 +92,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("You") {
+                NavigationLink { StatsView() } label: {
+                    HStack {
+                        Text("Your stats")
+                        Spacer()
+                        Text("\(statsHours(WatchStats.summary(store.library, profile: store.signedInEmail, year: WatchStats.thisYear).ms)) h in \(String(WatchStats.thisYear))")
+                            .foregroundColor(Theme.red)
+                    }
+                }
+            }
             Section("Playback") { ForEach(playback) { row($0) } }
             Section("Downloads") {
                 ForEach([Choice(kind: .app, label: "Download over",

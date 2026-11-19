@@ -232,6 +232,27 @@ final class SettingsScreen extends Screen {
     SettingsScreen(TvView tv) {
         super(tv);
         nav = new NavBar(tv, NavBar.SETTINGS);
+        rows.add("You");
+        rows.add(new Item("Your stats", "Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Worked out on this TV from your library and the music you play here. Press OK to see them.") {
+            private String cached;
+            private long at;
+
+            @Override
+            String value() {
+                long now = SystemClock.uptimeMillis();
+                if (cached == null || now - at > 5000) {
+                    int y = Stats.thisYear();
+                    cached = Stats.hours(Stats.watch(SettingsScreen.this.tv.store.libraryEntries(), Store.profileId(), y).ms) + " h in " + y + "  ›";
+                    at = now;
+                }
+                return cached;
+            }
+
+            @Override
+            void ok() {
+                SettingsScreen.this.tv.push(new StatsScreen(SettingsScreen.this.tv));
+            }
+        });
         String section = null;
         for (Setting s : Setting.all(false)) {
             if (!s.section.equals(section)) rows.add(section = s.section);

@@ -10,6 +10,7 @@ import { useAutoPlaySettings, type AutoPlaySettings } from 'stremio/common/AutoP
 import { NavBar, styles } from './components';
 import SignIn from './SignIn';
 import { useProfiles, profileColor } from './profiles';
+import { hours, libraryEntries, observeNow, profileId, thisYear, watchStats } from './stats';
 import { useUpdate, updateLabel, updateHelp } from './update';
 import SyncPanel, { SYNC_HELP, syncLabel } from './SyncPanel';
 import { useSyncStatus } from './vault';
@@ -49,6 +50,8 @@ const SUB_SIZES = [75, 100, 125, 150, 175, 200, 250];
 const NEXT_POPUP = [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000];
 
 const ITEMS: Item[] = [
+    { kind: 'heading', label: 'You' },
+    { kind: 'link', label: 'Your stats', help: 'Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Worked out on this PC from your library and the music you play here.', route: '/stats' },
     { kind: 'heading', label: 'Playback' },
     { kind: 'choice', store: 'autoplay', label: 'Smart auto-play', help: 'Play picks the best source for you, and moves on to the next one if a source fails.', key: 'enabled', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'autoplay', label: 'Preferred quality', help: 'The quality auto-play aims for.', key: 'preferredQuality', values: ['2160p', '1440p', '1080p', '720p', '480p'], labels: ['4K (2160p)', '1440p', '1080p', '720p', '480p'] },
@@ -162,7 +165,13 @@ const Settings = () => {
         } else change(item, 1);
     };
 
+    const statsLabel = useMemo(() => {
+        observeNow();
+        return `${hours(watchStats(libraryEntries(), profileId(), thisYear()).ms)} h in ${thisYear()} ›`;
+    }, [profile?.auth?.user?._id]);
+
     const valueOf = (item: Item) => {
+        if (item.kind === 'link' && item.route === '/stats') return statsLabel;
         if (item.kind === 'link') return '›';
         if (item.kind === 'external') return 'Notices ›';
         if (item.kind === 'account') return email ? 'Sign out' : 'Sign in';

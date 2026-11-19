@@ -278,6 +278,8 @@ struct LibraryEntry {
     var videoId: String?
     var offset: Double = 0
     var duration: Double = 0
+    /// All the time spent watching it, in ms (Stremio's overallTimeWatched); Your stats adds these up.
+    var overall: Double = 0
     var lastWatched: String?
     var mtime: String = ""
     var removed = false

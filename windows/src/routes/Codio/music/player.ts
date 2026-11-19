@@ -7,6 +7,7 @@ import { loadAddons, onNotice } from './addons';
 import { findAudio } from './match';
 import { getRecordingIsrc } from './musicbrainz';
 import { recordPlay } from './taste';
+import { recordListen } from '../stats';
 import { listened, playingNow } from './listenbrainz';
 
 export type Repeat = 'off' | 'all' | 'one';
@@ -168,6 +169,7 @@ const load = async (index: number) => {
     set({ loading: false, quality: found.quality ?? found.format, source: found.addon.manifest?.name ?? null });
     remember(t);
     recordPlay(t);
+    recordListen(t);
     startListening(t);
     try {
         await a.play();

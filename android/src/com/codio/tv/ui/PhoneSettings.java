@@ -75,11 +75,14 @@ final class PhoneSettings extends PhoneUi.Page {
         sig = signature();
         list.removeAllViews();
         list.addView(ui.largeTitle("Settings", false));
+        header("You", true);
+        LinearLayout you = group();
+        add(you, statsRow());
         String section = null;
         LinearLayout group = null;
         for (Setting s : Setting.all(true)) {
             if (!s.section.equals(section)) {
-                header(section = s.section, section.equals(Setting.PLAYBACK));
+                header(section = s.section, false);
                 group = group();
             }
             add(group, choiceRow(s));
@@ -193,6 +196,26 @@ final class PhoneSettings extends PhoneUi.Page {
             group.addView(line, ll);
         }
         group.addView(row, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** "Your stats", with this year's hours watched in red; opens the stats page. */
+    private View statsRow() {
+        LinearLayout r = new LinearLayout(ctx());
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(16), dp(11), dp(16), dp(11));
+        r.setBackground(PhoneKit.pressable(null, 0));
+        r.addView(PhoneKit.text(ctx(), "Your stats", 17, Color.WHITE, PhoneKit.REGULAR), new LinearLayout.LayoutParams(0, -2, 1));
+        int y = Stats.thisYear();
+        String h = Stats.hours(Stats.watch(ui.store.libraryEntries(), Store.profileId(), y).ms);
+        r.addView(PhoneKit.text(ctx(), h + " h in " + y + "  ›", 17, Theme.RED, PhoneKit.REGULAR));
+        r.setClickable(true);
+        r.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ui.push(new PhoneStats(ui));
+            }
+        });
+        return r;
     }
 
     private TextView plain(String text, int color) {

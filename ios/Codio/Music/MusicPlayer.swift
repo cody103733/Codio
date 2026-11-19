@@ -222,6 +222,7 @@ final class MusicPlayer: ObservableObject {
         source = s
         remember(t)
         MusicTaste.shared.recordPlay(t)
+        ListenStats.shared.record(t)
         startListening(t)
         player.play()
         publishNowPlaying()

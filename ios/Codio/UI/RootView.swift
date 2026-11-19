@@ -24,7 +24,7 @@ struct RootView: View {
                         .tabItem { Label("Music", systemImage: "music.note") }.tag(4)
                     NavigationStack { LibraryView().withDetail() }
                         .tabItem { Label("Library", systemImage: "rectangle.stack.fill") }.tag(2)
-                    NavigationStack { SettingsView().blackTabBar() }
+                    NavigationStack { SettingsView().withDetail() }
                         .tabItem { Label("Settings", systemImage: "gearshape.fill") }.tag(3)
                 }
                 .tint(Theme.red)

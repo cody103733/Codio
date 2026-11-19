@@ -244,6 +244,8 @@ public final class Store {
     public static final class LibraryEntry {
         public String id, type, videoId;
         public double offset, duration;
+        /** All the time spent watching it, in ms (Stremio's overallTimeWatched); Your stats adds these up. */
+        public double overall;
         public String lastWatched, mtime;
         public boolean removed, temp;
         /** Name/poster as saved in the library. */
@@ -508,6 +510,7 @@ public final class Store {
                         profileLoaded = true;
                         library.clear();
                         library.putAll(lib);
+                        Stats.observe(library.values(), profileId());
                         continueWatching.clear();
                         continueWatching.addAll(cwList);
                         done.done(changed, null);
@@ -595,6 +598,7 @@ public final class Store {
                 if (st != null) {
                     e.offset = st.optDouble("timeOffset", 0);
                     e.duration = st.optDouble("duration", 0);
+                    e.overall = st.optDouble("overallTimeWatched", 0);
                     e.videoId = st.isNull("video_id") ? null : st.optString("video_id", null);
                     e.lastWatched = st.isNull("lastWatched") ? null : st.optString("lastWatched", null);
                 }
@@ -672,6 +676,11 @@ public final class Store {
             }
         });
         return new ArrayList<>(list.subList(0, Math.min(max, list.size())));
+    }
+
+    /** Every library entry, removed and temp ones too (Your stats). */
+    public List<LibraryEntry> libraryEntries() {
+        return new ArrayList<>(library.values());
     }
 
     public LibraryEntry libraryEntry(String id) {
