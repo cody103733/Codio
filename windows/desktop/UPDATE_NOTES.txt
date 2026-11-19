@@ -1,1 +1,1 @@
-Music: Lyrics button in the player shows the words of the song, line by line as it plays (click a line to jump there).
+Smoother and lighter: Music pages no longer redraw while a song plays, the music cache stays small, and Music > Addons opens again.

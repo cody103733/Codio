@@ -8,7 +8,7 @@ import { NavBar, CodioButton, Spinner, Strip, styles } from '../components';
 import { musicStyles as m, Cover, Tile, TrackRow } from './parts';
 import { artistDetail, loadAddons } from './addons';
 import { artistPhotoUrl, getArtist, getTopTracks } from './musicbrainz';
-import { playQueue, usePlayer } from './player';
+import { playQueue, useCurrentTrackId } from './player';
 import { hideArtist, isHiddenArtist, isLikedArtist, toggleLikeArtist, unhide, useTaste } from './taste';
 import { openAlbum } from './Music';
 import type { MusicAlbum, MusicTrack } from './types';
@@ -19,7 +19,7 @@ const Artist = () => {
     const { id = '' } = useParams();
     const [params] = useSearchParams();
     const navigate = useNavigate();
-    const player = usePlayer();
+    const current = useCurrentTrackId();
     const taste = useTaste();
     const preview = (useLocation().state ?? null) as { name?: string } | null;
     const [page, setPage] = useState<Page | null>(null);
@@ -51,7 +51,6 @@ const Artist = () => {
         return () => { cancelled = true; };
     }, [id, params]);
 
-    const current = player.queue[player.index]?.id ?? null;
     return (
         <div className={classnames(styles['codio'], styles['flat'])}>
             <div className={styles['page-scroll']}>

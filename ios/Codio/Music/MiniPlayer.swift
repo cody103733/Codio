@@ -3,6 +3,7 @@ import SwiftUI
 /// The bar above the tab bar while music plays: cover, song, play/pause and next. Tap it for Now Playing.
 struct MiniPlayerBar: View {
     @ObservedObject private var player = MusicPlayer.shared
+    @ObservedObject private var clock = MusicClock.shared
 
     var body: some View {
         if let t = player.current {
@@ -57,6 +58,7 @@ struct MiniPlayerBar: View {
 /// Now Playing: big cover, the heart, the time bar, controls, volume, and Up next (the queue).
 struct NowPlayingView: View {
     @ObservedObject private var player = MusicPlayer.shared
+    @ObservedObject private var clock = MusicClock.shared
     @ObservedObject private var taste = MusicTaste.shared
     @Environment(\.dismiss) private var dismiss
     @State private var scrub: Double?

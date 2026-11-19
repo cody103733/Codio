@@ -191,10 +191,6 @@ public final class MusicDownloads {
         return e != null && e.done() ? e.file : null;
     }
 
-    public static boolean isDownloaded(Track t) {
-        return fileFor(t) != null;
-    }
-
     /** Lyrics saved with a downloaded song: null when not downloaded, an empty result when it has none. */
     static Lyrics.Result savedLyrics(Track t) {
         Entry e = find(t);

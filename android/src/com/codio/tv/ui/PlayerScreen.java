@@ -289,9 +289,11 @@ final class PlayerScreen extends Screen {
         }
         autoSkip();
         int sk = skipKind();
+        upNextCard = false;
         if (sk == SKIP_NONE) skipInZone = false;
         if (sk == SKIP_NEXT && menu < 0) {
             UpNext.Card card = upNext();
+            upNextCard = card != null;
             if (card != null) {
                 drawUpNext(c, card, a);
                 if (card.fire && !upNextFired && !st.paused && seekTarget < 0) {
@@ -301,11 +303,15 @@ final class PlayerScreen extends Screen {
             }
         } else if (sk != SKIP_NONE && menu < 0) drawSkip(c, sk, a);
         if (menu >= 0) drawMenu(c, dt);
-        // Keep the clock and the seek bar moving while they're on screen.
-        if (a > 0.01f && !st.paused) tv.moving();
-        if (seekTarget >= 0 || (controls && !st.paused)) tv.moving();
-        if (sk != SKIP_NONE || (next != null && st.started && !st.paused)) tv.moving();
+        // Full frame rate only while something moves (seeking, the Up Next countdown, a menu). The clock, the seek
+        // bar and the skip/Up Next timing only need a few frames a second: drawing the whole screen 60 times a
+        // second over a playing 4K video costs low-memory TVs (Fire TV) smoothness.
+        if (seekTarget >= 0 || upNextCard || (menu >= 0 && !st.paused)) tv.moving();
+        else if (!st.paused && (a > 0.01f || sk != SKIP_NONE || next != null)) tv.soon(250);
     }
+
+    /** The Up Next card was drawn this frame (its countdown moves). */
+    private boolean upNextCard;
 
     private String tagFor;
     private String tag;

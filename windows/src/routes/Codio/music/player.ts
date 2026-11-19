@@ -257,7 +257,6 @@ export const stop = () => {
     if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
     set({ queue: [], index: -1, playing: false, loading: false, position: 0, duration: 0, quality: null, source: null });
 };
-export const nowPlaying = current;
 
 const subscribe = (l: () => void) => {
     listeners.add(l);
@@ -265,6 +264,11 @@ const subscribe = (l: () => void) => {
 };
 
 export const usePlayer = (): PlayerState => useSyncExternalStore(subscribe, () => state);
+
+// Only the playing song's id: pages that just mark the playing song use this, so they don't redraw 4 times a second
+// while the position moves.
+const currentId = () => state.queue[state.index]?.id ?? null;
+export const useCurrentTrackId = (): string | null => useSyncExternalStore(subscribe, currentId);
 
 // Volume 0 to 1, kept for next time. This is the music's own volume, on top of the computer's.
 export const setVolume = (value: number) => {

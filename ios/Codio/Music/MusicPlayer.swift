@@ -5,6 +5,14 @@ import UIKit
 
 /// The music player: one AVPlayer for the whole app, a queue, shuffle and repeat. It keeps playing while you move around
 /// Codio and in the background (the mini player shows it), and pauses by itself when a video starts.
+/// The playing song's position and length, for the views that show them (time bar, lyrics).
+@MainActor
+final class MusicClock: ObservableObject {
+    static let shared = MusicClock()
+    @Published fileprivate(set) var position: Double = 0
+    @Published fileprivate(set) var duration: Double = 0
+}
+
 @MainActor
 final class MusicPlayer: ObservableObject {
     static let shared = MusicPlayer()
@@ -15,8 +23,10 @@ final class MusicPlayer: ObservableObject {
     @Published private(set) var index = -1
     @Published private(set) var playing = false
     @Published private(set) var loading = false
-    @Published private(set) var position: Double = 0
-    @Published private(set) var duration: Double = 0
+    // The position moves twice a second. It is published on MusicClock, not here, so the pages and tabs that only care
+    // which song plays don't redraw with it; views that show the time observe MusicClock.shared as well.
+    private(set) var position: Double = 0 { didSet { if MusicClock.shared.position != position { MusicClock.shared.position = position } } }
+    private(set) var duration: Double = 0 { didSet { if MusicClock.shared.duration != duration { MusicClock.shared.duration = duration } } }
     @Published private(set) var shuffle = false
     @Published private(set) var repeatMode: Repeat = .off
     @Published private(set) var message: String?

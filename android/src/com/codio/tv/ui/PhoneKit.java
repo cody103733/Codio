@@ -25,6 +25,10 @@ import java.io.FileInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -326,29 +330,62 @@ final class PhoneKit {
             return;
         }
         v.setImageDrawable(null);
-        final WeakReference<ImageView> ref = new WeakReference<>(v);
+        // The same picture already on its way (a page drawn again while it loads): wait for that one instead of
+        // downloading and decoding it twice.
+        synchronized (WAITING) {
+            List<WeakReference<ImageView>> w = WAITING.get(key);
+            if (w != null) {
+                w.add(new WeakReference<>(v));
+                return;
+            }
+            w = new ArrayList<>();
+            w.add(new WeakReference<>(v));
+            WAITING.put(key, w);
+        }
         POOL.execute(new Runnable() {
             @Override
             public void run() {
-                ImageView iv0 = ref.get();
-                if (iv0 == null || !u.equals(iv0.getTag())) return;
+                if (!wanted(key, u)) return;
                 Bitmap bm = null;
                 try {
                     bm = decode(u, widthPx);
                 } catch (Throwable ignored) {
                 }
                 final Bitmap res = bm;
-                if (res == null) return;
-                CACHE.put(key, res);
+                if (res != null) CACHE.put(key, res);
                 MAIN.post(new Runnable() {
                     @Override
                     public void run() {
-                        ImageView iv = ref.get();
-                        if (iv != null && u.equals(iv.getTag())) iv.setImageBitmap(res);
+                        List<WeakReference<ImageView>> w;
+                        synchronized (WAITING) {
+                            w = WAITING.remove(key);
+                        }
+                        if (res == null || w == null) return;
+                        for (WeakReference<ImageView> r : w) {
+                            ImageView iv = r.get();
+                            if (iv != null && u.equals(iv.getTag())) iv.setImageBitmap(res);
+                        }
                     }
                 });
             }
         });
+    }
+
+    /** Views waiting for each picture being loaded (key = width|url). */
+    private static final Map<String, List<WeakReference<ImageView>>> WAITING = new HashMap<>();
+
+    /** Whether any view still waits for this picture; if none does, the job is dropped. */
+    private static boolean wanted(String key, String u) {
+        synchronized (WAITING) {
+            List<WeakReference<ImageView>> w = WAITING.get(key);
+            if (w == null) return false;
+            for (WeakReference<ImageView> r : w) {
+                ImageView iv = r.get();
+                if (iv != null && u.equals(iv.getTag())) return true;
+            }
+            WAITING.remove(key);
+            return false;
+        }
     }
 
     static byte[] readAll(InputStream in) throws java.io.IOException {

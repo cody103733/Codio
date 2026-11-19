@@ -135,54 +135,6 @@ public final class MusicBrainz {
         return out;
     }
 
-    /** An artist's id by exact name (or alias), best score first; null if none. Cached a day like every search. */
-    public static String artistIdByName(String name) {
-        try {
-            JSONObject j = MusicNet.obj(mbBg("/ws/2/artist?query=" + enc("artist:\"" + name.replace("\"", "") + "\"") + "&limit=5"));
-            JSONArray list = j.optJSONArray("artists");
-            String wanted = plain(name);
-            String best = null;
-            int bestScore = -1;
-            for (int i = 0; list != null && i < list.length(); i++) {
-                JSONObject a = list.optJSONObject(i);
-                if (a == null || !isMbid(a.optString("id"))) continue;
-                boolean same = plain(a.optString("name")).equals(wanted);
-                JSONArray al = a.optJSONArray("aliases");
-                for (int k = 0; !same && al != null && k < al.length(); k++) same = al.optJSONObject(k) != null && plain(al.optJSONObject(k).optString("name")).equals(wanted);
-                if (same && a.optInt("score", 0) > bestScore) {
-                    best = a.optString("id");
-                    bestScore = a.optInt("score", 0);
-                }
-            }
-            return best;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /** An album (release group) by title and artist, for chart albums (Apple adds " - Single" / " - EP"); null if none. */
-    public static Album albumByName(String title, String artist) {
-        try {
-            String clean = title.replaceAll("(?i)\\s+-\\s+(single|ep)$", "").replace("\"", "");
-            String q = "releasegroup:\"" + clean + "\" AND artist:\"" + artist.replace("\"", "") + "\"";
-            JSONObject j = MusicNet.obj(mbBg("/ws/2/release-group?query=" + enc(q) + "&limit=5"));
-            JSONArray list = j.optJSONArray("release-groups");
-            String wanted = plain(clean);
-            JSONObject best = null;
-            for (int i = 0; list != null && i < list.length(); i++) {
-                JSONObject g = list.optJSONObject(i);
-                if (g == null || !isMbid(g.optString("id")) || !plain(g.optString("title")).equals(wanted)) continue;
-                if (best == null || g.optInt("score", 0) > best.optInt("score", 0)) best = g;
-            }
-            if (best == null) return null;
-            Album a = toAlbum(best);
-            if (a.artist == null || a.artist.isEmpty()) a.artist = artist;
-            return a;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     /** Lucene special characters in a search must be escaped. */
     static String lucene(String text) {
         return text.replaceAll("([+\\-&|!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1").trim();

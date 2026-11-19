@@ -134,7 +134,6 @@ export const GENRES: { id: string, name: string }[] = [
     { id: '11', name: 'Jazz' }, { id: '2', name: 'Blues' }, { id: '5', name: 'Classical' }, { id: '24', name: 'Reggae' },
     { id: '16', name: 'Soundtrack' }, { id: '51', name: 'K-Pop' }, { id: '4', name: "Children's Music" },
 ];
-export const DEFAULT_GENRES = ['14', '18', '6', '21', '15'];
 export const genreName = (id: string) => GENRES.find((g) => g.id === id)?.name ?? 'Genre';
 
 const genreJobs = new Map<string, Promise<any>>();

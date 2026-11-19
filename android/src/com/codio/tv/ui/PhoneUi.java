@@ -498,17 +498,6 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         }
     }
 
-    /** A page title with the round avatar on the right. */
-    static View titleRow(PhoneUi ui, TextView title) {
-        LinearLayout row = new LinearLayout(ui.getContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        al.setMargins(0, PhoneKit.dp(ui.getContext(), 6), PhoneKit.dp(ui.getContext(), 14), 0);
-        row.addView(ui.profileButton(), al);
-        return row;
-    }
-
     /** "Who's watching?": the profiles as round avatars with names; tap one to switch. */
     void pickProfile() {
         final org.json.JSONArray l = Profiles.list(host.prefs());

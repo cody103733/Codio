@@ -116,6 +116,34 @@ const writeCache = (url, body) => {
     } catch (_e) { /* the cache is a bonus */ }
 };
 
+// Keeps the cache from growing for ever: answers are never read after a month, pictures are fetched again after three,
+// and the whole folder stays under 400 MB (oldest first). Runs once, a little after start, in the background.
+const pruneCache = async () => {
+    try {
+        const names = await fs.promises.readdir(CACHE_DIR);
+        const now = Date.now();
+        const kept = [];
+        let total = 0;
+        for (const name of names) {
+            const file = path.join(CACHE_DIR, name);
+            try {
+                const stat = await fs.promises.stat(file);
+                const maxAge = name.startsWith('img-') ? 92 * DAY : 31 * DAY;
+                if (now - stat.mtimeMs > maxAge) await fs.promises.unlink(file);
+                else { kept.push({ file, at: stat.mtimeMs, size: stat.size }); total += stat.size; }
+            } catch (_e) { /* gone already */ }
+        }
+        if (total <= 400 * 1024 * 1024) return;
+        kept.sort((a, b) => a.at - b.at);
+        for (const k of kept) {
+            if (total <= 300 * 1024 * 1024) break;
+            total -= k.size;
+            await fs.promises.unlink(k.file).catch(() => null);
+        }
+    } catch (_e) { /* no cache yet */ }
+};
+setTimeout(() => { void pruneCache(); }, 60 * 1000).unref();
+
 const send = (response, status, body, headers = {}) => {
     if (response.headersSent) return;
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });

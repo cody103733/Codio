@@ -79,8 +79,6 @@ final class MusicDownloads: ObservableObject {
         return Self.dir.appendingPathComponent(f)
     }
 
-    func isDownloaded(_ t: MusicTrack) -> Bool { fileURL(t) != nil }
-
     /// The track to play or show: with the saved cover when there is one.
     func playable(_ e: Entry) -> MusicTrack {
         var t = e.track

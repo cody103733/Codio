@@ -9,9 +9,9 @@ import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, 
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { buildDailyMix, savedMix, today } from './dailymix';
 import { appleMusicUrl, chartNewReleases, chartSource, genreName, genreSongs, GENRES, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
-import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
+import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks } from './taste';
 import { artistPhotoUrl } from './musicbrainz';
-import { playQueue, recentTracks, usePlayer } from './player';
+import { playQueue, recentTracks, useCurrentTrackId } from './player';
 import { hideTrack, toggleLikeTrack } from './taste';
 import type { MusicAddon, MusicAlbum, MusicArtist, MusicTrack, SearchResults } from './types';
 import { signIn, signOut, syncNow, useListenBrainz, waitingListens } from './listenbrainz';
@@ -106,15 +106,6 @@ const ago = (at: number | null) => {
 const AccountPanel = () => {
     const account = useListenBrainz();
     const platform = usePlatform() as any;
-    const [lastfmState, setLastfmState] = useState<'none' | 'checking' | 'ok' | 'bad' | 'offline'>('none');
-    const checkLastfm = (key: string) => {
-        if (!key) { setLastfmState('none'); return; }
-        setLastfmState('checking');
-        fetch('/api/music/lastfm-check', { headers: { 'X-Codio': '1', 'X-Lastfm-Key': key } })
-            .then((r) => r.ok ? r.json() : null).catch(() => null)
-            .then((j) => setLastfmState(j ? (j.ok ? 'ok' : 'bad') : 'offline'));
-    };
-    useEffect(() => { checkLastfm(loadMusicSettings().lastfmKey); }, []);
     const [token, setToken] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -225,6 +216,15 @@ const AddonsPanel = () => {
     const [error, setError] = useState<string | null>(null);
     const [server, setServer] = useState(loadMusicSettings().mbBase);
     const [lastfm, setLastfm] = useState(loadMusicSettings().lastfmKey);
+    const [lastfmState, setLastfmState] = useState<'none' | 'checking' | 'ok' | 'bad' | 'offline'>('none');
+    const checkLastfm = (key: string) => {
+        if (!key) { setLastfmState('none'); return; }
+        setLastfmState('checking');
+        fetch('/api/music/lastfm-check', { headers: { 'X-Codio': '1', 'X-Lastfm-Key': key } })
+            .then((r) => r.ok ? r.json() : null).catch(() => null)
+            .then((j) => setLastfmState(j ? (j.ok ? 'ok' : 'bad') : 'offline'));
+    };
+    useEffect(() => { checkLastfm(loadMusicSettings().lastfmKey); }, []);
     const [chartPick, setChartPick] = useState(loadMusicSettings().chart);
     const pickChart = (c: 'apple' | 'lastfm') => { setChartPick(c); saveMusicSettings({ chart: c }); };
     const [genres, setGenres] = useState(loadMusicSettings().genres);
@@ -497,14 +497,14 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
 const Music = () => {
     const addons = useMusicAddons();
     const navigate = useNavigate();
-    const player = usePlayer();
+    const current = useCurrentTrackId();
     const [query, setQuery] = useState('');
     const [view, setView] = useState<'browse' | 'addons'>('browse');
     const [results, setResults] = useState<SearchResults | null>(null);
     const [searching, setSearching] = useState(false);
     const [rows, setRows] = useState<CatalogRow[]>([]);
     const request = useRef(0);
-    const recent = useMemo(() => recentTracks(), [player.index]);
+    const recent = useMemo(() => recentTracks(), [current]);
     const input = useRef<HTMLInputElement>(null);
 
     useEffect(() => { input.current?.focus(); }, []);
@@ -546,7 +546,6 @@ const Music = () => {
         return () => clearTimeout(timer);
     }, [query, addons]);
 
-    const current = player.queue[player.index]?.id ?? null;
     const none = results !== null && !searching && results.artists.length + results.albums.length + results.tracks.length === 0;
     const hasResults = results !== null && results.artists.length + results.albums.length + results.tracks.length > 0;
 

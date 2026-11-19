@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router';
 import { NavBar, CodioButton, Spinner, styles } from '../components';
 import { musicStyles as m, TrackRow } from './parts';
 import { appleMusicUrl, chartSongs, chartSource, chartTitle } from './discovery';
-import { playQueue, usePlayer } from './player';
+import { playQueue, useCurrentTrackId } from './player';
 import { useTaste, visibleTracks } from './taste';
 import type { MusicTrack } from './types';
 import { usePlatform } from 'stremio/common';
@@ -14,7 +14,7 @@ import { usePlatform } from 'stremio/common';
 const Chart = () => {
     const { id = 'top' } = useParams();
     const navigate = useNavigate();
-    const player = usePlayer();
+    const current = useCurrentTrackId();
     const taste = useTaste();
     const platform = usePlatform() as any;
     const [songs, setSongs] = useState<MusicTrack[] | null>(null);
@@ -25,7 +25,6 @@ const Chart = () => {
         return () => { cancelled = true; };
     }, [id]);
     const shown = visibleTracks(taste, songs ?? []);
-    const current = player.queue[player.index]?.id ?? null;
     const credit = shown.some((t) => appleMusicUrl(t)) ? 'Chart from Apple Music' : id === 'top' && chartSource() === 'lastfm' ? 'Chart data from Last.fm' : null;
     return (
         <div className={classnames(styles['codio'], styles['flat'])}>

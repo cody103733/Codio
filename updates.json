@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.9.0",
-    "versionCode": 78,
+    "version": "1.9.1",
+    "versionCode": 79,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Lyrics: on Now Playing, pick Lyrics: On to see the words of the song, line by line as it plays."
+    "notes": "Smoother and lighter: less redrawing during playback and in Music, faster pictures, and a music cache that stays small."
   },
   "phone": {
-    "version": "1.5.0",
-    "versionCode": 37,
+    "version": "1.5.1",
+    "versionCode": 38,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Lyrics on Now Playing (tap the card for all the words), and download songs or whole albums to play offline: Download in a song's menu or on an album. They show in Music > Downloaded."
+    "notes": "Smoother and lighter: less redrawing during playback and in Music, faster pictures, and a music cache that stays small."
   },
   "windows": {
     "version": "1.13.0",

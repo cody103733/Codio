@@ -401,25 +401,6 @@ public final class Discovery {
         }
     }
 
-    private static JSONObject lookupSong(String artist, String title) {
-        try {
-            String url = LB + "/1/metadata/lookup/?artist_name=" + java.net.URLEncoder.encode(artist, "UTF-8")
-                    + "&recording_name=" + java.net.URLEncoder.encode(title, "UTF-8");
-            byte[] body = MusicNet.readCache(url, 30 * MusicNet.DAY);
-            if (body == null) {
-                MusicNet.spaced(LB + "#lookup", 150);
-                MusicNet.Reply r = MusicNet.get(url, 15000);
-                if (r.status != 200) return null;
-                body = r.body;
-                MusicNet.writeCache(url, body);
-            }
-            JSONObject j = new JSONObject(new String(body, "UTF-8"));
-            return Model.str(j, "recording_mbid") != null ? j : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private static JSONArray chartFeed(String cc) throws Exception {
         String url = CHART + "/api/v2/" + cc + "/music/most-played/100/songs.json";
         byte[] body = MusicNet.readCache(url, HOURS6);
@@ -543,41 +524,6 @@ public final class Discovery {
     public static List<Artist> popularArtists() {
         loadArtists();
         return new ArrayList<>(chartArtists.subList(0, Math.min(20, chartArtists.size())));
-    }
-
-    /** Songs ListenBrainz's listeners played this week. */
-    private static List<Track> sitewideSongs() {
-        JSONArray l = list(lb("/1/stats/sitewide/recordings?range=week&count=25", false), "payload", "recordings");
-        List<Track> out = new ArrayList<>();
-        for (int i = 0; i < l.length(); i++) {
-            JSONObject r = l.optJSONObject(i);
-            if (r == null || Model.str(r, "recording_mbid") == null || Model.str(r, "track_name") == null) continue;
-            Track t = new Track();
-            t.mbid = r.optString("recording_mbid");
-            t.id = "mbid:" + t.mbid;
-            t.title = r.optString("track_name");
-            t.artist = r.optString("artist_name", "");
-            t.album = Model.str(r, "release_name");
-            t.artworkURL = Model.str(r, "release_mbid") != null ? MusicBrainz.releaseCoverUrl(r.optString("release_mbid")) : null;
-            t.artistMbid = first(r.optJSONArray("artist_mbids"));
-            out.add(t);
-        }
-        return out;
-    }
-
-    /** Artists ListenBrainz's listeners played this month. */
-    private static List<Artist> sitewideArtists() {
-        JSONArray l = list(lb("/1/stats/sitewide/artists?range=month&count=30", false), "payload", "artists");
-        List<Artist> out = new ArrayList<>();
-        for (int i = 0; i < l.length() && out.size() < 20; i++) {
-            JSONObject a = l.optJSONObject(i);
-            if (a == null || Model.str(a, "artist_mbid") == null || Model.str(a, "artist_name") == null) continue;
-            Artist x = new Artist();
-            x.id = a.optString("artist_mbid");
-            x.name = a.optString("artist_name");
-            out.add(x);
-        }
-        return out;
     }
 
     private static final String SIMILAR = "session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30";

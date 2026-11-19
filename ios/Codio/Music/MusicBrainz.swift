@@ -293,17 +293,6 @@ enum LBData {
         await AlbumChart.shared.get().recent
     }
 
-    /// Albums ListenBrainz's listeners played this week (no longer shown).
-    static func sitewideAlbums() async -> [MusicAlbum] {
-        let j = await get("/1/stats/sitewide/release-groups?range=week&count=25", ttl: 6 * 3600) as? JSON
-        let payload = j?["payload"] as? JSON
-        return marr(payload?["release_groups"]).compactMap { g in
-            guard let id = mstr(g["release_group_mbid"]) else { return nil }
-            return MusicAlbum(id: id, title: mstr(g["release_group_name"]) ?? "", artist: mstr(g["artist_name"]) ?? "", year: nil, kind: nil,
-                              artworkURL: MB.coverURL(id), addon: nil, artistMbid: mfirst(g["artist_mbids"]))
-        }
-    }
-
     /// Albums out in the last two weeks.
     static func newReleases() async -> [MusicAlbum] {
         let j = await get("/1/explore/fresh-releases/?days=14&past=true&future=false&sort=release_date", ttl: 6 * 3600)
@@ -341,31 +330,9 @@ enum LBData {
         id == "top" ? await popularSongs() : await GenreCharts.shared.songs(id)
     }
 
-    /// Songs ListenBrainz's listeners played this week (no longer shown: it leaned on a few very active fans).
-    static func sitewideSongs() async -> [MusicTrack] {
-        let j = await get("/1/stats/sitewide/recordings?range=week&count=25", ttl: 6 * 3600) as? JSON
-        let payload = j?["payload"] as? JSON
-        return marr(payload?["recordings"]).compactMap { r in
-            guard let mbid = mstr(r["recording_mbid"]), let title = mstr(r["track_name"]) else { return nil }
-            return MusicTrack(id: "mbid:" + mbid, title: title, artist: mstr(r["artist_name"]) ?? "", album: mstr(r["release_name"]), durationMs: nil,
-                              artworkURL: mstr(r["release_mbid"]).map { MB.releaseCoverURL($0) }, isrc: nil, mbid: mbid,
-                              artistMbid: mfirst(r["artist_mbids"]), addon: nil, streamURL: nil)
-        }
-    }
-
     /// Artists people are playing now: the ones in the country's chart, else ListenBrainz's.
     static func popularArtists() async -> [MusicArtist] {
         return Array(await Chart.shared.artists().prefix(20))
-    }
-
-    /// Artists ListenBrainz's listeners played this month (no longer shown).
-    static func sitewideArtists() async -> [MusicArtist] {
-        let j = await get("/1/stats/sitewide/artists?range=month&count=30", ttl: 6 * 3600) as? JSON
-        let payload = j?["payload"] as? JSON
-        return marr(payload?["artists"]).compactMap { a in
-            guard let id = mstr(a["artist_mbid"]), let name = mstr(a["artist_name"]) else { return nil }
-            return MusicArtist(id: id, name: name, detail: nil, artworkURL: nil, addon: nil)
-        }.prefix(20).map { $0 }
     }
 
     private static let similarAlgorithm = "session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30"

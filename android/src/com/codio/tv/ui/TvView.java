@@ -441,6 +441,21 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         needFrame = true;
     }
 
+    /** Called by screens while drawing: something changes slowly (a clock, a position), draw again in about ms. */
+    void soon(long ms) {
+        if (soonMs == 0 || ms < soonMs) soonMs = ms;
+    }
+
+    private long soonMs = 0;
+    private boolean soonPosted = false;
+    private final Runnable soonFrame = new Runnable() {
+        @Override
+        public void run() {
+            soonPosted = false;
+            invalidate();
+        }
+    };
+
     @Override
     public void imageReady() {
         kick();
@@ -491,7 +506,14 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
             slow = 0;
         }
         if (needFrame) postInvalidateOnAnimation();
-        else lastFrame = 0;
+        else {
+            lastFrame = 0;
+            if (soonMs > 0 && !soonPosted) {
+                soonPosted = true;
+                postDelayed(soonFrame, soonMs);
+            }
+        }
+        soonMs = 0;
     }
 
     // ------------------------------------------------------------------ keys

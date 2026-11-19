@@ -615,8 +615,4 @@ public final class Vault {
         changed();
     }
 
-    /** True while the vault is on: then the TMDB key no longer goes up unlocked (KeySync). */
-    static boolean replacesKeySync() {
-        return on();
-    }
 }

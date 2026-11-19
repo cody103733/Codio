@@ -19,7 +19,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,6 +63,43 @@ public final class MusicNet {
         cacheDir = new File(app.getCacheDir(), "music-cache");
         cacheDir.mkdirs();
         prefs = app.getSharedPreferences("codio_music", Context.MODE_PRIVATE);
+        POOL.execute(new Runnable() {
+            @Override
+            public void run() {
+                pruneCache();
+            }
+        });
+    }
+
+    /** Nothing in the cache is read after 30 days; also keep it under 40 MB (low-storage TVs), oldest first. */
+    static void pruneCache() {
+        try {
+            File[] files = cacheDir.listFiles();
+            if (files == null) return;
+            long now = System.currentTimeMillis(), total = 0;
+            List<File> kept = new ArrayList<>();
+            for (File f : files) {
+                if (now - f.lastModified() > 31 * DAY) f.delete();
+                else {
+                    kept.add(f);
+                    total += f.length();
+                }
+            }
+            if (total <= 40L * 1024 * 1024) return;
+            Collections.sort(kept, new Comparator<File>() {
+                @Override
+                public int compare(File a, File b) {
+                    return Long.compare(a.lastModified(), b.lastModified());
+                }
+            });
+            for (File f : kept) {
+                if (total <= 30L * 1024 * 1024) break;
+                total -= f.length();
+                f.delete();
+            }
+        } catch (Exception ignored) {
+            // the cache is a bonus
+        }
     }
 
     public static Context context() {

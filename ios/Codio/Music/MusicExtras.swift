@@ -214,6 +214,7 @@ final class NowLyrics: ObservableObject {
 /// On Now Playing: the line being sung and the next one. Tap for all the words.
 struct LyricsCard: View {
     @ObservedObject private var player = MusicPlayer.shared
+    @ObservedObject private var clock = MusicClock.shared
     @ObservedObject private var now = NowLyrics.shared
     @State private var open = false
 
@@ -256,6 +257,7 @@ struct LyricsCard: View {
 /// All the words. Timed lyrics follow the song: the line being sung is white and kept in view; tap a line to jump there.
 struct LyricsView: View {
     @ObservedObject private var player = MusicPlayer.shared
+    @ObservedObject private var clock = MusicClock.shared
     @ObservedObject private var now = NowLyrics.shared
     @State private var touchedAt = Date.distantPast
 
