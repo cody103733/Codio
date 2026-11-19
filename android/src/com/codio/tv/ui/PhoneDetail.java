@@ -23,7 +23,8 @@ final class PhoneDetail extends PhoneUi.Page {
     private boolean loaded = false;
     private LinearLayout col, episodesBox, seasonStrip;
     private ImageView backdrop, logo;
-    private TextView title, metaLine, desc, cast, playBtn, dlBtn, listBtn, sourcesBtn, status;
+    private TextView title, metaLine, desc, cast, playBtn, dlBtn, listBtn, sourcesBtn, trailerBtn, status;
+    private String trailer; // YouTube id, null until one is found
     private ProgressBar spin;
     private final List<Integer> seasons = new ArrayList<>();
     private int season = -1;
@@ -128,6 +129,15 @@ final class PhoneDetail extends PhoneUi.Page {
         });
         small.addView(listBtn, new LinearLayout.LayoutParams(0, -2, 1));
         small.addView(sourcesBtn, new LinearLayout.LayoutParams(0, -2, 1));
+        trailerBtn = smallAction("▶  Trailer");
+        trailerBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (trailer != null) Trailer.play(ctx(), trailer, false);
+            }
+        });
+        trailerBtn.setVisibility(View.GONE);
+        small.addView(trailerBtn, new LinearLayout.LayoutParams(0, -2, 1));
         body.addView(small, full());
 
         desc = PhoneKit.text(ctx(), "", 14, Theme.TEXT_BODY, false);
@@ -185,6 +195,13 @@ final class PhoneDetail extends PhoneUi.Page {
                 fillInfo();
                 buildSeasons();
                 prefetch();
+                if (ui.online()) Trailer.find(meta, new Trailer.Done() {
+                    @Override
+                    public void done(String id) {
+                        trailer = id;
+                        if (trailerBtn != null) trailerBtn.setVisibility(id != null ? View.VISIBLE : View.GONE);
+                    }
+                });
             }
         });
     }

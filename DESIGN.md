@@ -125,6 +125,19 @@ moves to the front of Continue Watching when an episode came out after you last 
 show or watch something of it, and after 30 days. Phones also send a notification, checked a few times a day; tapping it
 opens the show. The episode dates come from the catalog addons (Cinemeta's "last videos" list).
 
+## Trailers
+
+A Trailer button sits on every movie and show page that has one (TV and Windows: after Library; phones: next to Library
+and Sources). The trailer is a YouTube video, chosen the same way in every app:
+
+- With a TMDB key: TMDB's videos for the title (English or no language), YouTube only, a Trailer before a Teaser, an
+  official one before others, otherwise TMDB's order.
+- Without a key, or when TMDB has none: the trailer the catalog addon gave (`trailerStreams` / `trailers`, Cinemeta has one
+  for most titles). No trailer found: no button.
+- Playing it: Android TV opens the YouTube TV app (Google TV's, then Fire TV's); Android phones open the YouTube app or the
+  browser; iPhone opens the YouTube app, else an in-app web page. When no app can open it, Android plays YouTube's own player
+  full screen inside Codio (OK pauses, Back closes). Windows always plays YouTube's player over the page (Back or Esc closes).
+
 ## Rules that are not about looks
 
 - Only http(s) and debrid sources. No torrents.

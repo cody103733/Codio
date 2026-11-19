@@ -12,6 +12,8 @@ struct DetailView: View {
     @State private var ask: DownloadAsk?
     @State private var askingFor: String?
     @State private var confirmDelete: Downloads.Entry?
+    @State private var trailer: String?
+    @State private var trailerPage: URL?
 
     private var isSeries: Bool { meta.type == "series" || (!meta.videos.isEmpty && meta.type != "movie") }
 
@@ -84,6 +86,10 @@ struct DetailView: View {
             engine.prefetch(meta, playTarget)
         }
         .onDisappear { engine.prefetchEnd() }
+        .task(id: meta.full) { trailer = await Trailer.find(for: meta) }
+        .sheet(item: Binding(get: { trailerPage.map { TrailerPage(url: $0) } }, set: { trailerPage = $0?.url })) { p in
+            WebSheet(url: p.url).ignoresSafeArea()
+        }
     }
 
     /// Netflix mobile: a wide picture at the top, then the title and the info line under it.
@@ -140,6 +146,11 @@ struct DetailView: View {
             }
             iconButton("list.bullet", "Sources") {
                 engine.sourcesRequest = Engine.SourcesRequest(meta: meta, videoId: playTarget)
+            }
+            if let t = trailer {
+                iconButton("play.rectangle", "Trailer") {
+                    Trailer.open(t) { trailerPage = $0 }
+                }
             }
             if let share = URL(string: "https://www.imdb.com/title/" + (SkipTimes.imdb(of: meta, nil) ?? "")), SkipTimes.imdb(of: meta, nil) != nil {
                 ShareLink(item: share) { iconLabel("paperplane", "Share") }.buttonStyle(.plain)
@@ -365,4 +376,9 @@ private struct EpisodeRow: View {
             Button("Choose a source") { engine.sourcesRequest = Engine.SourcesRequest(meta: meta, videoId: video.id) }
         }
     }
+}
+
+private struct TrailerPage: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
 }

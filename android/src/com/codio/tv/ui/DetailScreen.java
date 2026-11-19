@@ -26,6 +26,17 @@ final class DetailScreen extends Screen {
     private final Smooth sscroll = new Smooth(0.085f, 0.4f);
     private final Smooth grow = new Smooth(0.07f, 0.01f);
     private final Smooth lift = new Smooth(0.1f, 0.4f);
+    private String trailer; // YouTube id, null until one is found
+
+    private void findTrailer() {
+        Trailer.find(meta, new Trailer.Done() {
+            @Override
+            public void done(String id) {
+                trailer = id;
+                tv.kick();
+            }
+        });
+    }
 
     private void toggleLibrary() {
         boolean in = tv.store.inLibrary(meta.id);
@@ -55,6 +66,7 @@ final class DetailScreen extends Screen {
                 failed = m == null;
                 buildSeasons();
                 prefetchNow();
+                findTrailer();
                 tv.kick();
             }
         });
@@ -182,6 +194,8 @@ final class DetailScreen extends Screen {
         float w2 = tv.drawButton(c, x + w + 20, by, "Choose a source", false, zone == BUTTONS && button == 1, false);
         boolean saved = tv.store.inLibrary(meta.id);
         w2 += 20 + tv.drawButton(c, x + w + 20 + w2 + 20, by, saved ? "✓ In Library" : "+ Library", false, zone == BUTTONS && button == 2, false);
+        if (trailer != null) w2 += 20 + tv.drawButton(c, x + w + 20 + w2 + 20, by, "Trailer", false, zone == BUTTONS && button == 3, false);
+        else if (button > 2) button = 2;
         // What Play will pick, once the sources are in (they load as soon as this page opens).
         String pv = prefetchVideo();
         Store.Sources src = pv != null ? tv.store.sourcesFor(meta.type, meta.id, pv) : null;
@@ -265,7 +279,7 @@ final class DetailScreen extends Screen {
         switch (zone) {
             case BUTTONS:
                 if (k == TvView.LEFT && button > 0) button--;
-                else if (k == TvView.RIGHT && button < 2) button++;
+                else if (k == TvView.RIGHT && button < (trailer != null ? 3 : 2)) button++;
                 else if (k == TvView.DOWN && series) {
                     zone = EPISODES;
                     grow.snap(0);
@@ -274,7 +288,8 @@ final class DetailScreen extends Screen {
                 } else if (k == TvView.OK) {
                     if (button == 0) play();
                     else if (button == 1) chooseSource();
-                    else toggleLibrary();
+                    else if (button == 2) toggleLibrary();
+                    else if (trailer != null) Trailer.play(tv.getContext(), trailer, true);
                 }
                 return true;
             case SEASONS:

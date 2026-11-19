@@ -1,1 +1,1 @@
-Music: genre charts (pick them in Music settings), and the Top 100 and genre charts are rows you can open as a full list.
+Trailers: a Trailer button on movie and show pages plays the title's trailer.

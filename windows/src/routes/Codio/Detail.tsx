@@ -17,6 +17,7 @@ import {
     QUALITIES, dlKey, formatBytes, optionsFrom, progressOf, queueDownloads, startDownload, useDownloadMap, usePlayDownload,
     type DlOption, type Download,
 } from './downloads';
+import { useTrailer, TrailerPlayer } from './Trailer';
 
 type Source = {
     key: string,
@@ -131,6 +132,8 @@ const Detail = () => {
     const library = metaDetails.libraryItem;
     const core = useCore() as any;
     const inList = ready ? !!ready.inLibrary : false;
+    const trailer = useTrailer(ready);
+    const [showTrailer, setShowTrailer] = useState(false);
     const toggleList = useCallback(() => {
         if (!ready) return;
         core.transport.dispatch({ action: 'Ctx', args: inList ? { action: 'RemoveFromLibrary', args: ready.id } : { action: 'AddToLibrary', args: ready } });
@@ -319,6 +322,7 @@ const Detail = () => {
 
     useEscape(() => {
         if (!routeActive) return false;
+        if (showTrailer) { setShowTrailer(false); return true; }
         if (play) { setPlay(null); return true; }
         if (showSources) { setShowSources(null); return true; }
         if (dlPick) { setDlPick(null); return true; }
@@ -471,6 +475,7 @@ const Detail = () => {
                     {offline ? null : <CodioButton label={'Choose a source'} onClick={onChooseSource} />}
                     {canDownload ? <CodioButton label={isSeries ? seasonLabel() : downloadLabel(movieDownload)} onClick={onDownloadMain} /> : null}
                     {ready ? <CodioButton label={inList ? '✓ In Library' : '+ Library'} onClick={toggleList} /> : null}
+                    {ready && trailer ? <CodioButton label={'Trailer'} onClick={() => setShowTrailer(true)} /> : null}
                     <span className={styles['source-status']}>{movieDownload?.state === 'done' ? `Downloaded${movieDownload.quality ? `  ·  ${qualityLabel(movieDownload.quality)}` : ''}  ·  plays without internet` : movieDownload?.state === 'failed' ? `Download failed: ${movieDownload.error ?? ''}` : offline ? 'Offline  ·  showing your downloads' : statusText}</span>
                 </div>
                 {!ready && !metaFailed ? <div className={styles['detail-spinner']}><Spinner size={22} /></div> : null}
@@ -519,6 +524,7 @@ const Detail = () => {
                         : null
                 }
             </div>
+            {showTrailer && trailer ? <TrailerPlayer id={trailer} onClose={() => setShowTrailer(false)} /> : null}
             {
                 showSources ?
                     <SourcesScreen

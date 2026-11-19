@@ -1895,3 +1895,27 @@
         color: @text;
     }
 }
+
+// ---- Trailer (YouTube's player over the title page)
+.trailer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(@u * 90) calc(@u * 96);
+
+    .back {
+        top: calc(@u * 24);
+    }
+
+    .trailer-video {
+        width: 100%;
+        max-height: 100%;
+        aspect-ratio: 16 / 9;
+        border: 0;
+        border-radius: calc(@u * 10);
+        background: #000;
+    }
+}
