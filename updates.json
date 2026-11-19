@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.12.0",
-    "versionCode": 82,
+    "version": "1.13.0",
+    "versionCode": 83,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Search by voice: press the mic key on the Search screen, or the search/mic button on your remote where the TV allows it. Also new: Your stats in Settings."
+    "notes": "New: Your stats in Settings, with your hours watched, top shows and movies, and most played songs and artists for this year or all time."
   },
   "phone": {
-    "version": "1.6.0",
-    "versionCode": 39,
+    "version": "1.7.0",
+    "versionCode": 40,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Codio now asks for an access password the first time it opens on a device."
+    "notes": "New: Your stats in Settings, with your hours watched, top shows and movies, and most played songs and artists for this year or all time."
   },
   "windows": {
     "version": "1.15.0",
