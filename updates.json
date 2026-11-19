@@ -12,10 +12,10 @@
     "notes": "Lyrics on Now Playing (tap the card for all the words), and download songs or whole albums to play offline: Download in a song's menu or on an album. They show in Music > Downloaded."
   },
   "windows": {
-    "version": "1.12.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.12.1/CodioSetup-1.12.1.exe",
-    "size": 66179424,
-    "sha256": "ded858f8d887e41721e7a2e205046a482fa75d7473e86ad6b70a302121e7b940",
-    "notes": "Subtitles: new colour and background options in Settings > Languages & subtitles, kept for each profile."
+    "version": "1.13.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.13.0/CodioSetup-1.13.0.exe",
+    "size": 66189346,
+    "sha256": "2364a731776c223392bf3778e30544956b3d08916d075f1828dbe9090e5d4440",
+    "notes": "Music: Lyrics button in the player shows the words of the song, line by line as it plays (click a line to jump there)."
   }
 }
