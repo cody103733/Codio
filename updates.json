@@ -12,10 +12,10 @@
     "notes": "Subtitles remember each profile's choices: on or off, language, size, and new colour and background options in Settings > Languages & subtitles. Size and colour now apply in the player."
   },
   "windows": {
-    "version": "1.11.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.11.0/CodioSetup-1.11.0.exe",
-    "size": 66178408,
-    "sha256": "20e1082d375d7df840e1af35da98f61ad0b32987f6aa075896887d919f8e9fbd",
-    "notes": "Music: genre charts (pick them in Music settings), and the Top 100 and genre charts are rows you can open as a full list."
+    "version": "1.12.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.12.0/CodioSetup-1.12.0.exe",
+    "size": 66179603,
+    "sha256": "e947b26fc29ef2791623e1b42232238fd308aa3bb0350f37971d38044c3b6f08",
+    "notes": "Trailers: a Trailer button on movie and show pages plays the title's trailer."
   }
 }
