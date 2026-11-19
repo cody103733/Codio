@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.14.0",
-    "versionCode": 84,
+    "version": "1.14.1",
+    "versionCode": 85,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "New Calendar in the Library: see when the next episodes and movies of what you follow come out."
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
   },
   "phone": {
-    "version": "1.8.0",
-    "versionCode": 41,
+    "version": "1.8.1",
+    "versionCode": 42,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "New Calendar in the Library: see when the next episodes and movies of what you follow come out."
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
   },
   "windows": {
     "version": "1.17.0",

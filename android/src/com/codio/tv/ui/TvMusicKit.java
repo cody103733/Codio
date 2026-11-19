@@ -392,7 +392,7 @@ final class TvMusicKit {
         float x = TvView.MARGIN + 86;
         tv.tLabel.setColor(Color.WHITE);
         c.drawText(tv.fit(t.title, tv.tLabel, 800), x, y + 44, tv.tLabel);
-        String state = MusicPlayer.loading() ? "Finding the song…" : MusicPlayer.playing() ? null : "Paused";
+        String state = MusicPlayer.loading() ? MusicPlayer.loadingText("Finding the song…") : MusicPlayer.playing() ? null : "Paused";
         String line = t.artist + (state != null ? "  ·  " + state : "");
         c.drawText(tv.fit(line, tv.tSmall, 800), x, y + 78, tv.tSmall);
         String right = Model.formatTime(p) + " / " + Model.formatTime(d) + "    Play/Pause   ·   Hold OK for options";

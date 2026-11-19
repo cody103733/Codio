@@ -78,7 +78,7 @@ const MiniPlayer = () => {
                     <div className={styles['mini-text']}>
                         <div className={styles['mini-title']}>{track?.title}</div>
                         <div className={styles['mini-sub']}>
-                            {player.loading ? 'Finding a source…' : [track?.artist, player.source, player.quality].filter(Boolean).join(' · ')}
+                            {player.loading ? (player.preparing ?? 'Finding a source…') : [track?.artist, player.source, player.quality].filter(Boolean).join(' · ')}
                         </div>
                     </div>
                 </div>

@@ -18,7 +18,7 @@ struct MiniPlayerBar: View {
                     MusicCover(url: t.artworkURL, size: 42)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(t.title).font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(1)
-                        Text(player.loading ? "Finding a source…" : t.artist).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
+                        Text(player.loading ? (player.preparing ?? "Finding a source…") : t.artist).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
                     }
                     Spacer(minLength: 4)
                     if player.loading {
@@ -101,7 +101,9 @@ struct NowPlayingView: View {
                     }
                     .padding(.horizontal, 24)
                     LyricsCard()
-                    if let m = player.message {
+                    if player.loading, let p = player.preparing {
+                        Text(p).font(.caption).foregroundColor(Theme.dim).multilineTextAlignment(.center).padding(.horizontal, 24)
+                    } else if let m = player.message {
                         Text(m).font(.caption).foregroundColor(Theme.redSoft).multilineTextAlignment(.center).padding(.horizontal, 24)
                     } else if let s = player.source {
                         Text("From \(s)\(player.quality.map { " · \($0)" } ?? "")").font(.caption).foregroundColor(Theme.faint)

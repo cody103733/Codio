@@ -134,7 +134,7 @@ final class MiniBar extends LinearLayout {
         setVisibility(show ? VISIBLE : GONE);
         if (t == null) return;
         title.setText(t.title);
-        String s = MusicPlayer.loading() ? "Finding a source…" : MusicPlayer.message() != null ? MusicPlayer.message() : t.artist;
+        String s = MusicPlayer.loading() ? MusicPlayer.loadingText("Finding a source…") : MusicPlayer.message() != null ? MusicPlayer.message() : t.artist;
         sub.setText(s);
         if (t.artworkURL == null ? coverFor != null : !t.artworkURL.equals(coverFor)) {
             coverFor = t.artworkURL;

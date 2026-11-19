@@ -147,13 +147,53 @@ enum MusicAddonClient {
             tracks: marr(j["tracks"]).compactMap { toTrack(addon, $0) })
     }
 
-    /// The audio link for an addon's own track id. A 503 with Retry-After means "still preparing": wait and ask again.
-    static func stream(_ addon: MusicAddon, _ id: String) async -> MusicStream? {
-        for _ in 0..<4 {
+    /// How long Codio keeps asking an addon that says a song is being prepared, before it counts as no source.
+    static let prepareLimit: TimeInterval = 180
+
+    /// Does this reply say "not ready yet, ask again"? Only an explicit sign counts (503/202/425, or a status word like
+    /// "downloading"); a 404, an error notice or a reply with no link is a real "no source" and ends the wait at once.
+    static func isPreparing(_ status: Int, _ json: Any?) -> Bool {
+        let j = json as? JSON
+        if let n = j?["notice"] as? JSON, mstr(n["level"]) == "error" { return false }
+        if status == 503 || status == 202 || status == 425 { return true }
+        if status == 200, let j = j, mstr(j["url"]) == nil, let word = mstr(j["status"]) ?? mstr(j["state"]) {
+            let w = word.trimmingCharacters(in: .whitespaces).lowercased().replacingOccurrences(of: "[\\s-]+", with: "_", options: .regularExpression)
+            return ["preparing", "pending", "queued", "queue", "downloading", "caching", "processing", "in_progress", "inprogress", "waiting", "not_ready", "notready"].contains(w)
+        }
+        return false
+    }
+
+    private static func preparingText(_ addon: MusicAddon, _ json: Any?) -> String {
+        guard let n = (json as? JSON)?["notice"] as? JSON, let message = mstr(n["message"]) else { return "Preparing song on \(addon.name)\u{2026}" }
+        let title = mstr(n["title"]).map { $0 + ": " } ?? ""
+        let p = (n["progress"] as? NSNumber)?.doubleValue ?? -1
+        return String((title + message + (p > 0 && p < 1 ? " \(Int((p * 100).rounded()))%" : "")).prefix(120))
+    }
+
+    /// The audio link for an addon's own track id. While the addon says it is still preparing the song (TorBox downloading
+    /// it), wait as long as it asks (2 to 30 s) and ask again, for up to prepareLimit. A real "no source" returns nil at once.
+    /// The wait stops when the task is cancelled (the song was skipped). onPreparing hears the text to show (nil = done).
+    static func stream(_ addon: MusicAddon, _ id: String, onPreparing: (@MainActor (String?) -> Void)? = nil) async -> MusicStream? {
+        let started = Date()
+        var waited = false, misses = 0
+        defer {
+            if waited, !Task.isCancelled, let tell = onPreparing { Task { @MainActor in tell(nil) } }
+        }
+        while true {
             let reply = await call(addon, "/stream/\(menc(id))", settings(addon))
             notice(addon, reply.json)
-            if reply.status == 503 {
+            if Task.isCancelled { return nil }
+            // The addon couldn't be reached or timed out (some hold the call while they fetch the song): two more tries.
+            let lost = reply.status == 0 || reply.status == 502 || reply.status == 504
+            if lost { misses += 1; if misses > 2 { return nil } }
+            if lost || isPreparing(reply.status, reply.json) {
                 let wait = min(30, max(2, reply.retryAfter ?? 5))
+                if Date().timeIntervalSince(started) + TimeInterval(wait) > prepareLimit { return nil }
+                waited = true
+                if let tell = onPreparing {
+                    let text = preparingText(addon, reply.json)
+                    await MainActor.run { tell(text) }
+                }
                 try? await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
                 if Task.isCancelled { return nil }
                 continue
@@ -161,7 +201,6 @@ enum MusicAddonClient {
             guard reply.status == 200, let j = reply.json as? JSON, let url = mstr(j["url"]) else { return nil }
             return MusicStream(url: url, quality: mstr(j["quality"]), format: mstr(j["format"]))
         }
-        return nil
     }
 
     static func resolveIsrc(_ addon: MusicAddon, _ isrc: String) async -> String? {
@@ -315,36 +354,36 @@ enum MusicMatch {
         var format: String?
     }
 
-    private static func via(_ addon: MusicAddon, id: String, direct: String?) async -> Playable? {
+    private static func via(_ addon: MusicAddon, id: String, direct: String?, _ onPreparing: (@MainActor (String?) -> Void)?) async -> Playable? {
         if let d = direct { return Playable(url: d, addon: addon, quality: nil, format: nil) }
-        guard let s = await MusicAddonClient.stream(addon, id) else { return nil }
+        guard let s = await MusicAddonClient.stream(addon, id, onPreparing: onPreparing) else { return nil }
         return Playable(url: s.url, addon: addon, quality: s.quality, format: s.format)
     }
 
-    static func findAudio(_ track: MusicTrack, addons: [MusicAddon], isrcLookup: (() async -> String?)?) async -> Playable? {
+    static func findAudio(_ track: MusicTrack, addons: [MusicAddon], isrcLookup: (() async -> String?)?, onPreparing: (@MainActor (String?) -> Void)? = nil) async -> Playable? {
         var wanted = track
         var isrcTried = track.isrc != nil
         for addon in addons {
             if Task.isCancelled { return nil }
             if track.addon == addon.url && !track.id.hasPrefix("mbid:") {
-                if let own = await via(addon, id: track.id, direct: track.streamURL) { return own }
+                if let own = await via(addon, id: track.id, direct: track.streamURL, onPreparing) { return own }
             }
             if wanted.isrc == nil, !isrcTried, let lookup = isrcLookup, addon.has("isrc") || addon.has("resolve") {
                 isrcTried = true
                 if let code = await lookup() { wanted.isrc = code }
             }
             if let isrc = wanted.isrc, addon.has("isrc") {
-                if let id = await MusicAddonClient.resolveIsrc(addon, isrc), let hit = await via(addon, id: id, direct: nil) { return hit }
+                if let id = await MusicAddonClient.resolveIsrc(addon, isrc), let hit = await via(addon, id: id, direct: nil, onPreparing) { return hit }
                 continue
             }
             if addon.has("resolve") {
-                if let item = await MusicAddonClient.resolve(addon, wanted), let hit = await via(addon, id: item.id, direct: item.streamURL) { return hit }
+                if let item = await MusicAddonClient.resolve(addon, wanted), let hit = await via(addon, id: item.id, direct: item.streamURL, onPreparing) { return hit }
                 continue
             }
             if addon.has("search") {
                 let found = await MusicAddonClient.search(addon, "\(wanted.artist) \(wanted.title)".trimmingCharacters(in: .whitespaces))
                 if let best = found.tracks.first(where: { isSameRecording(wanted, $0) }),
-                   let hit = await via(addon, id: best.id, direct: best.streamURL) { return hit }
+                   let hit = await via(addon, id: best.id, direct: best.streamURL, onPreparing) { return hit }
             }
         }
         return nil

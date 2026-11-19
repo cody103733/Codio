@@ -6,7 +6,7 @@
 // A wrong song is worse than none, so a doubtful match counts as a miss and the next addon is tried.
 
 import type { MusicAddon, MusicTrack } from './types';
-import { has, resolveIsrc, resolveTrack, searchAddon, streamFor, type Stream } from './addons';
+import { has, resolveIsrc, resolveTrack, searchAddon, streamFor, type Stream, type Waiting } from './addons';
 
 export const DURATION_TOLERANCE_MS = 3000;
 
@@ -38,19 +38,20 @@ export const isSameRecording = (wanted: MusicTrack, candidate: MusicTrack) => {
 
 export type Playable = { url: string, addon: MusicAddon, quality: string | null, format: string | null };
 
-const viaId = async (addon: MusicAddon, id: string, direct?: string | null): Promise<Playable | null> => {
+const viaId = async (addon: MusicAddon, id: string, direct?: string | null, waiting?: Waiting): Promise<Playable | null> => {
     if (direct) return { url: direct, addon, quality: null, format: null };
-    const s: Stream | null = await streamFor(addon, id);
+    const s: Stream | null = await streamFor(addon, id, waiting);
     return s ? { url: s.url, addon, quality: s.quality, format: s.format } : null;
 };
 
-export const findAudio = async (track: MusicTrack, addons: MusicAddon[], isrcLookup?: () => Promise<string | null>): Promise<Playable | null> => {
+export const findAudio = async (track: MusicTrack, addons: MusicAddon[], isrcLookup?: () => Promise<string | null>, waiting?: Waiting): Promise<Playable | null> => {
     let wanted = track;
     let isrcTried = !!track.isrc;
     for (const addon of addons) {
+        if (waiting?.cancelled?.()) return null;
         try {
             if (track.addon === addon.url && !track.id.startsWith('mbid:')) {
-                const own = await viaId(addon, track.id, track.streamURL);
+                const own = await viaId(addon, track.id, track.streamURL, waiting);
                 if (own) return own;
             }
             if (!wanted.isrc && !isrcTried && isrcLookup && (has(addon, 'isrc') || has(addon, 'resolve'))) {
@@ -61,7 +62,7 @@ export const findAudio = async (track: MusicTrack, addons: MusicAddon[], isrcLoo
             if (wanted.isrc && has(addon, 'isrc')) {
                 const id = await resolveIsrc(addon, wanted.isrc);
                 if (id) {
-                    const hit = await viaId(addon, id);
+                    const hit = await viaId(addon, id, null, waiting);
                     if (hit) return hit;
                 }
                 continue;
@@ -69,7 +70,7 @@ export const findAudio = async (track: MusicTrack, addons: MusicAddon[], isrcLoo
             if (has(addon, 'resolve')) {
                 const item = await resolveTrack(addon, wanted);
                 if (item) {
-                    const hit = await viaId(addon, item.id, item.streamURL);
+                    const hit = await viaId(addon, item.id, item.streamURL, waiting);
                     if (hit) return hit;
                 }
                 continue;
@@ -78,7 +79,7 @@ export const findAudio = async (track: MusicTrack, addons: MusicAddon[], isrcLoo
                 const found = await searchAddon(addon, `${wanted.artist} ${wanted.title}`.trim());
                 const best = found.tracks.find((t) => isSameRecording(wanted, t));
                 if (best) {
-                    const hit = await viaId(addon, best.id, best.streamURL);
+                    const hit = await viaId(addon, best.id, best.streamURL, waiting);
                     if (hit) return hit;
                 }
             }

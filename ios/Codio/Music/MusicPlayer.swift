@@ -23,6 +23,8 @@ final class MusicPlayer: ObservableObject {
     @Published private(set) var index = -1
     @Published private(set) var playing = false
     @Published private(set) var loading = false
+    /// While an addon says the song is still being prepared (e.g. TorBox caching it): the text to show.
+    @Published private(set) var preparing: String?
     // The position moves twice a second. It is published on MusicClock, not here, so the pages and tabs that only care
     // which song plays don't redraw with it; views that show the time observe MusicClock.shared as well.
     private(set) var position: Double = 0 { didSet { if MusicClock.shared.position != position { MusicClock.shared.position = position } } }
@@ -151,6 +153,7 @@ final class MusicPlayer: ObservableObject {
         stopVLC()
         index = i
         loading = true
+        preparing = nil
         position = 0
         duration = t.durationMs.map { Double($0) / 1000 } ?? 0
         quality = nil
@@ -169,8 +172,12 @@ final class MusicPlayer: ObservableObject {
         }
         let lookup: (() async -> String?)? = t.mbid.map { m in { await MB.recordingIsrc(m) } }
         loadTask = Task { [weak self] in
-            let found = await MusicMatch.findAudio(t, addons: addons, isrcLookup: lookup)
+            let found = await MusicMatch.findAudio(t, addons: addons, isrcLookup: lookup, onPreparing: { [weak self] text in
+                guard let self = self, mine == self.token else { return }
+                self.preparing = text
+            })
             guard let self = self, mine == self.token else { return }
+            self.preparing = nil
             self.started(t, found, mine)
         }
     }

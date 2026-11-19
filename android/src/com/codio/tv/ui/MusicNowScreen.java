@@ -80,7 +80,7 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
         float h = tv.drawWrapped(c, t.title, tv.tTitle, x, ty, 820, 2);
         String line = t.artist + (t.album != null ? "  ·  " + t.album : "");
         c.drawText(tv.fit(line, tv.tBody, 820), x, ty + h + 38, tv.tBody);
-        String state = MusicPlayer.loading() ? "Finding the song…" : null;
+        String state = MusicPlayer.loading() ? MusicPlayer.loadingText("Finding the song…") : null;
         String from = MusicPlayer.source() != null ? "From " + MusicPlayer.source() + (MusicPlayer.quality() != null ? "  ·  " + MusicPlayer.quality() : "") : null;
         String info = state != null ? state : from;
         if (info != null) {

@@ -1,1 +1,1 @@
-New Calendar in the Library: see when the next episodes and movies of what you follow come out.
+Music: when TorBox is still downloading a song, Codio now shows "Preparing song…" and waits for it instead of saying no source.

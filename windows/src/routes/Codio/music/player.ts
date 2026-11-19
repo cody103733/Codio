@@ -17,6 +17,8 @@ export type PlayerState = {
     index: number,
     playing: boolean,
     loading: boolean,
+    // Set while an addon says the song is still being prepared (e.g. "Preparing song on TorBox…").
+    preparing: string | null,
     position: number,
     duration: number,
     shuffle: boolean,
@@ -39,7 +41,7 @@ const savedVolume = (): number => {
 };
 
 let state: PlayerState = {
-    queue: [], index: -1, playing: false, loading: false, position: 0, duration: 0,
+    queue: [], index: -1, playing: false, loading: false, preparing: null, position: 0, duration: 0,
     shuffle: false, repeat: 'off', message: null, quality: null, source: null, volume: savedVolume(),
 };
 const listeners = new Set<() => void>();
@@ -148,7 +150,7 @@ const load = async (index: number) => {
     const a = ensureAudio();
     const mine = ++token;
     a.pause();
-    set({ index, loading: true, position: 0, duration: t.durationMs ? t.durationMs / 1000 : 0, quality: null, source: null });
+    set({ index, loading: true, preparing: null, position: 0, duration: t.durationMs ? t.durationMs / 1000 : 0, quality: null, source: null });
     publishToSystem(t);
     const addons = loadAddons();
     if (addons.length === 0) {
@@ -156,17 +158,20 @@ const load = async (index: number) => {
         say('No music addon installed yet. Add one in Music > Addons.');
         return;
     }
-    const found = await findAudio(t, addons, t.mbid ? () => getRecordingIsrc(t.mbid as string) : undefined);
+    const found = await findAudio(t, addons, t.mbid ? () => getRecordingIsrc(t.mbid as string) : undefined, {
+        cancelled: () => mine !== token,
+        onPreparing: (text) => { if (mine === token) set({ preparing: text }); },
+    });
     if (mine !== token) return;
     if (!found) {
-        set({ loading: false });
+        set({ loading: false, preparing: null });
         say(`No source available for “${t.title}”`);
         // Move on so a queue doesn't stall on one missing song.
         if (state.index < state.queue.length - 1) setTimeout(() => { if (mine === token) advance(true); }, 1500);
         return;
     }
     a.src = found.url;
-    set({ loading: false, quality: found.quality ?? found.format, source: found.addon.manifest?.name ?? null });
+    set({ loading: false, preparing: null, quality: found.quality ?? found.format, source: found.addon.manifest?.name ?? null });
     remember(t);
     recordPlay(t);
     recordListen(t);
@@ -257,7 +262,7 @@ export const removeFromQueue = (index: number) => {
 export const stop = () => {
     token++;
     if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
-    set({ queue: [], index: -1, playing: false, loading: false, position: 0, duration: 0, quality: null, source: null });
+    set({ queue: [], index: -1, playing: false, loading: false, preparing: null, position: 0, duration: 0, quality: null, source: null });
 };
 
 const subscribe = (l: () => void) => {

@@ -132,20 +132,64 @@ export const searchAddon = async (addon: MusicAddon, q: string): Promise<SearchR
 
 export type Stream = { url: string, quality: string | null, format: string | null };
 
-// The audio link for an addon's own track id. A 503 with Retry-After means "still preparing": wait (up to 30 s a try) and ask again.
-export const streamFor = async (addon: MusicAddon, id: string): Promise<Stream | null> => {
-    for (let attempt = 0; attempt < 4; attempt++) {
-        const reply = await call(addon, `/stream/${encodeURIComponent(id)}`, settingsOf(addon));
-        noticeOf(addon, reply.json);
-        if (reply.status === 503) {
-            const wait = Math.min(30, Math.max(2, reply.retryAfter ?? 5));
-            await new Promise((r) => setTimeout(r, wait * 1000));
-            continue;
-        }
-        if (reply.status !== 200 || !reply.json || typeof reply.json.url !== 'string') return null;
-        return { url: reply.json.url, quality: str(reply.json.quality), format: str(reply.json.format) };
+// How a caller follows a "still preparing" wait (e.g. TorBox is caching the song): the text to show (null = done waiting),
+// and whether the caller has moved on (a skipped song stops waiting).
+export type Waiting = { onPreparing?: (text: string | null) => void, cancelled?: () => boolean };
+
+// How long Codio keeps asking an addon that says a song is being prepared, before it counts as no source.
+export const PREPARE_LIMIT_MS = 3 * 60 * 1000;
+const WAIT_WORDS = /^(preparing|pending|queued|queue|downloading|caching|cached?_?pending|processing|in_?progress|waiting|not_?ready)$/i;
+
+// Does this reply say "not ready yet, ask again"? Only an explicit sign counts (503/202/425, or a status word like
+// "downloading"); a 404, an error notice or a reply with no link is a real "no source" and ends the wait at once.
+export const isPreparing = (status: number, json: any) => {
+    if (json?.notice?.level === 'error') return false;
+    if (status === 503 || status === 202 || status === 425) return true;
+    if (status === 200 && json && typeof json.url !== 'string') {
+        const word = json.status ?? json.state;
+        return typeof word === 'string' && WAIT_WORDS.test(word.trim().replace(/[\s-]+/g, '_'));
     }
-    return null;
+    return false;
+};
+
+// The audio link for an addon's own track id. While the addon says it is still preparing the song (TorBox downloading it),
+// wait as long as it asks (2 to 30 s) and ask again, for up to PREPARE_LIMIT_MS. A real "no source" answer returns null at once.
+export const streamFor = async (addon: MusicAddon, id: string, waiting: Waiting = {}): Promise<Stream | null> => {
+    const isCancelled = () => !!waiting.cancelled?.();
+    const preparing = (text: string | null) => { if (!isCancelled()) waiting.onPreparing?.(text); };
+    const started = Date.now();
+    let waited = false, misses = 0;
+    try {
+        for (;;) {
+            let reply: Reply;
+            try {
+                reply = await call(addon, `/stream/${encodeURIComponent(id)}`, settingsOf(addon));
+            } catch (_e) {
+                reply = { status: 0, retryAfter: null, json: null };
+            }
+            noticeOf(addon, reply.json);
+            if (isCancelled()) return null;
+            // The addon couldn't be reached or timed out (some hold the call while they fetch the song): two more tries, then give up.
+            const lost = reply.status === 0 || reply.status === 502 || reply.status === 504;
+            if (lost && ++misses > 2) return null;
+            if (lost || isPreparing(reply.status, reply.json)) {
+                const wait = Math.min(30, Math.max(2, reply.retryAfter ?? 5)) * 1000;
+                if (Date.now() - started + wait > PREPARE_LIMIT_MS) return null;
+                waited = true;
+                const n = reply.json?.notice;
+                const name = addon.manifest?.name ?? 'the addon';
+                const progress = typeof n?.progress === 'number' && n.progress > 0 && n.progress < 1 ? ` ${Math.round(n.progress * 100)}%` : '';
+                preparing(n && typeof n.message === 'string' && n.message ? `${n.title ? `${n.title}: ` : ''}${n.message}${progress}`.slice(0, 120) : `Preparing song on ${name}…`);
+                await new Promise((r) => setTimeout(r, wait));
+                if (isCancelled()) return null;
+                continue;
+            }
+            if (reply.status !== 200 || !reply.json || typeof reply.json.url !== 'string') return null;
+            return { url: reply.json.url, quality: str(reply.json.quality), format: str(reply.json.format) };
+        }
+    } finally {
+        if (waited) preparing(null);
+    }
 };
 
 export const resolveIsrc = async (addon: MusicAddon, isrc: string): Promise<string | null> => {

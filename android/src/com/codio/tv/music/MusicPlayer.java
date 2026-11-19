@@ -48,6 +48,7 @@ public final class MusicPlayer {
     private static boolean playing, loading, shuffle, prepared;
     private static int repeat = REPEAT_OFF;
     private static String message, quality, source;
+    private static volatile String preparing;
     private static double position, duration;
     private static float volume = 1f;
     private static MediaPlayer mp;
@@ -56,7 +57,7 @@ public final class MusicPlayer {
     private static LibVLC vlc;
     private static boolean vlcMode;
     private static Runnable stall;
-    private static int token = 0;
+    private static volatile int token = 0;
     private static boolean inited, wantPlay, focusLost;
     private static AudioFocusRequest focusRequest;
 
@@ -111,6 +112,17 @@ public final class MusicPlayer {
 
     public static boolean loading() {
         return loading;
+    }
+
+    /** While an addon says the song is still being prepared (e.g. TorBox caching it): the text to show, else null. */
+    public static String preparing() {
+        return loading ? preparing : null;
+    }
+
+    /** What to show while a song loads: the addon's "preparing" text, else the given default. */
+    public static String loadingText(String fallback) {
+        String p = preparing();
+        return p != null ? p : fallback;
     }
 
     public static boolean shuffle() {
@@ -349,6 +361,7 @@ public final class MusicPlayer {
         duration = t.durationMs > 0 ? t.durationMs / 1000.0 : 0;
         quality = null;
         source = null;
+        preparing = null;
         wantPlay = true;
         changed();
         // A downloaded song plays from the phone, no addon or network needed.
@@ -374,7 +387,24 @@ public final class MusicPlayer {
                     public String find() throws Exception {
                         return MusicBrainz.getRecordingIsrc(t.mbid);
                     }
-                } : null);
+                } : null, new Addons.Waiting() {
+                    @Override
+                    public boolean cancelled() {
+                        return mine != token;
+                    }
+
+                    @Override
+                    public void preparing(final String text) {
+                        H.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (mine != token) return;
+                                preparing = text;
+                                changed();
+                            }
+                        });
+                    }
+                });
             }
         }, new MusicNet.Done<Playable>() {
             @Override
@@ -382,6 +412,7 @@ public final class MusicPlayer {
                 if (mine != token) return;
                 if (found == null) {
                     loading = false;
+                    preparing = null;
                     say("No source available for \u201c" + t.title + "\u201d");
                     // Move on so a queue doesn't stall on one missing song.
                     if (index < queue.size() - 1) {

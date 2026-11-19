@@ -220,21 +220,80 @@ public final class Addons {
         }
     }
 
-    /** The audio link for an addon's own track id. A 503 with Retry-After means "still preparing": wait (up to 30 s a try) and ask again. */
-    public static Stream streamFor(Addon addon, String id) throws Exception {
-        for (int attempt = 0; attempt < 4; attempt++) {
-            MusicNet.Reply r = call(addon, "/stream/" + URLEncoder.encode(id, "UTF-8").replace("+", "%20"), withSettings(addon));
-            JSONObject j = r.object();
-            notice(addon, j);
-            if (r.status == 503) {
-                int wait = Math.min(30, Math.max(2, r.retryAfter < 0 ? 5 : r.retryAfter));
-                Thread.sleep(wait * 1000L);
-                continue;
-            }
-            if (r.status != 200 || j == null || Model.str(j, "url") == null) return null;
-            return new Stream(j.optString("url"), Model.str(j, "quality"), Model.str(j, "format"));
+    /** How a caller follows a "still preparing" wait (e.g. TorBox is caching the song). */
+    public interface Waiting {
+        /** True once the caller has moved on (the song was skipped): the wait stops. */
+        boolean cancelled();
+
+        /** The text to show while waiting, or null when the wait is over. Called on the background thread. */
+        void preparing(String text);
+    }
+
+    /** How long Codio keeps asking an addon that says a song is being prepared, before it counts as no source. */
+    public static final long PREPARE_LIMIT_MS = 3 * 60 * 1000L;
+
+    /** Does this reply say "not ready yet, ask again"? Only an explicit sign counts (503/202/425, or a status word like
+     *  "downloading"); a 404, an error notice or a reply with no link is a real "no source" and ends the wait at once. */
+    public static boolean isPreparing(int status, JSONObject j) {
+        JSONObject n = j == null ? null : j.optJSONObject("notice");
+        if (n != null && "error".equals(n.optString("level"))) return false;
+        if (status == 503 || status == 202 || status == 425) return true;
+        if (status == 200 && j != null && Model.str(j, "url") == null) {
+            String word = Model.str(j, "status") != null ? Model.str(j, "status") : Model.str(j, "state");
+            return word != null && word.trim().replaceAll("[\\s-]+", "_").matches("(?i)preparing|pending|queued|queue|downloading|caching|processing|in_?progress|waiting|not_?ready");
         }
-        return null;
+        return false;
+    }
+
+    public static Stream streamFor(Addon addon, String id) throws Exception {
+        return streamFor(addon, id, null);
+    }
+
+    /** The audio link for an addon's own track id. While the addon says it is still preparing the song (TorBox downloading
+     *  it), wait as long as it asks (2 to 30 s) and ask again, for up to PREPARE_LIMIT_MS. A real "no source" returns null at once. */
+    public static Stream streamFor(Addon addon, String id, Waiting waiting) throws Exception {
+        long started = System.currentTimeMillis();
+        boolean waited = false;
+        int misses = 0;
+        try {
+            while (true) {
+                MusicNet.Reply r;
+                try {
+                    r = call(addon, "/stream/" + URLEncoder.encode(id, "UTF-8").replace("+", "%20"), withSettings(addon));
+                } catch (java.io.IOException e) {
+                    r = null;
+                }
+                JSONObject j = r == null ? null : r.object();
+                notice(addon, j);
+                if (waiting != null && waiting.cancelled()) return null;
+                int status = r == null ? 0 : r.status;
+                // The addon couldn't be reached or timed out (some hold the call while they fetch the song): two more tries.
+                boolean lost = status == 0 || status == 502 || status == 504;
+                if (lost && ++misses > 2) return null;
+                if (lost || isPreparing(status, j)) {
+                    int wait = Math.min(30, Math.max(2, r == null || r.retryAfter < 0 ? 5 : r.retryAfter));
+                    if (System.currentTimeMillis() - started + wait * 1000L > PREPARE_LIMIT_MS) return null;
+                    waited = true;
+                    if (waiting != null) waiting.preparing(preparingText(addon, j));
+                    Thread.sleep(wait * 1000L);
+                    if (waiting != null && waiting.cancelled()) return null;
+                    continue;
+                }
+                if (status != 200 || j == null || Model.str(j, "url") == null) return null;
+                return new Stream(j.optString("url"), Model.str(j, "quality"), Model.str(j, "format"));
+            }
+        } finally {
+            if (waited && waiting != null && !waiting.cancelled()) waiting.preparing(null);
+        }
+    }
+
+    private static String preparingText(Addon addon, JSONObject j) {
+        JSONObject n = j == null ? null : j.optJSONObject("notice");
+        if (n == null || Model.str(n, "message") == null) return "Preparing song on " + addon.name() + "\u2026";
+        String title = Model.str(n, "title");
+        double p = n.optDouble("progress", -1);
+        String text = (title != null ? title + ": " : "") + n.optString("message") + (p > 0 && p < 1 ? " " + Math.round(p * 100) + "%" : "");
+        return text.length() > 120 ? text.substring(0, 120) : text;
     }
 
     public static String resolveIsrc(Addon addon, String isrc) throws Exception {

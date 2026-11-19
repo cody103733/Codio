@@ -60,14 +60,14 @@ public final class Matcher {
         String find() throws Exception;
     }
 
-    private static Playable via(Addon addon, String id, String direct) throws Exception {
+    private static Playable via(Addon addon, String id, String direct, Addons.Waiting waiting) throws Exception {
         Playable p = new Playable();
         p.addon = addon;
         if (direct != null) {
             p.url = direct;
             return p;
         }
-        Addons.Stream s = Addons.streamFor(addon, id);
+        Addons.Stream s = Addons.streamFor(addon, id, waiting);
         if (s == null) return null;
         p.url = s.url;
         p.quality = s.quality;
@@ -77,12 +77,18 @@ public final class Matcher {
 
     /** Blocking: run it on a background thread. Null when no addon has the song. */
     public static Playable findAudio(Track track, List<Addon> addons, IsrcLookup isrcLookup) {
+        return findAudio(track, addons, isrcLookup, null);
+    }
+
+    /** As above; waiting (may be null) hears "still preparing" texts and can stop the search when the song is skipped. */
+    public static Playable findAudio(Track track, List<Addon> addons, IsrcLookup isrcLookup, Addons.Waiting waiting) {
         Track wanted = track;
         boolean isrcTried = track.isrc != null;
         for (Addon addon : addons) {
+            if (waiting != null && waiting.cancelled()) return null;
             try {
                 if (addon.url.equals(track.addon) && !track.id.startsWith("mbid:")) {
-                    Playable own = via(addon, track.id, track.streamURL);
+                    Playable own = via(addon, track.id, track.streamURL, waiting);
                     if (own != null) return own;
                 }
                 if (wanted.isrc == null && !isrcTried && isrcLookup != null && (addon.has("isrc") || addon.has("resolve"))) {
@@ -100,7 +106,7 @@ public final class Matcher {
                 if (wanted.isrc != null && addon.has("isrc")) {
                     String id = Addons.resolveIsrc(addon, wanted.isrc);
                     if (id != null) {
-                        Playable hit = via(addon, id, null);
+                        Playable hit = via(addon, id, null, waiting);
                         if (hit != null) return hit;
                     }
                     continue;
@@ -108,7 +114,7 @@ public final class Matcher {
                 if (addon.has("resolve")) {
                     Track item = Addons.resolveTrack(addon, wanted);
                     if (item != null) {
-                        Playable hit = via(addon, item.id, item.streamURL);
+                        Playable hit = via(addon, item.id, item.streamURL, waiting);
                         if (hit != null) return hit;
                     }
                     continue;
@@ -117,7 +123,7 @@ public final class Matcher {
                     Results found = Addons.search(addon, (wanted.artist + " " + wanted.title).trim());
                     for (Track t : found.tracks) {
                         if (!isSameRecording(wanted, t)) continue;
-                        Playable hit = via(addon, t.id, t.streamURL);
+                        Playable hit = via(addon, t.id, t.streamURL, waiting);
                         if (hit != null) return hit;
                         break;
                     }

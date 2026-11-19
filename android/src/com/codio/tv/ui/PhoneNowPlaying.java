@@ -377,7 +377,7 @@ final class PhoneNowPlaying extends PhoneUi.Page {
             coverFor = t.artworkURL;
             cover.set(coverFor);
         }
-        String src = MusicPlayer.loading() ? "Finding a source…" : join(MusicPlayer.source(), MusicPlayer.quality());
+        String src = MusicPlayer.loading() ? MusicPlayer.loadingText("Finding a source…") : join(MusicPlayer.source(), MusicPlayer.quality());
         info.setText(src);
         message.setText(MusicPlayer.message() == null ? "" : MusicPlayer.message());
         message.setVisibility(MusicPlayer.message() == null ? View.GONE : View.VISIBLE);
