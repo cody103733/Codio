@@ -73,6 +73,8 @@ const ITEMS: Item[] = [
     { kind: 'choice', store: 'profile', label: 'Audio language', help: 'The audio track Codio picks when a video has several.', key: 'audioLanguage', values: LANGUAGES.map(([code]) => code), labels: LANGUAGES.map(([, name]) => name) },
     { kind: 'choice', store: 'profile', label: 'Subtitles', help: 'The subtitle language Codio turns on by itself. Off: no subtitles unless you pick them in the player.', key: 'subtitlesLanguage', values: [null, ...LANGUAGES.map(([code]) => code)], labels: ['Off', ...LANGUAGES.map(([, name]) => name)] },
     { kind: 'choice', store: 'profile', label: 'Subtitle size', help: 'How big subtitles are.', key: 'subtitlesSize', values: SUB_SIZES, labels: SUB_SIZES.map((v) => `${v}%`) },
+    { kind: 'choice', store: 'profile', label: 'Subtitle colour', help: 'The colour of the words.', key: 'subtitlesTextColor', values: ['#FFFFFFFF', '#FFFF00FF', '#00FFFFFF', '#00FF00FF'], labels: ['White', 'Yellow', 'Cyan', 'Green'] },
+    { kind: 'choice', store: 'profile', label: 'Subtitle background', help: 'A box behind the words makes them easier to read on bright scenes.', key: 'subtitlesBackgroundColor', values: ['#00000000', '#00000080', '#000000FF'], labels: ['None', 'Shaded box', 'Black box'] },
 
     { kind: 'heading', label: 'Account' },
     { kind: 'account', label: 'Account', help: 'Signing in keeps your addons, library and progress in sync between Codio on this PC and on your TV.' },

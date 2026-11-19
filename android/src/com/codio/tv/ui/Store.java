@@ -397,6 +397,36 @@ public final class Store {
         return s != null ? s.optString("audioLanguage", null) : null;
     }
 
+    /** The profile's subtitle look for the player: "size|text colour|background colour" (Stremio colours). */
+    public static String subtitleStyle() {
+        Store st = current;
+        JSONObject s = st != null ? st.profileJson.optJSONObject("settings") : null;
+        if (s == null) return "100|#FFFFFFFF|#00000000";
+        return s.optInt("subtitlesSize", 100) + "|" + s.optString("subtitlesTextColor", "#FFFFFFFF") + "|"
+                + s.optString("subtitlesBackgroundColor", "#00000000");
+    }
+
+    /** Who is signed in (the Codio profile), for settings this device keeps per profile. Empty before sign-in. */
+    public static String profileId() {
+        Store st = current;
+        JSONObject auth = st != null ? st.profileJson.optJSONObject("auth") : null;
+        JSONObject user = auth != null ? auth.optJSONObject("user") : null;
+        if (user == null) return "";
+        String id = user.optString("_id", "");
+        return id.isEmpty() ? user.optString("email", "") : id;
+    }
+
+    /** A device setting's key for the current profile (falls back to the plain key on read, see Setting). */
+    public static String perProfile(String key) {
+        String id = profileId();
+        return id.isEmpty() ? key : key + "|" + id;
+    }
+
+    /** Settings > Subtitles is "Automatic" for this profile (otherwise they stay off until turned on in the player). */
+    public static boolean subtitlesAuto(android.content.SharedPreferences prefs) {
+        return "on".equals(prefs.getString(perProfile("subs_auto"), prefs.getString("subs_auto", "off")));
+    }
+
     public Store(File cacheDir) {
         current = this;
         cacheFile = new File(cacheDir, "native-profile.json");

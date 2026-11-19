@@ -19,7 +19,14 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     /// The viewer (or their saved choice for this video) picked the audio track: leave it alone.
     var audioPicked = false
 
-    private let player = VLCMediaPlayer()
+    /// Settings > Subtitles is Automatic for the current profile.
+    var subsAuto: () -> Bool = { false }
+    /// The profile's subtitle look, "size|text colour|background colour" (Store.subtitleStyle).
+    var subtitleStyle: () -> String = { "" }
+
+    /// Replaced when the subtitle look changes: VLC only reads it when the player starts (like VLC's own app).
+    private var player: VLCMediaPlayer
+    private var builtStyle = ""
     private var observed = Set<String>()
     private var lastValues: [String: Any] = [:]
 
@@ -41,13 +48,12 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     private(set) var inPiP = false
 
     init(view: UIView) {
+        player = VLCMediaPlayer()
         super.init()
         pip.view = view
-        pip.player = player
         pip.onPause = { [weak self] p in self?.setProp("pause", p) }
         pip.onState = { [weak self] on in self?.inPiP = on }
-        player.delegate = self
-        player.drawable = pip
+        attach(player)
         // Leaving the app while a video plays: carry on in the mini player (Settings can turn this off).
         let nc = NotificationCenter.default
         nc.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
@@ -59,6 +65,45 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             guard let self = self, self.inPiP else { return }
             self.pip.window?.stopPictureInPicture() // back in Codio: the video goes back to full screen
         }
+    }
+
+    private func attach(_ p: VLCMediaPlayer) {
+        pip.player = p
+        p.delegate = self
+        p.drawable = pip
+    }
+
+    /// VLC options for the profile's subtitle size, colour and background ("size|#RRGGBBAA|#RRGGBBAA").
+    static func subtitleOptions(_ style: String) -> [String] {
+        let parts = style.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        func rgba(_ c: String, _ rgb: Int, _ alpha: Int) -> (Int, Int) {
+            let h = c.hasPrefix("#") ? String(c.dropFirst()) : c
+            guard h.count == 6 || h.count == 8, let v = Int(h.prefix(6), radix: 16) else { return (rgb, alpha) }
+            return (v, h.count == 8 ? Int(h.suffix(2), radix: 16) ?? 255 : 255)
+        }
+        let size = max(10, min(500, Int(parts.first ?? "") ?? 100))
+        let text = rgba(parts.count > 1 ? parts[1] : "", 0xFFFFFF, 255)
+        let back = rgba(parts.count > 2 ? parts[2] : "", 0, 0)
+        var o = ["--sub-text-scale=\(size)",
+                 "--freetype-color=\(text.0)", "--freetype-opacity=\(text.1)",
+                 "--freetype-background-color=\(back.0)", "--freetype-background-opacity=\(back.1)"]
+        if back.1 > 0 { o.append("--freetype-outline-thickness=0") } // the box does the outline's job
+        return o
+    }
+
+    /// Starts a new VLC player with the profile's subtitle look if it changed. Between videos only.
+    private func applySubtitleStyle() {
+        let style = subtitleStyle()
+        guard !style.isEmpty, style != builtStyle, !inPiP else { return }
+        builtStyle = style
+        let old = player
+        old.delegate = nil
+        old.stop()
+        let fresh = VLCMediaPlayer(options: VlcShell.subtitleOptions(style))
+        player = fresh
+        attach(fresh)
+        old.drawable = nil
+        NSLog("Codio subtitles: \(style)")
     }
 
     // MARK: VLCMediaPlayerDelegate (VLCKit 4)
@@ -186,7 +231,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             let id = VlcShell.trackId(value)
             // Subtitles stay off unless the viewer turns them on: the web player would otherwise switch them on by itself.
             let auto = Date().timeIntervalSince(userPickAt) > 4
-            if id >= 0, auto, !UserDefaults.standard.bool(forKey: "subs_auto") {
+            if id >= 0, auto, !subsAuto() {
                 sendSelection()
                 return
             }
@@ -243,6 +288,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         audioPicked = false
         onLoad?()
         loadAt = Date()
+        applySubtitleStyle()
         guard let media = VLCMedia(url: url) else { return }
         // A shorter buffer than the TV app (8 s) so the picture starts sooner on a phone.
         media.addOption(":network-caching=3000")

@@ -74,6 +74,8 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
         shell = VlcShell(view: videoView)
         shell.preferredAudio = { [weak self] in AudioLang.preferred(self?.store.settings["audioLanguage"]) }
+        shell.subsAuto = { [weak self] in self?.store.subsAuto ?? false }
+        shell.subtitleStyle = { [weak self] in self?.store.subtitleStyle ?? "" }
         shell.signal = { [weak self] name, arg in self?.playerSignal(name, arg) }
         shell.onActiveChanged = { playing in UIApplication.shared.isIdleTimerDisabled = playing }
         shell.onLoad = { [weak self] in self?.playerState.reset(); self?.watchedFrac = 0 }

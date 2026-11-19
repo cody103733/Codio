@@ -467,6 +467,15 @@ fn on_method(method: &str, arg: &Value) {
                     if let Err(error) = player.set_property(name, value) {
                         eprintln!("mpv set {error}");
                     }
+                    // Subtitle background (Settings): mpv only draws sub-back-color as a box with this border style.
+                    // The web player sends "#AARRGGBB"; a transparent one means no box (outline as before).
+                    if name == "sub-back-color" {
+                        let boxed = value.as_str().map_or(false, |c| c.len() == 9 && c.get(1..3).map_or(false, |a| !a.eq_ignore_ascii_case("00")));
+                        let style = Value::String(if boxed { "background-box" } else { "outline-and-shadow" }.to_string());
+                        if let Err(error) = player.set_property("sub-border-style", &style) {
+                            eprintln!("mpv set {error}");
+                        }
+                    }
                 }
             }
         }

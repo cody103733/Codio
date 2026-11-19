@@ -12,14 +12,23 @@ import java.util.List;
  * (the wording is the same on every Codio app: see DESIGN.md).
  */
 final class Setting {
-    /** Where a value lives: with Smart auto-play (the engine's storage), on this device only, or in the synced profile. */
-    static final int AUTOPLAY = 0, DEVICE = 1, PROFILE = 2;
+    /**
+     * Where a value lives: with Smart auto-play (the engine's storage), on this device only, in the synced profile, or
+     * on this device for each profile (falls back to the old device-wide value until the profile changes it).
+     */
+    static final int AUTOPLAY = 0, DEVICE = 1, PROFILE = 2, DEVICE_PROFILE = 3;
 
     static final String PLAYBACK = "Playback", PICTURE_SOUND = "Picture & sound", LANGUAGES = "Languages & subtitles",
             DOWNLOADS = "Downloads", ACCOUNT = "Account", ABOUT = "About";
 
     static final String[] LANG_CODES = {"eng", "spa", "fre", "ger", "ita", "por", "pob", "nld", "swe", "pol", "rus", "tur", "ara", "hin", "jpn", "kor", "zho"};
     static final String[] LANG_NAMES = {"English", "Spanish", "French", "German", "Italian", "Portuguese", "Portuguese (Brazil)", "Dutch", "Swedish", "Polish", "Russian", "Turkish", "Arabic", "Hindi", "Japanese", "Korean", "Chinese"};
+
+    // Subtitle look, in Stremio's "#RRGGBBAA" (the same values on every Codio app, see DESIGN.md).
+    static final Object[] SUB_COLORS = {"#FFFFFFFF", "#FFFF00FF", "#00FFFFFF", "#00FF00FF"};
+    static final String[] SUB_COLOR_NAMES = {"White", "Yellow", "Cyan", "Green"};
+    static final Object[] SUB_BACKS = {"#00000000", "#00000080", "#000000FF"};
+    static final String[] SUB_BACK_NAMES = {"None", "Shaded box", "Black box"};
 
     final String section, label, help, key;
     final int kind;
@@ -47,6 +56,7 @@ final class Setting {
             JSONObject st = store.profileJson.optJSONObject("settings");
             return st != null && st.has(key) ? st.opt(key) : dflt;
         }
+        if (kind == DEVICE_PROFILE) return prefs.getString(Store.perProfile(key), prefs.getString(key, String.valueOf(dflt)));
         if (dflt instanceof Boolean) return prefs.getBoolean(key, (Boolean) dflt);
         if (dflt instanceof Integer) return prefs.getInt(key, (Integer) dflt);
         return prefs.getString(key, String.valueOf(dflt));
@@ -99,6 +109,8 @@ final class Setting {
                 all.put(key, v);
                 st.put(key, v);
                 host.dispatch(Core.ctx("UpdateSettings", all));
+            } else if (kind == DEVICE_PROFILE) {
+                host.prefs().edit().putString(Store.perProfile(key), String.valueOf(v)).apply();
             } else {
                 SharedPreferences.Editor e = host.prefs().edit();
                 if (v instanceof Boolean) e.putBoolean(key, (Boolean) v);
@@ -200,7 +212,7 @@ final class Setting {
                     "dl_wifi_only", true, ON_OFF, new String[]{"Wi-Fi only", "Wi-Fi and mobile data"}, false));
         }
 
-        l.add(new Setting(LANGUAGES, DEVICE, "Subtitles", "Off: subtitles only appear when you turn them on in the player. Automatic: picked by your subtitle language.",
+        l.add(new Setting(LANGUAGES, DEVICE_PROFILE, "Subtitles", "Off: subtitles only appear when you turn them on in the player. Automatic: picked by your subtitle language.",
                 "subs_auto", "off", new Object[]{"off", "on"}, new String[]{"Off until I turn them on", "Automatic"}, false));
         l.add(new Setting(LANGUAGES, PROFILE, "Audio language", "Auto-play and the player prefer an audio track in this language.",
                 "audioLanguage", "eng", LANG_CODES, LANG_NAMES, false));
@@ -215,6 +227,10 @@ final class Setting {
         Object[] sizes = {75, 100, 125, 150, 175, 200, 250};
         l.add(new Setting(LANGUAGES, PROFILE, "Subtitle size", "How big subtitles are drawn.",
                 "subtitlesSize", 100, sizes, labels(sizes, null, "%"), false));
+        l.add(new Setting(LANGUAGES, PROFILE, "Subtitle colour", "The colour of the words.",
+                "subtitlesTextColor", "#FFFFFFFF", SUB_COLORS, SUB_COLOR_NAMES, false));
+        l.add(new Setting(LANGUAGES, PROFILE, "Subtitle background", "A box behind the words makes them easier to read on bright scenes.",
+                "subtitlesBackgroundColor", "#00000000", SUB_BACKS, SUB_BACK_NAMES, false));
         return l;
     }
 }

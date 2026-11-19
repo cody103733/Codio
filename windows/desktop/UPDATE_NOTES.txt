@@ -1,1 +1,1 @@
-Trailers: a Trailer button on movie and show pages plays the title's trailer.
+Subtitles: new colour and background options in Settings > Languages & subtitles, kept for each profile.

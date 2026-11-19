@@ -250,9 +250,24 @@ final class Store: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "skip_buttons") }
     }
 
-    static var subsAuto: Bool {
-        get { UserDefaults.standard.bool(forKey: "subs_auto") }
-        set { UserDefaults.standard.set(newValue, forKey: "subs_auto") }
+    /// A setting this device keeps for each profile: the key with the signed-in profile's email.
+    func perProfile(_ key: String) -> String {
+        guard let e = signedInEmail, !e.isEmpty else { return key }
+        return key + "|" + e.lowercased()
+    }
+
+    /// Settings > Subtitles is Automatic for this profile (falls back to the old device-wide value).
+    var subsAuto: Bool {
+        (UserDefaults.standard.object(forKey: perProfile("subs_auto")) as? Bool) ?? UserDefaults.standard.bool(forKey: "subs_auto")
+    }
+
+    /// The profile's subtitle look for the player: "size|text colour|background colour" (Stremio #RRGGBBAA colours).
+    var subtitleStyle: String {
+        let s = settings
+        let size = (s["subtitlesSize"] as? NSNumber)?.intValue ?? 100
+        let text = s["subtitlesTextColor"] as? String ?? "#FFFFFFFF"
+        let back = s["subtitlesBackgroundColor"] as? String ?? "#00000000"
+        return "\(size)|\(text)|\(back)"
     }
 }
 

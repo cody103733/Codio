@@ -78,7 +78,11 @@ Sections, in order, with the same labels and help text everywhere a setting exis
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
    Hardware decoding, Surround sound on Windows)
 3. **Downloads** (phones)
-4. **Languages & subtitles**: Audio language, Subtitles, Subtitle size
+4. **Languages & subtitles**: Audio language, Subtitles, Subtitle language (TV, phones), Subtitle size, Subtitle colour
+   (White, Yellow, Cyan, Green), Subtitle background (None, Shaded box, Black box). All of these belong to the profile:
+   language, size, colour and background live in the profile's synced settings (`subtitlesLanguage`, `subtitlesSize`,
+   `subtitlesTextColor`, `subtitlesBackgroundColor`, Stremio `#RRGGBBAA` colours); the TV and phones keep Subtitles
+   (Off / Automatic) on the device for each profile. The players apply them to every video.
 5. **Account**: sign in or out, Who's watching, Cast photos (TMDB key), Sync passcode (rules in `SYNC.md`)
 6. **Addons**
 7. **About**: Updates, and the version as "Codio 1.2.3 for Android TV / Android / iPhone / Windows"

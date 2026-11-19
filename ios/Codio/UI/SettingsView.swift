@@ -1,7 +1,7 @@
 import SwiftUI
 
 private struct Choice: Identifiable {
-    enum Kind { case autoPlay, profile, app }
+    enum Kind { case autoPlay, profile, app, appProfile }
     let kind: Kind
     let label: String
     let help: String
@@ -73,7 +73,7 @@ struct SettingsView: View {
 
     private var languages: [Choice] {
         [
-            Choice(kind: .app, label: "Subtitles", help: "Off: subtitles only appear when you turn them on in the player.",
+            Choice(kind: .appProfile, label: "Subtitles", help: "Off: subtitles only appear when you turn them on in the player. Automatic: picked by your subtitle language.",
                    key: "subs_auto", dflt: false, options: [("Off until I turn them on", false), ("Automatic", true)]),
             Choice(kind: .profile, label: "Audio language", help: "Auto-play and the player prefer an audio track in this language.",
                    key: "audioLanguage", dflt: "eng", options: Array(zip(langNames, langCodes)).map { ($0.0, $0.1 as Any) }),
@@ -81,6 +81,12 @@ struct SettingsView: View {
                    key: "subtitlesLanguage", dflt: NSNull(), options: [("None", NSNull() as Any)] + Array(zip(langNames, langCodes)).map { ($0.0, $0.1 as Any) }),
             Choice(kind: .profile, label: "Subtitle size", help: "How big subtitles are drawn.",
                    key: "subtitlesSize", dflt: 100, options: [75, 100, 125, 150, 175, 200, 250].map { ("\($0)%", $0 as Any) }),
+            Choice(kind: .profile, label: "Subtitle colour", help: "The colour of the words.",
+                   key: "subtitlesTextColor", dflt: "#FFFFFFFF",
+                   options: [("White", "#FFFFFFFF"), ("Yellow", "#FFFF00FF"), ("Cyan", "#00FFFFFF"), ("Green", "#00FF00FF")]),
+            Choice(kind: .profile, label: "Subtitle background", help: "A box behind the words makes them easier to read on bright scenes.",
+                   key: "subtitlesBackgroundColor", dflt: "#00000000",
+                   options: [("None", "#00000000"), ("Shaded box", "#00000080"), ("Black box", "#000000FF")]),
         ]
     }
 
@@ -342,6 +348,8 @@ struct SettingsView: View {
         case .autoPlay: return store.autoPlay[c.key] ?? c.dflt
         case .profile: return store.settings[c.key] ?? c.dflt
         case .app: return UserDefaults.standard.object(forKey: c.key) ?? c.dflt
+        case .appProfile:
+            return UserDefaults.standard.object(forKey: store.perProfile(c.key)) ?? UserDefaults.standard.object(forKey: c.key) ?? c.dflt
         }
     }
 
@@ -361,6 +369,9 @@ struct SettingsView: View {
             UserDefaults.standard.set(v is NSNull ? nil : v, forKey: c.key)
             store.objectWillChange.send()
             if c.key == NewEpisodes.pref { NewEpisodes.shared.settingChanged(store) }
+        case .appProfile:
+            UserDefaults.standard.set(v is NSNull ? nil : v, forKey: store.perProfile(c.key))
+            store.objectWillChange.send()
         }
     }
 

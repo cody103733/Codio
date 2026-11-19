@@ -43,8 +43,12 @@ import java.util.Set;
 final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout.OnNewVideoLayoutListener {
     private static final String TAG = "CodioVlc";
 
-    private final LibVLC vlc;
-    private final MediaPlayer player;
+    // Replaced (rebuild) when the profile's subtitle look changes: libVLC only reads it when it starts.
+    private volatile LibVLC vlc;
+    private volatile MediaPlayer player;
+    private Context context;
+    /** The subtitle look (Store.subtitleStyle) the current libVLC was started with. */
+    private String builtStyle = "";
     private final MpvShell.Sink sink;
     private final Handler worker;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -111,49 +115,24 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
     static VlcShell create(Context context, MpvShell.Sink sink, SurfaceView videoView, SurfaceView subsView, boolean hardware,
                            android.content.SharedPreferences prefs) {
         try {
-            ArrayList<String> o = new ArrayList<>();
-            o.add("--verbose=1");
-            o.add("--no-sub-autodetect-file");
-            o.add("--http-reconnect");
-            o.add("--audio-time-stretch");
-            o.add("--avcodec-skiploopfilter=1");      // only affects software decoding
-            o.add("--android-display-chroma");
-            o.add("RV32");
-            o.add("--freetype-rel-fontsize=16");
-            o.add("--freetype-bold");
-            o.add("--freetype-outline-thickness=4");
-            o.add("--freetype-background-opacity=0");
-            o.add("--sub-language=en,eng");
-            o.add("--audio-language=en,eng");
-            o.add("--preferred-resolution=-1");
-            // Measured on a Fire TV: OpenSL ES output plus an 8s network buffer lost the fewest frames on 4K remuxes.
-            // Audio goes out through Android's AudioTrack (this libVLC has no OpenSL ES output; asking for it only
-            // logged "failed to create audio output" before falling back). On TV speakers or a stereo soundbar, VLC
-            // mixes surround tracks down to stereo itself: otherwise a 7.1 stream goes to Android, whose own downmix
-            // path on this TV adds delay that the playback clock doesn't see (sound slightly behind the picture).
-            int outChannels = outputChannels(context);
-            String audioPrefNow = prefs.getString("vlc_audio", "auto");
-            if (outChannels > 0 && outChannels <= 2 && !"full".equals(audioPrefNow)) {
-                o.add("--stereo-mode=1");
-            }
-            // Test switches (set with adb, see MainActivity.applyTestSwitches): extra libVLC options, e.g. "--aout=opensles".
-            String extra = prefs.getString("vlc_opts", "").trim();
-            if (!extra.isEmpty()) for (String x : extra.split("\\s+")) o.add(x);
-            LibVLC lib = new LibVLC(context, o);
+            String style = com.codio.tv.ui.Store.subtitleStyle();
+            LibVLC lib = new LibVLC(context, options(context, prefs, style));
             MediaPlayer mp = new MediaPlayer(lib);
             HandlerThread thread = new HandlerThread("codio-vlc");
             thread.start();
             subsView.setZOrderMediaOverlay(true);
             subsView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
             VlcShell shell = new VlcShell(lib, mp, sink, new Handler(thread.getLooper()), videoView, subsView, hardware);
+            shell.context = context.getApplicationContext();
+            shell.builtStyle = style;
             shell.mediaOpts = prefs.getString("vlc_media_opts", "").trim();
             shell.directHttps = "true".equals(prefs.getString("vlc_direct", "false"));
             shell.audioPref = prefs.getString("vlc_audio", "auto");
             shell.prefs = prefs;
             shell.sinkChannels = outputChannels(context);
             measureOutputLatency(prefs);
-            Log.i(TAG, "options: " + extra + " | media: " + shell.mediaOpts + " | direct https: " + shell.directHttps
-                    + " | audio: " + shell.audioPref + " | output channels: " + shell.sinkChannels);
+            Log.i(TAG, "options: " + prefs.getString("vlc_opts", "") + " | media: " + shell.mediaOpts + " | direct https: " + shell.directHttps
+                    + " | audio: " + shell.audioPref + " | output channels: " + shell.sinkChannels + " | subtitles: " + style);
             mp.setEventListener(shell); // delivered on the main thread
             shell.attachViews();
             shell.installSurfaceWatch();
@@ -163,6 +142,120 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
             Log.e(TAG, "libVLC is not available on this device", t);
             return null;
         }
+    }
+
+    /** libVLC's start options. style is Store.subtitleStyle(): "size|text colour|background colour" from the profile. */
+    private static ArrayList<String> options(Context context, android.content.SharedPreferences prefs, String style) {
+        ArrayList<String> o = new ArrayList<>();
+        o.add("--verbose=1");
+        o.add("--no-sub-autodetect-file");
+        o.add("--http-reconnect");
+        o.add("--audio-time-stretch");
+        o.add("--avcodec-skiploopfilter=1");      // only affects software decoding
+        o.add("--android-display-chroma");
+        o.add("RV32");
+        o.add("--freetype-rel-fontsize=16");
+        o.add("--freetype-bold");
+        // The profile's subtitle size, colour and background (Settings > Languages & subtitles).
+        String[] st = style.split("\\|", -1);
+        int size = 100;
+        try {
+            size = Math.max(10, Math.min(500, Integer.parseInt(st[0])));
+        } catch (Exception ignored) {
+        }
+        o.add("--sub-text-scale=" + size);
+        int[] text = rgba(st.length > 1 ? st[1] : "", 0xFFFFFF, 255);
+        int[] back = rgba(st.length > 2 ? st[2] : "", 0x000000, 0);
+        o.add("--freetype-color=" + text[0]);
+        o.add("--freetype-opacity=" + text[1]);
+        o.add("--freetype-background-color=" + back[0]);
+        o.add("--freetype-background-opacity=" + back[1]);
+        // A box behind the words does the outline's job.
+        o.add("--freetype-outline-thickness=" + (back[1] > 0 ? 0 : 4));
+        o.add("--sub-language=en,eng");
+        o.add("--audio-language=en,eng");
+        o.add("--preferred-resolution=-1");
+        // Measured on a Fire TV: OpenSL ES output plus an 8s network buffer lost the fewest frames on 4K remuxes.
+        // Audio goes out through Android's AudioTrack (this libVLC has no OpenSL ES output; asking for it only
+        // logged "failed to create audio output" before falling back). On TV speakers or a stereo soundbar, VLC
+        // mixes surround tracks down to stereo itself: otherwise a 7.1 stream goes to Android, whose own downmix
+        // path on this TV adds delay that the playback clock doesn't see (sound slightly behind the picture).
+        int outChannels = outputChannels(context);
+        String audioPrefNow = prefs.getString("vlc_audio", "auto");
+        if (outChannels > 0 && outChannels <= 2 && !"full".equals(audioPrefNow)) {
+            o.add("--stereo-mode=1");
+        }
+        // Test switches (set with adb, see MainActivity.applyTestSwitches): extra libVLC options, e.g. "--aout=opensles".
+        String extra = prefs.getString("vlc_opts", "").trim();
+        if (!extra.isEmpty()) for (String x : extra.split("\\s+")) o.add(x);
+        return o;
+    }
+
+    /** A Stremio colour "#RRGGBBAA" (or "#RRGGBB") as {0xRRGGBB, alpha 0-255}. */
+    static int[] rgba(String c, int rgb, int alpha) {
+        try {
+            String h = c.startsWith("#") ? c.substring(1) : c;
+            if (h.length() == 6 || h.length() == 8) {
+                rgb = Integer.parseInt(h.substring(0, 6), 16);
+                alpha = h.length() == 8 ? Integer.parseInt(h.substring(6, 8), 16) : 255;
+            }
+        } catch (Exception ignored) {
+        }
+        return new int[]{rgb, alpha};
+    }
+
+    /**
+     * libVLC reads the subtitle look only when it starts, so a changed look (another profile, or Settings) starts a new
+     * libVLC before the next video. Worker thread, between videos. Like VLC's own Android app does.
+     */
+    private void rebuildFor(String style) {
+        final MediaPlayer old = player;
+        final LibVLC oldVlc = vlc;
+        final java.util.concurrent.CountDownLatch detached = new java.util.concurrent.CountDownLatch(1);
+        main.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    old.setEventListener(null);
+                    old.getVLCVout().detachViews();
+                } catch (Throwable ignored) {
+                }
+                detached.countDown();
+            }
+        });
+        try {
+            detached.await(3, java.util.concurrent.TimeUnit.SECONDS);
+            old.stop();
+            LibVLC lib = new LibVLC(context, options(context, prefs, style));
+            MediaPlayer mp = new MediaPlayer(lib);
+            player = mp;
+            vlc = lib;
+            builtStyle = style;
+            try {
+                old.release();
+                oldVlc.release();
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "subtitle look change failed, keeping the old one", t);
+            builtStyle = style; // don't retry on every video
+        }
+        final java.util.concurrent.CountDownLatch attached = new java.util.concurrent.CountDownLatch(1);
+        main.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    player.setEventListener(VlcShell.this);
+                    attachViews();
+                } catch (Throwable t) {
+                    Log.w(TAG, "reattach failed", t);
+                }
+                attached.countDown();
+            }
+        });
+        try {
+            attached.await(3, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+        }
+        Log.i(TAG, "libVLC restarted for subtitles: " + style);
     }
 
     // ---------------------------------------------------------------- surfaces (main thread)
@@ -454,7 +547,7 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
                     // Subtitles stay off unless the viewer turns them on (Settings > Subtitles): the web player
                     // otherwise switches them on by itself, sometimes in the wrong language. A pick in the menu counts.
                     boolean auto = android.os.SystemClock.uptimeMillis() - userPickAt > 4000;
-                    if (id >= 0 && auto && prefs != null && !"on".equals(prefs.getString("subs_auto", "off"))) {
+                    if (id >= 0 && auto && prefs != null && !com.codio.tv.ui.Store.subtitlesAuto(prefs)) {
                         Log.i(TAG, "ignoring automatic subtitle pick " + id);
                         sendSelection();
                         break;
@@ -577,6 +670,8 @@ final class VlcShell implements PlayerShell, MediaPlayer.EventListener, IVLCVout
             lastValues.clear();
         }
         sendVideoReady(id, false);
+        String style = com.codio.tv.ui.Store.subtitleStyle();
+        if (context != null && !style.equals(builtStyle)) rebuildFor(style);
         Media media = new Media(vlc, Uri.parse(url));
         media.setHWDecoderEnabled(hardware, hardware);
         // VLC fills this much buffer before the picture starts, so it is a direct trade between start time and

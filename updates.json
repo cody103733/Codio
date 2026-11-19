@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.8.0",
-    "versionCode": 76,
+    "version": "1.8.1",
+    "versionCode": 77,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Trailers: a Trailer button on movie and show pages plays the title's trailer."
+    "notes": "Subtitles remember each profile's choices: on or off, language, size, and new colour and background options in Settings > Languages & subtitles. Size and colour now apply in the player."
   },
   "phone": {
-    "version": "1.4.0",
-    "versionCode": 35,
+    "version": "1.4.1",
+    "versionCode": 36,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Trailers: a Trailer button on movie and show pages plays the title's trailer."
+    "notes": "Subtitles remember each profile's choices: on or off, language, size, and new colour and background options in Settings > Languages & subtitles. Size and colour now apply in the player."
   },
   "windows": {
     "version": "1.11.0",
