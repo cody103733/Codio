@@ -12,10 +12,10 @@
     "notes": "Lyrics on Now Playing (tap the card for all the words), and download songs or whole albums to play offline: Download in a song's menu or on an album. They show in Music > Downloaded."
   },
   "windows": {
-    "version": "1.12.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.12.0/CodioSetup-1.12.0.exe",
-    "size": 66179603,
-    "sha256": "e947b26fc29ef2791623e1b42232238fd308aa3bb0350f37971d38044c3b6f08",
-    "notes": "Trailers: a Trailer button on movie and show pages plays the title's trailer."
+    "version": "1.12.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.12.1/CodioSetup-1.12.1.exe",
+    "size": 66179424,
+    "sha256": "ded858f8d887e41721e7a2e205046a482fa75d7473e86ad6b70a302121e7b940",
+    "notes": "Subtitles: new colour and background options in Settings > Languages & subtitles, kept for each profile."
   }
 }
