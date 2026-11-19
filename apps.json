@@ -18,6 +18,15 @@
       },
       "versions": [
         {
+          "version": "0.10.0",
+          "buildVersion": "49",
+          "date": "2026-11-19",
+          "size": 28872701,
+          "downloadURL": "https://github.com/cody103733/Codio/releases/download/ios-v0.10.0-build49/Codio-0.10.0.ipa",
+          "minOSVersion": "16.0",
+          "localizedDescription": "Codio 0.10.0 (build 49)"
+        },
+        {
           "version": "0.9.8",
           "buildVersion": "48",
           "date": "2026-11-18",
@@ -97,15 +106,6 @@
           "downloadURL": "https://github.com/cody103733/Codio/releases/download/ios-v0.8.3-build38/Codio-0.8.3.ipa",
           "minOSVersion": "16.0",
           "localizedDescription": "Codio 0.8.3 (build 38)"
-        },
-        {
-          "version": "0.8.2",
-          "buildVersion": "37",
-          "date": "2026-11-17",
-          "size": 28728648,
-          "downloadURL": "https://github.com/cody103733/Codio/releases/download/ios-v0.8.2-build37/Codio-0.8.2.ipa",
-          "minOSVersion": "16.0",
-          "localizedDescription": "Codio 0.8.2 (build 37)"
         }
       ]
     }
