@@ -12,10 +12,10 @@
     "notes": "Codio now asks for an access password the first time it opens on a device."
   },
   "windows": {
-    "version": "1.14.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.14.0/CodioSetup-1.14.0.exe",
-    "size": 66188456,
-    "sha256": "12ddae24495e88bae615408d684b35a0ddad3345b5c370ca21e83c7571d20c74",
-    "notes": "Codio now asks for an access password the first time it opens on a PC."
+    "version": "1.15.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.15.0/CodioSetup-1.15.0.exe",
+    "size": 66190692,
+    "sha256": "581e4afb381e06723e50089948d76623c50482981168437f0937ed3b12d2db63",
+    "notes": "When Codio sits idle, it now shows a slideshow of pictures from your Library and the time. Turn it off or change the wait in Settings, Picture & sound."
   }
 }
