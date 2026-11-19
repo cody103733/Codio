@@ -134,6 +134,7 @@ struct LibraryView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
+                if type != "downloads", store.profileLoaded { CalendarLink() }
                 if type == "downloads" {
                     DownloadsListView()
                 } else if !store.profileLoaded {

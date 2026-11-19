@@ -129,6 +129,28 @@ moves to the front of Continue Watching when an episode came out after you last 
 show or watch something of it, and after 30 days. Phones also send a notification, checked a few times a day; tapping it
 opens the show. The episode dates come from the catalog addons (Cinemeta's "last videos" list).
 
+## Calendar
+
+Library > Calendar shows when the next episodes and movies of what you follow come out. Phones: a "Calendar" row under the
+Library's filter ("Next: Show S2 E5 · Friday") opens the page. TV and Windows: a "Calendar" chip after the Library's
+filters, with the same "Next: …" line beside it. The rules, the same in every app
+(`android/src/com/codio/tv/ui/ReleaseCalendar.java` is the reference):
+
+- What it follows: movies and shows in the Library, plus shows watched in the last six months (Windows: shows in Continue
+  Watching), at most 60, the most recently watched or added first.
+- Dates come from each title's page at the first addon that has it (Cinemeta lists every episode, also those still to
+  come; a movie's `released`). No new online service and no key.
+- From a week ago to a year ahead. Specials (season 0) are left out. A date with a time is shown on the local day it
+  airs; a bare date stays as it is.
+- Several episodes of one show on the same day are one row: "S2 E1–E8 · 8 episodes". Otherwise "S2 E5 · Title", or
+  "Movie".
+- Days: Today, Tomorrow, the weekday for the rest of this week, then "Sat 13 Dec" (with the year when it isn't this
+  year). After the days ahead comes "Out this past week", newest first, with the day on the right.
+- Opening a row opens the title's page. Read again when what's followed changes, or after six hours.
+- Code: `ReleaseCalendar.java` + `PhoneCalendar.java` (phone) + `CalendarScreen.java` (TV, opened from `LibraryScreen`);
+  iPhone `Store/ReleaseCalendar.swift` + `UI/CalendarView.swift`; Windows `windows/src/routes/Codio/Calendar.tsx`
+  (shown inside `Library.tsx`).
+
 ## Trailers
 
 A Trailer button sits on every movie and show page that has one (TV and Windows: after Library; phones: next to Library

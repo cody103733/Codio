@@ -7,7 +7,9 @@ import android.view.KeyEvent;
 final class LibraryScreen extends Screen {
     private static final int NAV = 0, TYPES = 1, GRID = 2;
     private static final String[] TYPE_IDS = {null, "movie", "series"};
-    private static final String[] TYPE_LABELS = {"All", "Movies", "Shows"};
+    private static final String[] TYPE_LABELS = {"All", "Movies", "Shows", "Calendar"};
+    /** The last chip opens the Calendar instead of filtering. */
+    private static final int CALENDAR = 3;
     private static final float CHIPS_Y = 160, GRID_Y = 260;
 
     private final NavBar nav;
@@ -34,11 +36,26 @@ final class LibraryScreen extends Screen {
     @Override
     void onShow() {
         nav.focus = nav.current;
+        ReleaseCalendar.listen(calendarChanged);
+        ReleaseCalendar.refresh(tv.store, false);
         fill();
     }
 
     @Override
+    void onHide() {
+        ReleaseCalendar.unlisten(calendarChanged);
+    }
+
+    private final Runnable calendarChanged = new Runnable() {
+        @Override
+        public void run() {
+            tv.kick();
+        }
+    };
+
+    @Override
     void dataChanged(boolean addonsChanged) {
+        ReleaseCalendar.refresh(tv.store, false);
         fill();
     }
 
@@ -52,6 +69,7 @@ final class LibraryScreen extends Screen {
             if (CHIPS_Y - sy > -80) tv.drawChip(c, x, CHIPS_Y - sy, TYPE_LABELS[i], zone == TYPES && i == typeFocus, i == type);
             x += tv.chipWidth(TYPE_LABELS[i]) + 14;
         }
+        if (CHIPS_Y - sy > -80) c.drawText(tv.fit(ReleaseCalendar.nextLine(), tv.tSmall, TvView.W - TvView.MARGIN - x - 10), x + 10, CHIPS_Y - sy + 37, tv.tSmall);
         grid.draw(this, c, TvView.MARGIN, GRID_Y - sy, zone == GRID, dt);
         if (grid.items.isEmpty()) {
             c.drawText(tv.store.profileLoaded ? "Nothing here yet. Use “+ Library” on a movie or show to save it."
@@ -80,7 +98,11 @@ final class LibraryScreen extends Screen {
                     zone = GRID;
                     grid.focusIn();
                 }
-                if ((k == TvView.LEFT || k == TvView.RIGHT || k == TvView.OK) && typeFocus != type) {
+                if (k == TvView.OK && typeFocus == CALENDAR) {
+                    tv.push(new CalendarScreen(tv));
+                    return true;
+                }
+                if ((k == TvView.LEFT || k == TvView.RIGHT || k == TvView.OK) && typeFocus != type && typeFocus != CALENDAR) {
                     type = typeFocus;
                     grid.focus = 0;
                     fill();

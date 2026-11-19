@@ -9,7 +9,8 @@ import { useCore } from 'stremio/core';
 import { libraryMeta, qualityLabel, typeLabel, type Meta } from './api';
 import { NavBar, Chip, CodioButton, PosterGrid, Spinner, Strip, useEscape, styles } from './components';
 import { deleteDownload, formatBytes, progressOf, retryDownload, titleStatus, useDownloadMap, usePlayDownload, type Download } from './downloads';
-import { useOpen } from './useCodio';
+import { useAddons, useContinueWatching, useOpen } from './useCodio';
+import Calendar, { nextLine, useReleaseCalendar } from './Calendar';
 
 const SORT_LABELS: Record<string, string> = {
     lastwatched: 'Recently watched',
@@ -189,6 +190,7 @@ const Library = () => {
         if (new URLSearchParams(location.search).get('downloads') === '1') setShowDownloads(true);
     }, [location.search, location.key]);
     const downloads = useDownloadMap();
+    const [showCalendar, setShowCalendar] = useState(false);
     const [type, setType] = useState<string | null>(null);
     const [sort, setSort] = useState<string | undefined>(undefined);
     const [scrolled, setScrolled] = useState(false);
@@ -211,6 +213,11 @@ const Library = () => {
         });
         return [...extra, ...libraryItems];
     }, [libraryItems, downloads.entries, type]);
+    // The Calendar follows the whole Library (read with no type filter) and the shows being watched.
+    const addons = useAddons();
+    const watching = useContinueWatching();
+    const titles = useMemo(() => [...watching.filter((m) => m.type === 'series'), ...libraryItems], [watching, libraryItems]);
+    const calendar = useReleaseCalendar(titles, addons, type === null && library?.selected !== null && library !== null);
     const badgeOf = useCallback((m: Meta) => titleStatus(downloads.entries, m.type, m.id), [downloads.entries]);
     const types: { type: string | null, selected: boolean }[] = library?.selectable?.types ?? [];
     const sorts: { sort: string, selected: boolean }[] = library?.selectable?.sorts ?? [];
@@ -225,6 +232,7 @@ const Library = () => {
     }, [hasNext]);
     const pick = (fn: () => void) => {
         setShowDownloads(false);
+        setShowCalendar(false);
         fn();
         if (scroller.current) scroller.current.scrollTop = 0;
     };
@@ -234,20 +242,22 @@ const Library = () => {
             <div ref={scroller} className={styles['page-scroll']} onScroll={(e) => setScrolled((e.target as HTMLDivElement).scrollTop > 0)}>
                 <div className={styles['discover-chips']}>
                     <Strip className={styles['chip-strip']}>
-                        {types.map((t) => <Chip key={t.type ?? '*'} label={t.type === null ? 'All' : typeLabel(t.type)} selected={!showDownloads && (t.selected || (t.type === null && !types.some((o) => o.selected)))} onClick={() => pick(() => setType(t.type))} />)}
-                        {downloads.available ? <Chip label={`Downloads${downloads.entries.length > 0 ? `  ${downloads.entries.length}` : ''}`} selected={showDownloads} onClick={() => { setShowDownloads(true); if (scroller.current) scroller.current.scrollTop = 0; }} /> : null}
+                        {types.map((t) => <Chip key={t.type ?? '*'} label={t.type === null ? 'All' : typeLabel(t.type)} selected={!showDownloads && !showCalendar && (t.selected || (t.type === null && !types.some((o) => o.selected)))} onClick={() => pick(() => setType(t.type))} />)}
+                        {downloads.available ? <Chip label={`Downloads${downloads.entries.length > 0 ? `  ${downloads.entries.length}` : ''}`} selected={showDownloads} onClick={() => { setShowDownloads(true); setShowCalendar(false); if (scroller.current) scroller.current.scrollTop = 0; }} /> : null}
+                        <Chip label={'Calendar'} selected={showCalendar} onClick={() => { setShowCalendar(true); setShowDownloads(false); setType(null); if (scroller.current) scroller.current.scrollTop = 0; }} />
+                        {!showCalendar ? <span className={styles['cal-next']}>{nextLine(calendar.next, calendar.loaded)}</span> : null}
                     </Strip>
                     {
-                        sorts.length > 1 && !showDownloads ?
+                        sorts.length > 1 && !showDownloads && !showCalendar ?
                             <Strip className={styles['chip-strip']}>
                                 {sorts.map((s) => <Chip key={s.sort} label={sortLabel(s.sort)} selected={s.selected} onClick={() => pick(() => setSort(s.sort))} />)}
                             </Strip>
                             : <div className={styles['chip-strip-empty']} />
                     }
                 </div>
-                {showDownloads ? <Downloads onOpen={(d) => open(downloadMeta(d))} onScrollTop={() => { if (scroller.current) scroller.current.scrollTop = 0; }} /> : <PosterGrid items={items} cols={7} onOpen={open} onPlay={play} onNearEnd={nearEnd} badgeOf={badgeOf} />}
+                {showCalendar ? <Calendar sections={calendar.sections} loaded={calendar.loaded} onOpen={(i) => open({ ...downloadMeta({ metaId: i.showId, type: i.type, name: i.name, poster: i.poster } as Download), newEpisodes: 0 })} /> : showDownloads ? <Downloads onOpen={(d) => open(downloadMeta(d))} onScrollTop={() => { if (scroller.current) scroller.current.scrollTop = 0; }} /> : <PosterGrid items={items} cols={7} onOpen={open} onPlay={play} onNearEnd={nearEnd} badgeOf={badgeOf} />}
                 {
-                    items.length === 0 && !showDownloads ?
+                    items.length === 0 && !showDownloads && !showCalendar ?
                         <div className={styles['empty']}>
                             {
                                 library?.selected === null || library === null ? <Spinner /> :

@@ -24,6 +24,13 @@ final class PhoneLibrary extends PhoneUi.Page {
     private ScrollView dlScroll;
     private LinearLayout dlList;
     private TextView empty;
+    private PhoneCalendar.Link calendar;
+    private final Runnable calendarChanged = new Runnable() {
+        @Override
+        public void run() {
+            if (calendar != null) calendar.update();
+        }
+    };
 
     PhoneLibrary(PhoneUi ui) {
         super(ui);
@@ -45,6 +52,10 @@ final class PhoneLibrary extends PhoneUi.Page {
         LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-1, -2);
         tl.setMargins(dp(16), dp(4), dp(16), dp(14));
         col.addView(tabs, tl);
+        calendar = new PhoneCalendar.Link(ctx(), ui);
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-1, -2);
+        cl.setMargins(dp(16), 0, dp(16), dp(12));
+        col.addView(calendar, cl);
         FrameLayout area = new FrameLayout(ctx());
         grid = new PhoneGrid(ui);
         area.addView(grid, new FrameLayout.LayoutParams(-1, -1));
@@ -63,8 +74,21 @@ final class PhoneLibrary extends PhoneUi.Page {
     }
 
     @Override
+    void onShow() {
+        ReleaseCalendar.listen(calendarChanged);
+        ReleaseCalendar.refresh(ui.store, false);
+        if (calendar != null) calendar.update();
+    }
+
+    @Override
+    void onHide() {
+        ReleaseCalendar.unlisten(calendarChanged);
+    }
+
+    @Override
     void refresh() {
         if (grid == null) return;
+        ReleaseCalendar.refresh(ui.store, false);
         if (tabSel == 3) fillDownloads();
         else fill();
     }
@@ -87,6 +111,7 @@ final class PhoneLibrary extends PhoneUi.Page {
     private void fill() {
         tabs.select(tabSel);
         boolean dl = tabSel == 3;
+        calendar.setVisibility(dl || !ui.store.profileLoaded ? View.GONE : View.VISIBLE);
         grid.setVisibility(dl ? View.GONE : View.VISIBLE);
         dlScroll.setVisibility(dl ? View.VISIBLE : View.GONE);
         if (dl) {

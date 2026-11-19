@@ -2213,3 +2213,99 @@
         color: #8D8D93;
     }
 }
+
+// ---- Library > Calendar (Calendar.tsx): day headings, then a row per movie or episode day.
+.cal-next {
+    align-self: center;
+    margin-left: calc(@u * 14);
+    font-size: calc(@u * 23);
+    color: @dim;
+    white-space: nowrap;
+}
+
+.calendar {
+    display: flex;
+    flex-direction: column;
+    gap: calc(@u * 10);
+    padding: 0 calc(@u * 96) calc(@u * 120) calc(@u * 96);
+
+    .cal-day {
+        font-size: calc(@u * 30);
+        font-weight: 700;
+        color: @text;
+        margin: calc(@u * 26) 0 calc(@u * 6) 0;
+    }
+
+    .cal-row {
+        display: flex;
+        align-items: center;
+        gap: calc(@u * 28);
+        padding: calc(@u * 12) calc(@u * 24) calc(@u * 12) calc(@u * 14);
+        border-radius: calc(@u * 10);
+        background: @card;
+        text-align: left;
+        transition: background 120ms ease;
+
+        &:hover, &:focus-visible {
+            background: #fff;
+
+            .cal-name { color: @on-focus; }
+            .cal-line, .cal-when { color: @on-focus-dim; }
+        }
+    }
+
+    .cal-poster {
+        flex: none;
+        width: calc(@u * 72);
+        height: calc(@u * 108);
+        border-radius: calc(@u * 8);
+        background: @raised;
+        overflow: hidden;
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        > span {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            padding: calc(@u * 6);
+            font-size: calc(@u * 15);
+            color: @dim;
+        }
+    }
+
+    .cal-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: calc(@u * 6);
+    }
+
+    .cal-name {
+        font-size: calc(@u * 28);
+        font-weight: 700;
+        color: @text;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .cal-line {
+        font-size: calc(@u * 23);
+        color: @dim;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .cal-when {
+        flex: none;
+        font-size: calc(@u * 23);
+        color: @faint;
+    }
+}
