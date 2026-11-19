@@ -12,10 +12,10 @@
     "notes": "Codio now asks for an access password the first time it opens on a device."
   },
   "windows": {
-    "version": "1.13.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.13.1/CodioSetup-1.13.1.exe",
-    "size": 66177529,
-    "sha256": "ee3a8ce351964b1e70da804cfca241507b3538e7e07995adf027b98a7e1e2cc0",
-    "notes": "Smoother and lighter: Music pages no longer redraw while a song plays, the music cache stays small, and Music > Addons opens again."
+    "version": "1.14.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.14.0/CodioSetup-1.14.0.exe",
+    "size": 66188456,
+    "sha256": "12ddae24495e88bae615408d684b35a0ddad3345b5c370ca21e83c7571d20c74",
+    "notes": "Codio now asks for an access password the first time it opens on a PC."
   }
 }
