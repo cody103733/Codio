@@ -31,4 +31,7 @@ for (const name of fs.readdirSync(app)) {
 }
 copy(path.join(here, '..', 'web'), WEB_SKIP);
 copy(here, OWN_SKIP);
+// First-launch access password (lock/README.md): the lock file when there is one, otherwise null (no lock).
+const lockFile = path.join(here, '..', 'lock', 'access-lock.json');
+fs.writeFileSync(path.join(app, 'src', 'routes', 'Codio', 'access-lock.json'), fs.existsSync(lockFile) ? fs.readFileSync(lockFile) : 'null\n');
 console.log('Codio for Windows assembled in ' + app);

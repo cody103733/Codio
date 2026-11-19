@@ -17,7 +17,7 @@ import javax.crypto.spec.SecretKeySpec;
  * PBKDF2-HMAC-SHA256 (32-byte key) from the trimmed, NFC passcode, then AES-256-GCM with a 12-byte nonce, the 16-byte
  * tag after the ciphertext. Same as Windows (vault.ts) and iPhone (VaultCrypto.swift).
  */
-final class VaultCrypto {
+public final class VaultCrypto {
     private VaultCrypto() {
     }
 
@@ -26,7 +26,7 @@ final class VaultCrypto {
     }
 
     /** PBKDF2-HMAC-SHA256, 32 bytes. Written out so it runs on the fast native HMAC on every Android. */
-    static byte[] deriveKey(String passcode, byte[] salt, int iterations) throws Exception {
+    public static byte[] deriveKey(String passcode, byte[] salt, int iterations) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(normalise(passcode).getBytes("UTF-8"), "HmacSHA256"));
         mac.update(salt);
@@ -68,11 +68,11 @@ final class VaultCrypto {
         }
     }
 
-    static String b64(byte[] b) {
+    public static String b64(byte[] b) {
         return Base64.encodeToString(b, Base64.NO_WRAP);
     }
 
-    static byte[] unb64(String s) {
+    public static byte[] unb64(String s) {
         return Base64.decode(s, Base64.DEFAULT);
     }
 }

@@ -64,7 +64,7 @@ final class RootViewController: UIViewController {
             view.addSubview(v)
         }
 
-        host = UIHostingController(rootView: AnyView(RootView().environmentObject(engine).environmentObject(engine.store)))
+        host = UIHostingController(rootView: AnyView(AccessGate { RootView() }.environmentObject(engine).environmentObject(engine.store)))
         host.view.backgroundColor = .clear
         addChild(host)
         host.view.frame = view.bounds

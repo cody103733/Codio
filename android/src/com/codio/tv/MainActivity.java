@@ -54,6 +54,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (LockActivity.redirect(this)) return;
         com.codio.tv.ui.CastInfo.init(getSharedPreferences("codio", MODE_PRIVATE));
         com.codio.tv.ui.Vault.init(this);
         com.codio.tv.ui.NewEpisodes.load(this);

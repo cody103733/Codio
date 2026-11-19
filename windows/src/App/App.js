@@ -19,6 +19,7 @@ const { default: GamepadModal } = require('./GamepadModal');
 const { default: useInterfaceScale } = require('./useInterfaceScale');
 const { DownloadWorker } = require('stremio/routes/Codio/downloads');
 const { MiniPlayer } = require('stremio/routes/Codio/music');
+const { AccessGate } = require('stremio/routes/Codio/AccessLock');
 const styles = require('./styles');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
@@ -163,6 +164,7 @@ const App = () => {
     }, [core.transport]);
 
     return (
+        <AccessGate>
         <ServicesProvider services={services}>
             <ToastProvider className={styles['toasts-container']}>
                 <TooltipProvider className={styles['tooltip-container']}>
@@ -191,6 +193,7 @@ const App = () => {
                 </TooltipProvider>
             </ToastProvider>
         </ServicesProvider>
+        </AccessGate>
     );
 };
 

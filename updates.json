@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.9.1",
-    "versionCode": 79,
+    "version": "1.10.0",
+    "versionCode": 80,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Smoother and lighter: less redrawing during playback and in Music, faster pictures, and a music cache that stays small."
+    "notes": "Codio now asks for an access password the first time it opens on a device."
   },
   "phone": {
-    "version": "1.5.1",
-    "versionCode": 38,
+    "version": "1.6.0",
+    "versionCode": 39,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Smoother and lighter: less redrawing during playback and in Music, faster pictures, and a music cache that stays small."
+    "notes": "Codio now asks for an access password the first time it opens on a device."
   },
   "windows": {
     "version": "1.13.1",

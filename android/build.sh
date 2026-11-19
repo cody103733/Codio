@@ -44,6 +44,8 @@ JAVA
 rsync -a --exclude '*.map' --exclude 'service-worker.js' --exclude 'workbox-*.js' --exclude 'screenshots' \
   --exclude 'images/splash' "$WEB_BUILD"/ "$B/assets/web/"
 cp "$HERE/assets/"* "$B/assets/"
+# Access lock (lock/README.md): only when lock/access-lock.json exists.
+[ -f "$HERE/../lock/access-lock.json" ] && cp "$HERE/../lock/access-lock.json" "$B/assets/"
 # No Stremio artwork in Codio: plain images instead (same script as the iPhone build).
 python3 "$HERE/../web/codio-build/neutral-images.py" "$B/assets/web"
 # Codio's changes to the built engine (no torrents, Play after prefetch, faster start, ranking, chosen episode).

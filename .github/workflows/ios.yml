@@ -3,7 +3,7 @@ name: Build Codio for iPhone
 on:
   push:
     branches: [main]
-    paths: ['ios/**', 'web/**', 'sync/**', 'android/assets/codio-android.js', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'web/**', 'sync/**', 'lock/**', 'android/assets/codio-android.js', '.github/workflows/ios.yml']
   workflow_dispatch:
 
 permissions:

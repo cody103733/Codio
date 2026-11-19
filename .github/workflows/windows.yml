@@ -8,7 +8,7 @@ name: Build Codio for Windows
 on:
   push:
     branches: [main]
-    paths: ['windows/**', 'web/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'web/**', 'lock/**', '.github/workflows/windows.yml']
   workflow_dispatch:
 
 permissions:

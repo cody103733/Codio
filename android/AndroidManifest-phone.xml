@@ -46,6 +46,13 @@
             </intent-filter>
         </activity>
 
+        <!-- First-launch access password (lock/README.md) -->
+        <activity
+            android:name="com.codio.tv.LockActivity"
+            android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name="com.codio.tv.NewEpisodesJob"
             android:exported="false"

@@ -5,7 +5,7 @@ options:
     iOS: "16.0"
 settings:
   base:
-    MARKETING_VERSION: "0.12.1"
+    MARKETING_VERSION: "0.13.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Codio:
@@ -19,6 +19,10 @@ targets:
       - path: web
         type: folder
         buildPhase: resources
+      # First-launch access password (lock/README.md); left out when the file is gone.
+      - path: ../lock/access-lock.json
+        buildPhase: resources
+        optional: true
     info:
       path: Codio/Info.plist
       properties:
