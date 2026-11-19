@@ -116,6 +116,47 @@ final class MusicKit {
     }
 
     /** A heading and a sideways row of tiles. */
+    /**
+     * A chart (the Top 100 or a genre's top 100) as a row of numbered song tiles, like the other rows. Its heading and
+     * "See all" open the whole chart as a list (PhoneChart).
+     */
+    static LinearLayout chartRow(final PhoneUi ui, String heading, final String chartId, List<Track> list, String credit) {
+        Context c = ui.getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout head = new LinearLayout(c);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = PhoneUi.sectionTitle(c, heading);
+        head.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView all = PhoneKit.link(c, "See all", Theme.RED);
+        all.setTextSize(15);
+        all.setPadding(PhoneKit.dp(c, 14), PhoneKit.dp(c, 18), PhoneKit.dp(c, 16), PhoneKit.dp(c, 8));
+        head.addView(all);
+        View.OnClickListener open = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ui.push(new PhoneChart(ui, chartId));
+            }
+        };
+        title.setOnClickListener(open);
+        all.setOnClickListener(open);
+        box.addView(head);
+        if (credit != null) {
+            TextView n = note(c, credit);
+            n.setTextSize(12);
+            n.setPadding(PhoneKit.dp(c, 14), 0, PhoneKit.dp(c, 14), PhoneKit.dp(c, 6));
+            box.addView(n);
+        }
+        HorizontalScrollView hs = new HorizontalScrollView(c);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout in = new LinearLayout(c);
+        in.setPadding(PhoneKit.dp(c, 14), 0, PhoneKit.dp(c, 2), 0);
+        for (int i = 0; i < list.size(); i++) in.addView(trackTile(ui, list, i, true));
+        hs.addView(in);
+        box.addView(hs, new LinearLayout.LayoutParams(-1, -2));
+        return box;
+    }
+
     static LinearLayout row(Context c, String heading, List<View> tiles) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -171,11 +212,16 @@ final class MusicKit {
 
     /** A song as a tile (rows like Daily mix): tap plays the list from here. */
     static View trackTile(final PhoneUi ui, final List<Track> list, final int index) {
+        return trackTile(ui, list, index, false);
+    }
+
+    /** numbered: chart rows show the place before the name ("1. Song"). */
+    static View trackTile(final PhoneUi ui, final List<Track> list, final int index, boolean numbered) {
         Context c = ui.getContext();
         final Track t = list.get(index);
         Cover cv = new Cover(c, 128, false, t.title);
         cv.set(t.artworkURL);
-        return tile(c, cv, t.title, t.artist, 128, new View.OnClickListener() {
+        return tile(c, cv, numbered ? (index + 1) + ". " + t.title : t.title, t.artist, 128, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 MusicPlayer.playQueue(list, index, false);

@@ -85,6 +85,8 @@ struct ArtistTile: View {
 /// A song as a square tile (Daily mix, Recently played, Liked songs). Tap plays the row from there.
 struct SongTile: View {
     let track: MusicTrack
+    /// Chart rows show the place before the name ("1. Song").
+    var number: Int? = nil
     let onPlay: () -> Void
     @ObservedObject private var taste = MusicTaste.shared
 
@@ -93,7 +95,7 @@ struct SongTile: View {
             VStack(alignment: .leading, spacing: 4) {
                 MusicCover(url: track.artworkURL)
                     .overlay(alignment: .topTrailing) { heart(taste.data.isLiked(track)) }
-                Text(track.title).font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(1)
+                Text(number.map { "\($0). \(track.title)" } ?? track.title).font(.subheadline.weight(.semibold)).foregroundColor(.white).lineLimit(1)
                 Text(track.artist).font(.caption).foregroundColor(Theme.dim).lineLimit(1)
             }
             .frame(width: 140, alignment: .leading)
@@ -212,6 +214,7 @@ extension View {
     func musicDestinations() -> some View {
         navigationDestination(for: MusicAlbum.self) { AlbumPageView(album: $0) }
             .navigationDestination(for: MusicArtist.self) { ArtistPageView(artist: $0) }
+            .navigationDestination(for: MusicChartRef.self) { ChartPageView(chart: $0) }
     }
 }
 

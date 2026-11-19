@@ -168,6 +168,32 @@ final class PhoneMusicAddons extends PhoneUi.Page {
         body.addView(lastfmStatus);
         checkLastfm();
 
+        body.addView(heading("GENRE CHARTS"));
+        body.addView(footer("Pick the genres whose top 100 shows on the Music page (Apple's charts)."));
+        LinearLayout genreRow = null;
+        for (int i = 0; i < com.codio.tv.music.Discovery.GENRES.length; i++) {
+            final String[] g = com.codio.tv.music.Discovery.GENRES[i];
+            if (i % 3 == 0) {
+                genreRow = new LinearLayout(c);
+                genreRow.setPadding(dp(16), dp(3), dp(16), dp(3));
+                android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(c);
+                hs.setHorizontalScrollBarEnabled(false);
+                hs.addView(genreRow);
+                body.addView(hs);
+            }
+            final TextView chip = PhoneKit.chip(c, g[1], MusicNet.chartGenres().contains(g[0]));
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    MusicNet.toggleChartGenre(g[0]);
+                    PhoneKit.styleChip(chip, MusicNet.chartGenres().contains(g[0]));
+                }
+            });
+            LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2);
+            cl.rightMargin = dp(8);
+            genreRow.addView(chip, cl);
+        }
+
         body.addView(heading("YOUR ACCOUNT (LISTENBRAINZ)"));
         accountBox = new LinearLayout(c);
         accountBox.setOrientation(LinearLayout.VERTICAL);

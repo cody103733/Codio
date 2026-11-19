@@ -10,6 +10,8 @@ final class MusicHome: ObservableObject {
     @Published var chartNew: [MusicAlbum]?
     @Published var popularSongs: [MusicTrack]?
     @Published var popularArtists: [MusicArtist]?
+    /// Genre charts by Apple genre id (Music settings > Genre charts picks which).
+    @Published var genres: [String: [MusicTrack]] = [:]
     @Published var similar: [String: [MusicArtist]] = [:]
     @Published var more: [String: [MusicAlbum]] = [:]
     @Published var mix: [MusicTrack] = []
@@ -33,6 +35,17 @@ final class MusicHome: ObservableObject {
     func reloadCharts() {
         Task { popularSongs = await LBData.popularSongs() }
         Task { popularArtists = await LBData.popularArtists() }
+        reloadGenres()
+    }
+
+    /// The picked genre charts that aren't loaded yet.
+    func reloadGenres() {
+        for g in GenreCharts.picked where genres[g] == nil {
+            Task {
+                let list = await GenreCharts.shared.songs(g)
+                if !list.isEmpty { genres[g] = list }
+            }
+        }
     }
 
     func loadCatalogs(_ addons: [MusicAddon]) async {
@@ -84,7 +97,6 @@ struct MusicView: View {
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
     @State private var searchGen = 0
-    @State private var showAllTop = false
 
     var body: some View {
         ScrollView {
@@ -216,6 +228,39 @@ struct MusicView: View {
         }
     }
 
+    /// A chart as a row of numbered songs, like the other rows. See all opens the whole list.
+    private func chartRow(_ id: String, _ list: [MusicTrack], credit: String?) -> some View {
+        Group {
+            if !list.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        NavigationLink(value: MusicChartRef(id: id)) {
+                            Text(GenreCharts.title(id)).font(.title3.bold()).foregroundColor(.white).lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                        NavigationLink(value: MusicChartRef(id: id)) {
+                            Text("See all").font(.subheadline.weight(.semibold)).foregroundColor(Theme.red)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    if let credit {
+                        Text(credit).font(.footnote).foregroundColor(.white.opacity(0.6)).padding(.horizontal, 16)
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: 12) {
+                            ForEach(Array(list.enumerated()), id: \.offset) { i, t in
+                                SongTile(track: t, number: i + 1) { player.play(list, at: i) }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+    }
+
     private func artistRow(_ title: String, _ list: [MusicArtist]) -> some View {
         let shown = taste.data.visible(list)
         return Group {
@@ -260,22 +305,9 @@ struct MusicView: View {
         albumRow("Popular right now", fav(home.popularAlbums))
         albumRow("New releases", Array(fav(home.chartNew).prefix(30)))
         let allSongs = t.visible(home.popularSongs ?? [])
-        let top = Array(allSongs.prefix(showAllTop ? 100 : 10))
-        if !top.isEmpty {
-            MusicSectionHead(title: showAllTop ? "Top \(min(100, allSongs.count))" : "Songs people are playing",
-                             action: allSongs.count > 10 ? (label: showAllTop ? "Show less" : "See top \(min(100, allSongs.count))", run: { showAllTop.toggle() }) : nil)
-            if AppleLinks.url(top[0]) != nil {
-                Text("Chart from Apple Music. Tap ⋯ on a song to listen there.")
-                    .font(.footnote).foregroundColor(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
-            } else if Chart.source == "lastfm" {
-                Text("Chart data from Last.fm")
-                    .font(.footnote).foregroundColor(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
-            }
-            ForEach(Array(top.enumerated()), id: \.offset) { i, track in
-                TrackRow(track: track, number: i + 1) { player.play(top, at: i) }
-            }
+        chartRow("top", allSongs, credit: allSongs.first.flatMap { AppleLinks.url($0) } != nil ? "Chart from Apple Music" : Chart.source == "lastfm" ? "Chart data from Last.fm" : nil)
+        ForEach(GenreCharts.picked, id: \.self) { g in
+            chartRow(g, t.visible(home.genres[g] ?? []), credit: "Chart from Apple Music")
         }
         artistRow("Popular artists", home.popularArtists ?? [])
         ForEach(Array(home.catalogs.enumerated()), id: \.offset) { _, row in

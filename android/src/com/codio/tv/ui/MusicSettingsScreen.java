@@ -190,6 +190,26 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             }
         });
 
+        // Genre charts: each genre's top 100 shows as a row on the Music page when it's on.
+        java.util.List<String> genres = MusicNet.chartGenres();
+        boolean firstGenre = true;
+        for (final String[] g : com.codio.tv.music.Discovery.GENRES) {
+            boolean on = genres.contains(g[0]);
+            Item gi = item(g[1], on ? "✔ On the Music page" : "Off", new Runnable() {
+                @Override
+                public void run() {
+                    MusicNet.toggleChartGenre(g[0]);
+                    fill();
+                }
+            });
+            if (on) gi.subColor = 0xFF46D369;
+            if (firstGenre) {
+                gi.head = "Genre charts";
+                gi.note = "Apple's top 100 for each genre you turn on.";
+                firstGenre = false;
+            }
+        }
+
         final ListenBrainz.Account account = ListenBrainz.account();
         if (account == null) {
             Item in = item("Sign in to ListenBrainz", busy ? "Checking…" : "Type your user token", new Runnable() {

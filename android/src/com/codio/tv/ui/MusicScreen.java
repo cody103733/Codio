@@ -28,6 +28,9 @@ final class MusicScreen extends MusicPage {
     private static final List<List<Model.Artist>> sims = new ArrayList<List<Model.Artist>>();
     private static String seedKey = "", mixKey = "", catalogKey = null;
     private static long loadedAt;
+    // Genre charts by Apple genre id, and the ones being asked for.
+    private static final java.util.Map<String, List<Model.Track>> genreSongs = new java.util.HashMap<String, List<Model.Track>>();
+    private static final Set<String> genreAsked = new HashSet<String>();
 
     private List<Taste.Seed> seeds = new ArrayList<Taste.Seed>();
     private List<Model.Artist> merged = new ArrayList<Model.Artist>();
@@ -148,8 +151,43 @@ final class MusicScreen extends MusicPage {
                 }
             });
         }
+        if (stale) {
+            genreSongs.clear();
+            genreAsked.clear();
+        }
         loadCatalogs();
         loadForYou();
+        loadGenres();
+    }
+
+    /** The genre charts you picked in Music settings that aren't loaded yet. */
+    private void loadGenres() {
+        for (final String g : MusicNet.chartGenres()) {
+            if (!genreAsked.add(g)) continue;
+            ask(new MusicNet.Job<List<Model.Track>>() {
+                @Override
+                public List<Model.Track> run() {
+                    return Discovery.genreSongs(g);
+                }
+            }, new Got<List<Model.Track>>() {
+                @Override
+                public void got(List<Model.Track> v) {
+                    List<Model.Track> l = Model.list(v);
+                    if (l.isEmpty()) genreAsked.remove(g);
+                    else genreSongs.put(g, l);
+                }
+            });
+        }
+    }
+
+    /** A chart as a row of numbered songs, with "See all" at the end to open the whole list. */
+    private void chartRow(List<MusicStrip> out, String id, String title, List<Model.Track> shown) {
+        if (shown == null || shown.isEmpty()) return;
+        List<Object> items = new ArrayList<Object>(shown);
+        items.add(new TvMusicKit.SeeAll(id, Discovery.chartTitle(id)));
+        MusicStrip strip = new MusicStrip(title, items);
+        strip.numbered = true;
+        out.add(strip);
     }
 
     private void loadCatalogs() {
@@ -265,6 +303,7 @@ final class MusicScreen extends MusicPage {
     void rebuild() {
         loadCatalogs();
         loadForYou();
+        loadGenres();
         loadMix();
         if (mixRaw == null) mixRaw = DailyMix.saved();
         seeds = Taste.topSeeds(5);
@@ -293,10 +332,13 @@ final class MusicScreen extends MusicPage {
         if (chartFresh != null) row(out, "New releases", first(favor(Taste.visibleAlbums(chartFresh), liked), 30));
         if (songs != null) {
             List<Model.Track> shown = Taste.visibleTracks(songs);
-            boolean apple = !shown.isEmpty() && com.codio.tv.music.Discovery.appleMusicUrl(shown.get(0)) != null;
-            boolean lastfm = "lastfm".equals(com.codio.tv.music.Discovery.chartSource());
-            String top = "Top " + Math.min(100, shown.size());
-            row(out, apple ? top + " (Apple Music chart, hold OK to open there)" : lastfm ? top + " (data from Last.fm)" : top, shown);
+            boolean apple = !shown.isEmpty() && Discovery.appleMusicUrl(shown.get(0)) != null;
+            boolean lastfm = "lastfm".equals(Discovery.chartSource());
+            chartRow(out, "top", apple ? "Top 100 (Apple Music chart, hold OK to open there)" : lastfm ? "Top 100 (data from Last.fm)" : "Top 100", shown);
+        }
+        for (String g : MusicNet.chartGenres()) {
+            List<Model.Track> l = genreSongs.get(g);
+            if (l != null) chartRow(out, g, Discovery.chartTitle(g), Taste.visibleTracks(l));
         }
         if (artists != null) row(out, "Popular artists", Taste.visibleArtists(artists));
         if (catalogs != null) {

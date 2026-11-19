@@ -1,1 +1,1 @@
-Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request.
+Music: genre charts (pick them in Music settings), and the Top 100 and genre charts are rows you can open as a full list.

@@ -88,13 +88,25 @@ final class TvMusicKit {
 
     // ---- what a tile shows
 
+    /** The last tile of a chart row: opens the whole chart as a list. */
+    static final class SeeAll {
+        final String chartId, chartTitle;
+
+        SeeAll(String chartId, String chartTitle) {
+            this.chartId = chartId;
+            this.chartTitle = chartTitle;
+        }
+    }
+
     static String title(Object o) {
+        if (o instanceof SeeAll) return "See all";
         if (o instanceof Model.Track) return ((Model.Track) o).title;
         if (o instanceof Model.Album) return ((Model.Album) o).title;
         return ((Model.Artist) o).name;
     }
 
     static String sub(Object o) {
+        if (o instanceof SeeAll) return ((SeeAll) o).chartTitle;
         if (o instanceof Model.Track) return ((Model.Track) o).artist;
         if (o instanceof Model.Album) {
             Model.Album a = (Model.Album) o;
@@ -105,6 +117,7 @@ final class TvMusicKit {
     }
 
     static boolean liked(Object o) {
+        if (o instanceof SeeAll) return false;
         if (o instanceof Model.Track) return Taste.isLikedTrack((Model.Track) o);
         if (o instanceof Model.Album) return Taste.isLikedAlbum((Model.Album) o);
         return Taste.isLikedArtist((Model.Artist) o);
@@ -137,6 +150,7 @@ final class TvMusicKit {
     }
 
     static String art(TvView tv, Object o) {
+        if (o instanceof SeeAll) return null;
         if (o instanceof Model.Track) return ((Model.Track) o).artworkURL;
         if (o instanceof Model.Album) return ((Model.Album) o).artworkURL;
         Model.Artist a = (Model.Artist) o;
@@ -182,6 +196,11 @@ final class TvMusicKit {
 
     /** A square tile (round for an artist) with its name and a second line under it; focus 0..1 grows it. */
     static void tile(TvView tv, Canvas c, Object o, float x, float y, float focus) {
+        tile(tv, c, o, x, y, focus, null);
+    }
+
+    /** number: shown before the name ("1. "), for chart rows. */
+    static void tile(TvView tv, Canvas c, Object o, float x, float y, float focus, String number) {
         boolean round = o instanceof Model.Artist;
         float w = TILE * (1 + 0.09f * focus);
         float dx = x - (w - TILE) / 2, dy = y - (w - TILE) / 2;
@@ -198,8 +217,9 @@ final class TvMusicKit {
         boolean playing = o instanceof Model.Track && now != null && now.same((Model.Track) o);
         float ty = y + TILE + 20 + 12 * focus;
         tv.tSmall.setColor(playing ? Theme.RED_SOFT : Color.WHITE);
-        float tw = round ? Math.min(TILE, tv.tSmall.measureText(tv.fit(title(o), tv.tSmall, TILE))) : 0;
-        c.drawText(tv.fit(title(o), tv.tSmall, TILE), round ? x + (TILE - tw) / 2 : x, ty + 22, tv.tSmall);
+        String name = number != null ? number + title(o) : title(o);
+        float tw = round ? Math.min(TILE, tv.tSmall.measureText(tv.fit(name, tv.tSmall, TILE))) : 0;
+        c.drawText(tv.fit(name, tv.tSmall, TILE), round ? x + (TILE - tw) / 2 : x, ty + 22, tv.tSmall);
         tv.tSmall.setColor(Theme.TEXT_FAINT);
         String s = tv.fit(sub(o), tv.tSmall, TILE);
         c.drawText(s, round ? x + (TILE - tv.tSmall.measureText(s)) / 2 : x, ty + 54, tv.tSmall);
@@ -216,7 +236,9 @@ final class TvMusicKit {
 
     /** OK on a tile or a line: a song plays (with the songs around it as the queue), an album or artist opens. */
     static void open(TvView tv, Object o, List<?> around) {
-        if (o instanceof Model.Track) {
+        if (o instanceof SeeAll) {
+            tv.push(new MusicChartScreen(tv, ((SeeAll) o).chartId));
+        } else if (o instanceof Model.Track) {
             List<Model.Track> tracks = tracksOf(around);
             int i = Math.max(0, tracks.indexOf(o));
             play(tv, tracks, i, MusicPlayer.shuffle());
@@ -239,6 +261,10 @@ final class TvMusicKit {
 
     /** Holding OK on a tile or a line: what else you can do with it. */
     static void options(final TvView tv, final Object o, final List<?> around) {
+        if (o instanceof SeeAll) {
+            open(tv, o, around);
+            return;
+        }
         MusicMenu menu = new MusicMenu(tv, title(o), sub(o));
         final boolean liked = liked(o);
         if (o instanceof Model.Track) {

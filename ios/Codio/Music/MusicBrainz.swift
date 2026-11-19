@@ -336,6 +336,11 @@ enum LBData {
         return Array(await Chart.shared.get().songs.prefix(100))
     }
 
+    /// A chart by id: "top" (the Top 100) or a genre id.
+    static func chartSongs(_ id: String) async -> [MusicTrack] {
+        id == "top" ? await popularSongs() : await GenreCharts.shared.songs(id)
+    }
+
     /// Songs ListenBrainz's listeners played this week (no longer shown: it leaned on a few very active fans).
     static func sitewideSongs() async -> [MusicTrack] {
         let j = await get("/1/stats/sitewide/recordings?range=week&count=25", ttl: 6 * 3600) as? JSON
@@ -680,8 +685,85 @@ enum AppleLinks {
 
     static func url(_ track: MusicTrack) -> URL? {
         lock.lock(); defer { lock.unlock() }
-        return links[track.id].flatMap { URL(string: $0) }
+        return (links[track.id] ?? genreLinks[track.id]).flatMap { URL(string: $0) }
     }
+
+    /// Links from the genre charts (always Apple's), kept apart so switching the main chart doesn't drop them.
+    private static var genreLinks: [String: String] = [:]
+    static func setGenre(_ id: String, _ url: String) {
+        lock.lock(); genreLinks[id] = url; lock.unlock()
+    }
+}
+
+/// Genre charts: the iTunes Store's top 100 per genre (Apple's newer feed has no genres; Last.fm has no current genre
+/// charts, so these are Apple's whichever chart you picked). Same as windows/desktop/codio-music.js genreFeed.
+actor GenreCharts {
+    static let shared = GenreCharts()
+    static let host = "https://itunes.apple.com"
+    static let all: [(id: String, name: String)] = [
+        ("14", "Pop"), ("18", "Hip-Hop/Rap"), ("6", "Country"), ("21", "Rock"), ("15", "R&B/Soul"), ("20", "Alternative"),
+        ("17", "Dance"), ("7", "Electronic"), ("12", "Latin"), ("1153", "Metal"), ("22", "Christian"), ("10", "Singer/Songwriter"),
+        ("11", "Jazz"), ("2", "Blues"), ("5", "Classical"), ("24", "Reggae"), ("16", "Soundtrack"), ("51", "K-Pop"), ("4", "Children's Music"),
+    ]
+    static let defaultsKey = "music_chart_genres"
+
+    /// The genre charts shown on the Music page, in the order picked.
+    static var picked: [String] {
+        get { (UserDefaults.standard.string(forKey: defaultsKey) ?? "14,18,6,21,15").split(separator: ",").map(String.init).filter { !$0.isEmpty } }
+        set { UserDefaults.standard.set(newValue.joined(separator: ","), forKey: defaultsKey) }
+    }
+
+    static func toggle(_ id: String) {
+        var now = picked
+        if let i = now.firstIndex(of: id) { now.remove(at: i) } else { now.append(id) }
+        picked = now
+    }
+
+    static func name(_ id: String) -> String { all.first { $0.id == id }?.name ?? "Genre" }
+    /// "Top 100" for the main chart ("top"), else "Top Pop" and so on.
+    static func title(_ id: String) -> String { id == "top" ? "Top 100" : "Top \(name(id))" }
+
+    private var kept: [String: (at: Date, songs: [MusicTrack])] = [:]
+
+    func songs(_ genre: String) async -> [MusicTrack] {
+        if let k = kept[genre], Date().timeIntervalSince(k.at) < 1800 { return k.songs }
+        let list = await GenreCharts.load(Chart.country, genre)
+        if !list.isEmpty { kept[genre] = (Date(), list) }
+        return list
+    }
+
+    private static func label(_ x: Any?) -> String { ((x as? JSON)?["label"] as? String) ?? "" }
+
+    private static func load(_ cc: String, _ genre: String) async -> [MusicTrack] {
+        let reply = await MusicNet.metadata("\(host)/\(cc)/rss/topsongs/limit=100/genre=\(genre)/json", ttl: 6 * 3600, server: host, gap: 0)
+        if reply.status != 200 && cc != "us" { return await load("us", genre) }
+        let feed = (reply.json as? JSON)?["feed"] as? JSON
+        let entries: [JSON] = (feed?["entry"] as? [JSON]) ?? ((feed?["entry"] as? JSON).map { [$0] } ?? [])
+        return entries.compactMap { e in
+            let title = label(e["im:name"]), artist = label(e["im:artist"])
+            guard !title.isEmpty, !artist.isEmpty else { return nil }
+            let id = "chart:\(artist.lowercased())|\(title.lowercased())"
+            let images = (e["im:image"] as? [Any]) ?? []
+            var art = label(images.last)
+            if art.range(of: "^https://is\\d+-ssl\\.mzstatic\\.com/", options: .regularExpression) != nil {
+                art = art.replacingOccurrences(of: "/\\d+x\\d+bb\\.", with: "/400x400bb.", options: .regularExpression)
+            } else {
+                art = ""
+            }
+            let links: [JSON] = (e["link"] as? [JSON]) ?? ((e["link"] as? JSON).map { [$0] } ?? [])
+            var page = links.compactMap { ($0["attributes"] as? JSON)?["href"] as? String }.first { $0.hasPrefix("https://music.apple.com/") } ?? ""
+            if page.isEmpty, label(e["id"]).hasPrefix("https://music.apple.com/") { page = label(e["id"]) }
+            if !page.isEmpty { AppleLinks.setGenre(id, page) }
+            let album = label((e["im:collection"] as? JSON)?["im:name"])
+            return MusicTrack(id: id, title: title, artist: artist, album: album.isEmpty ? nil : album, durationMs: nil,
+                              artworkURL: art.isEmpty ? nil : art, isrc: nil, mbid: nil, artistMbid: nil, addon: nil, streamURL: nil)
+        }
+    }
+}
+
+/// A chart page to open from a chart row ("top" or a genre id).
+struct MusicChartRef: Hashable {
+    let id: String
 }
 
 /// The country's most played albums (Apple's chart; Last.fm has no albums chart per country), matched to MusicBrainz

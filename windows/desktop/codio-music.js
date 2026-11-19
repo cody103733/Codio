@@ -7,6 +7,7 @@
 //   GET /api/music/chart?cc=us&country=United%20States     the country's most played songs (Apple Music chart, or Last.fm's
 //                                                           with header X-Lastfm-Key) matched to MusicBrainz ids, plus the
 //                                                           artists in it: { source, songs, artists }. The key is never logged.
+//   GET /api/music/genre-chart?cc=us&g=14                   a genre's top 100 songs (iTunes Store genre chart)
 //   GET /api/music/chart-albums?cc=us                      the country's most played albums (Apple), matched to MusicBrainz
 //                                                           release groups: { popular, recent } (recent = out in the last 8 weeks)
 //   GET /api/music/img?u=https://coverartarchive.org/...   cover art, fetched once and kept on disk
@@ -267,6 +268,49 @@ const appleFeed = async (cc) => {
     }
     const feed = JSON.parse(body.toString('utf8'));
     return feed && feed.feed && Array.isArray(feed.feed.results) ? feed.feed.results : [];
+};
+
+// A genre's top songs: the iTunes Store's genre charts (Apple's newer feed has no genres). Same shape as the chart's songs.
+// The feed's entries carry the name, artist, a 170px cover and the song's Apple Music page. Kept 6 hours.
+const ITUNES = process.env.CODIO_TEST_CHART || 'https://itunes.apple.com';
+const label = (x) => x && typeof x.label === 'string' ? x.label : '';
+const genreFeed = async (cc, genre) => {
+    const url = `${ITUNES}/${cc}/rss/topsongs/limit=100/genre=${genre}/json`;
+    let body = readCache(url, 6 * 3600 * 1000);
+    if (!body) {
+        const res = await fetchUrl(url);
+        if (res.status !== 200) {
+            if (cc !== 'us') return genreFeed('us', genre);
+            throw new Error(`genre chart ${res.status}`);
+        }
+        body = res.body;
+        writeCache(url, body);
+    }
+    const j = JSON.parse(body.toString('utf8'));
+    const entries = j && j.feed ? (Array.isArray(j.feed.entry) ? j.feed.entry : j.feed.entry ? [j.feed.entry] : []) : [];
+    return entries.map((e) => {
+        const images = Array.isArray(e['im:image']) ? e['im:image'] : [];
+        const art = label(images[images.length - 1]);
+        const links = Array.isArray(e.link) ? e.link : e.link ? [e.link] : [];
+        const page = links.map((l) => l && l.attributes ? l.attributes.href : '').find((h) => typeof h === 'string' && /^https:\/\/music\.apple\.com\//.test(h)) || '';
+        const id = label(e.id);
+        return {
+            mbid: null, title: label(e['im:name']), artist: label(e['im:artist']), album: e['im:collection'] ? label(e['im:collection']['im:name']) || null : null,
+            releaseMbid: null, artistMbid: null,
+            art: /^https:\/\/is\d+-ssl\.mzstatic\.com\//.test(art) ? art.replace(/\/\d+x\d+bb\./, '/400x400bb.') : null,
+            appleUrl: page || (/^https:\/\/music\.apple\.com\//.test(id) ? id : null),
+        };
+    }).filter((x) => x.title && x.artist);
+};
+const genreCharts = new Map();
+const genreChartFor = (cc, genre) => {
+    const id = `${cc}|${genre}`;
+    const known = genreCharts.get(id);
+    if (known && Date.now() - known.at < 30 * 60 * 1000) return known.job;
+    const job = genreFeed(cc, genre).then((songs) => JSON.stringify({ country: cc, genre, source: 'apple', songs }));
+    genreCharts.set(id, { at: Date.now(), job });
+    job.catch(() => genreCharts.delete(id));
+    return job;
 };
 
 // A song's cover from Deezer (Last.fm sends no real pictures, and not every song matches MusicBrainz). Kept a month.
@@ -575,6 +619,17 @@ const handle = (request, response, pathname) => {
         const key = String(request.headers['x-lastfm-key'] || '').trim();
         const country = String(url.searchParams.get('country') || 'United States').slice(0, 80);
         chartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us', country, /^[A-Za-z0-9]{16,64}$/.test(key) ? key : '').then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
+        return true;
+    }
+    if (pathname === '/api/music/genre-chart') {
+        // A genre's top 100 songs (iTunes Store genre chart), e.g. g=14 for Pop.
+        const cc = String(url.searchParams.get('cc') || 'us').toLowerCase();
+        const genre = String(url.searchParams.get('g') || '');
+        if (!/^\d{1,5}$/.test(genre)) {
+            response.writeHead(400).end();
+            return true;
+        }
+        genreChartFor(/^[a-z]{2}$/.test(cc) ? cc : 'us', genre).then((body) => send(response, 200, body), () => fail(response, 502, 'Couldn\'t reach the charts'));
         return true;
     }
     if (pathname === '/api/music/lastfm-check') {

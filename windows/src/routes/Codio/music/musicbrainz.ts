@@ -8,7 +8,8 @@ const SETTINGS_KEY = 'codioMusicSettings';
 
 // lastfmKey: your own Last.fm API key. With one, the Popular rows use Last.fm's chart for your country instead of Apple's.
 // chart: which chart the Popular songs/artists rows follow. Apple's (US streaming) unless you pick Last.fm and have a key.
-export type MusicSettings = { mbBase: string, lastfmKey: string, chart: 'apple' | 'lastfm' };
+// genres: the genre charts shown on the Music page (Apple genre ids), in the order picked.
+export type MusicSettings = { mbBase: string, lastfmKey: string, chart: 'apple' | 'lastfm', genres: string[] };
 
 export const loadMusicSettings = (): MusicSettings => {
     try {
@@ -17,9 +18,10 @@ export const loadMusicSettings = (): MusicSettings => {
             mbBase: typeof saved.mbBase === 'string' && saved.mbBase.length > 0 ? saved.mbBase : '',
             lastfmKey: typeof saved.lastfmKey === 'string' ? saved.lastfmKey.trim() : '',
             chart: saved.chart === 'lastfm' ? 'lastfm' : 'apple',
+            genres: Array.isArray(saved.genres) ? saved.genres.filter((g: unknown) => typeof g === 'string' && /^\d+$/.test(g)) : ['14', '18', '6', '21', '15'],
         };
     } catch (_e) {
-        return { mbBase: '', lastfmKey: '', chart: 'apple' };
+        return { mbBase: '', lastfmKey: '', chart: 'apple', genres: ['14', '18', '6', '21', '15'] };
     }
 };
 

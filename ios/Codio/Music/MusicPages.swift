@@ -204,3 +204,46 @@ struct ArtistPageView: View {
         }
     }
 }
+
+/// A whole chart as a numbered list (the Top 100 or a genre's top 100), opened from its row on the Music page.
+struct ChartPageView: View {
+    let chart: MusicChartRef
+    @ObservedObject private var taste = MusicTaste.shared
+    @ObservedObject private var player = MusicPlayer.shared
+    @State private var songs: [MusicTrack]?
+
+    var body: some View {
+        let tracks = taste.data.visible(songs ?? [])
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(GenreCharts.title(chart.id)).font(.largeTitle.bold()).foregroundColor(.white).padding(.horizontal, 16).padding(.top, 8)
+                if tracks.first.flatMap({ AppleLinks.url($0) }) != nil {
+                    Text("Chart from Apple Music. Tap ⋯ on a song to listen there.").font(.footnote).foregroundColor(.white.opacity(0.6)).padding(.horizontal, 16)
+                } else if chart.id == "top" && Chart.source == "lastfm" {
+                    Text("Chart data from Last.fm").font(.footnote).foregroundColor(.white.opacity(0.6)).padding(.horizontal, 16)
+                }
+                if !tracks.isEmpty {
+                    HStack(spacing: 10) {
+                        Button { player.play(tracks, at: 0, shuffled: false) } label: { Label("Play", systemImage: "play.fill") }.buttonStyle(RedButtonStyle())
+                        Button { player.play(tracks, at: Int.random(in: 0..<tracks.count), shuffled: true) } label: { Label("Shuffle", systemImage: "shuffle") }.buttonStyle(RedButtonStyle(filled: false))
+                    }
+                    .padding(.horizontal, 16)
+                }
+                if songs == nil {
+                    HStack { Spacer(); ProgressView().tint(Theme.red); Spacer() }.padding(.top, 30)
+                } else if tracks.isEmpty {
+                    Text("Couldn't load this chart right now (no connection?).").foregroundColor(Theme.dim).padding(.horizontal, 16).padding(.top, 30)
+                }
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(tracks.enumerated()), id: \.offset) { i, t in
+                        TrackRow(track: t, number: i + 1) { player.play(tracks, at: i, shuffled: false) }
+                    }
+                }
+            }
+            .padding(.bottom, player.current == nil ? 20 : 90)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: chart.id) { songs = await LBData.chartSongs(chart.id) }
+    }
+}

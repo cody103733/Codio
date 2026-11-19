@@ -312,6 +312,25 @@ public final class MusicNet {
     }
 
     /** True when you picked Last.fm's chart (Apple's, the closest to Billboard, is the default). */
+    /** The genre charts shown on the Music page (Apple genre ids, in the order picked). */
+    public static java.util.List<String> chartGenres() {
+        String s = prefs.getString("chartGenres", null);
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (s == null) s = "14,18,6,21,15";
+        for (String g : s.split(",")) if (g.matches("\\d+")) out.add(g);
+        return out;
+    }
+
+    public static void setChartGenres(java.util.List<String> ids) {
+        prefs.edit().putString("chartGenres", android.text.TextUtils.join(",", ids)).apply();
+    }
+
+    public static void toggleChartGenre(String id) {
+        java.util.List<String> now = chartGenres();
+        if (!now.remove(id)) now.add(id);
+        setChartGenres(now);
+    }
+
     public static boolean chartLastfm() {
         return prefs.getBoolean("chartLastfm", false);
     }

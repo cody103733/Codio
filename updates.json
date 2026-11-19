@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.6.8",
-    "versionCode": 74,
+    "version": "1.7.0",
+    "versionCode": 75,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
+    "notes": "Genre charts: pick genres in Music settings. The Top 100 and each genre chart are now rows like the others; See all opens the full list."
   },
   "phone": {
-    "version": "1.2.8",
-    "versionCode": 33,
+    "version": "1.3.0",
+    "versionCode": 34,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
+    "notes": "Genre charts: pick genres in Music settings. The Top 100 and each genre chart are now rows like the others; See all opens the full list."
   },
   "windows": {
     "version": "1.10.8",

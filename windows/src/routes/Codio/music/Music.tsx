@@ -8,7 +8,7 @@ import { musicStyles as m, Tile, TrackRow } from './parts';
 import { fetchManifest, loadAddons, loadCatalogs, saveAddons, searchAddon, has, type CatalogRow } from './addons';
 import { loadMusicSettings, saveMusicSettings, searchMusicBrainz } from './musicbrainz';
 import { buildDailyMix, savedMix, today } from './dailymix';
-import { appleMusicUrl, chartNewReleases, chartSource, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
+import { appleMusicUrl, chartNewReleases, chartSource, genreName, genreSongs, GENRES, moreFrom, newReleases, popularAlbums, popularArtists, popularSongs, similarArtists } from './discovery';
 import { clearAll, clearHistory, getTaste, hideAlbum, hideArtist, isLikedAlbum, isLikedArtist, mergeSimilar, toggleLikeAlbum, toggleLikeArtist, topSeeds, unhide, unhideAll, useTaste, visibleAlbums, visibleArtists, visibleTracks, type Seed } from './taste';
 import { artistPhotoUrl } from './musicbrainz';
 import { playQueue, recentTracks, usePlayer } from './player';
@@ -227,6 +227,12 @@ const AddonsPanel = () => {
     const [lastfm, setLastfm] = useState(loadMusicSettings().lastfmKey);
     const [chartPick, setChartPick] = useState(loadMusicSettings().chart);
     const pickChart = (c: 'apple' | 'lastfm') => { setChartPick(c); saveMusicSettings({ chart: c }); };
+    const [genres, setGenres] = useState(loadMusicSettings().genres);
+    const toggleGenre = (id: string) => {
+        const next = genres.includes(id) ? genres.filter((g) => g !== id) : [...genres, id];
+        setGenres(next);
+        saveMusicSettings({ genres: next });
+    };
     const platform = usePlatform() as any;
 
     const add = async () => {
@@ -321,6 +327,11 @@ const AddonsPanel = () => {
             {lastfmState === 'bad' ? <div className={m['error']}>Last.fm didn't accept this key. Check that you copied the API key, not the shared secret.</div> : null}
             {lastfmState === 'checking' ? <div className={m['note']}>Checking the key…</div> : null}
             {lastfmState === 'offline' ? <div className={m['note']}>Couldn't reach Last.fm to check the key.</div> : null}
+            <div className={m['section-title']}>Genre charts</div>
+            <div className={m['note']}>Pick the genres whose top 100 shows on the Music page (Apple's charts).</div>
+            <div className={m['addon-box']}>
+                {GENRES.map((g) => <button key={g.id} className={classnames(m['mini-button'], { [m['picked']]: genres.includes(g.id) })} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
+            </div>
             <AccountPanel />
             <TastePanel />
         </div>
@@ -367,11 +378,8 @@ const Results = ({ results, addons, onPlay, current }: { results: SearchResults,
 
 // The Music home's rows. First the ones made from you (what you play, heart and hide), then what is popular and new.
 const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack[] }) => {
-    const platform = usePlatform() as any;
     const navigate = useNavigate();
     const taste = useTaste();
-    const player = usePlayer();
-    const current = player.queue[player.index]?.id ?? null;
     // Your favorite artists, best first (plays, hearts). The key changes only when the order of the top ones does.
     const seeds = useMemo(() => topSeeds(taste, 5), [taste.plays, taste.likedArtists, taste.likedTracks, taste.likedAlbums, taste.hiddenArtists]);
     const seedKey = seeds.map((s) => s.id).join(',');
@@ -394,8 +402,9 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
     const albums = useRow('popular-albums', popularAlbums);
     const freshAll = useRow('new-releases', newReleases);
     const chartFresh = useRow('chart-new-releases', chartNewReleases);
-    const [allTop, setAllTop] = useState(false);
     const source = chartSource();
+    const genreIds = useMemo(() => loadMusicSettings().genres, []);
+    const genreRows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((i) => useRow(`genre-${genreIds[i] ?? `none${i}`}`, () => genreIds[i] ? genreSongs(genreIds[i]) : Promise.resolve([])));
     const songs = useRow(`popular-songs-${source}`, popularSongs);
     const artists = useRow(`popular-artists-${source}`, popularArtists);
     const loading = [albums, freshAll, songs, artists].every((r) => r === null);
@@ -445,6 +454,22 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
         </div>
     ) : null;
 
+    // A chart as a row of numbered songs, like the other rows. Its title (or See all) opens the whole list.
+    const chartRow = (id: string, title: string, list: MusicTrack[], credit: string | null) => list.length > 0 ? (
+        <div key={`chart-${id}`}>
+            <div className={m['section-head']}>
+                <div className={classnames(m['section-title'], m['clickable'])} onClick={() => navigate(`/music/chart/${id}`)}>{title}</div>
+                <button className={m['mini-button']} onClick={() => playQueue(list, 0, false)}>Play all</button>
+                <button className={m['mini-button']} onClick={() => navigate(`/music/chart/${id}`)}>See all</button>
+            </div>
+            {credit ? <div className={m['chart-credit']}>{credit}</div> : null}
+            <Strip className={m['row-strip']}>
+                {list.map((t, i) => <Tile key={t.id} title={`${i + 1}. ${t.title}`} sub={t.artist} art={t.artworkURL} onClick={() => playQueue(list, i)}
+                    liked={taste.likedTracks.some((x) => x.id === t.id && x.addon === t.addon)} onLike={() => toggleLikeTrack(t)} onHide={() => hideTrack(t)} />)}
+            </Strip>
+        </div>
+    ) : null;
+
     return (
         <>
             {trackRow('Daily mix', mix, true)}
@@ -457,23 +482,8 @@ const Discover = ({ addons, recent }: { addons: MusicAddon[], recent: MusicTrack
             {trackRow('Liked songs', likedSongs, true)}
             {albumRow('Popular right now', popular)}
             {albumRow('New releases', fresh)}
-            {topSongs.length > 0 ? (
-                <>
-                    <div className={m['section-head']}>
-                        <div className={m['section-title']}>{allTop ? `Top ${Math.min(100, topSongs.length)}` : 'Songs people are playing'}</div>
-                        <button className={m['mini-button']} onClick={() => playQueue(topSongs, 0, false)}>Play all</button>
-                        {topSongs.length > 10 ? <button className={m['mini-button']} onClick={() => setAllTop(!allTop)}>{allTop ? 'Show less' : `See top ${Math.min(100, topSongs.length)}`}</button> : null}
-                    </div>
-                    {topSongs.some((t) => appleMusicUrl(t)) ? <div className={m['chart-credit']}>Chart from Apple Music</div> : chartSource() === 'lastfm' ? <div className={m['chart-credit']}>Chart data from Last.fm</div> : null}
-                    <div className={m['tracks']}>
-                        {topSongs.slice(0, allTop ? 100 : 10).map((t, i) => {
-                            const apple = appleMusicUrl(t);
-                            return <TrackRow key={t.id} track={t} number={i + 1} canHide current={current === t.id} onPlay={() => playQueue(topSongs, i)}
-                                link={apple ? { label: 'Listen on Apple Music', onOpen: () => platform.openExternal(apple) } : null} />;
-                        })}
-                    </div>
-                </>
-            ) : null}
+            {chartRow('top', 'Top 100', topSongs, topSongs.some((t) => appleMusicUrl(t)) ? 'Chart from Apple Music' : source === 'lastfm' ? 'Chart data from Last.fm' : null)}
+            {genreIds.map((g, i) => chartRow(g, `Top ${genreName(g)}`, visibleTracks(taste, genreRows[i] ?? []), 'Chart from Apple Music'))}
             {artistRow('Popular artists', artists)}
             {loading ? <div className={m['center']}><Spinner /></div> : null}
             {!loading && [albums, freshAll, songs, artists].every((r) => r !== null && r.length === 0) && recent.length === 0 ?

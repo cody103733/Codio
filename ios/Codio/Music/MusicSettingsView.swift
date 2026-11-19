@@ -17,6 +17,7 @@ struct MusicSettingsView: View {
     @State private var lastfmOK: Bool??
     @State private var lastfmChecking = false
     @State private var sure = false
+    @State private var genres = GenreCharts.picked
     @State private var syncing = false
 
     var body: some View {
@@ -67,6 +68,25 @@ struct MusicSettingsView: View {
                 Text("Charts")
             } footer: {
                 Text("Popular songs, artists and the Top 100 follow Apple Music's chart for your country (real streaming, the closest to Billboard). Last.fm's chart follows what Last.fm users track, which leans indie and alternative. To use it, paste your own Last.fm API key (free) and pick Last.fm. The key syncs with your Sync passcode.")
+            }
+            Section {
+                ForEach(GenreCharts.all, id: \.id) { g in
+                    Button {
+                        GenreCharts.toggle(g.id)
+                        genres = GenreCharts.picked
+                        MusicHome.shared.reloadGenres()
+                    } label: {
+                        HStack {
+                            Text(g.name).foregroundColor(.white)
+                            Spacer()
+                            if genres.contains(g.id) { Image(systemName: "checkmark").foregroundColor(Theme.red) }
+                        }
+                    }
+                }
+            } header: {
+                Text("Genre charts")
+            } footer: {
+                Text("Pick the genres whose top 100 shows on the Music page (Apple's charts).")
             }
         }
         .scrollContentBackground(.hidden)

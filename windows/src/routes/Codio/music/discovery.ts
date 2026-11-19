@@ -125,6 +125,39 @@ export const popularSongs = async (): Promise<MusicTrack[]> => {
     });
 };
 
+// Genre charts (the iTunes Store's top 100 per genre; Last.fm has no current genre charts, so these are Apple's whichever
+// chart you picked). The ids are Apple's genre ids. You pick which ones show in Music settings > Charts.
+export const GENRES: { id: string, name: string }[] = [
+    { id: '14', name: 'Pop' }, { id: '18', name: 'Hip-Hop/Rap' }, { id: '6', name: 'Country' }, { id: '21', name: 'Rock' },
+    { id: '15', name: 'R&B/Soul' }, { id: '20', name: 'Alternative' }, { id: '17', name: 'Dance' }, { id: '7', name: 'Electronic' },
+    { id: '12', name: 'Latin' }, { id: '1153', name: 'Metal' }, { id: '22', name: 'Christian' }, { id: '10', name: 'Singer/Songwriter' },
+    { id: '11', name: 'Jazz' }, { id: '2', name: 'Blues' }, { id: '5', name: 'Classical' }, { id: '24', name: 'Reggae' },
+    { id: '16', name: 'Soundtrack' }, { id: '51', name: 'K-Pop' }, { id: '4', name: "Children's Music" },
+];
+export const DEFAULT_GENRES = ['14', '18', '6', '21', '15'];
+export const genreName = (id: string) => GENRES.find((g) => g.id === id)?.name ?? 'Genre';
+
+const genreJobs = new Map<string, Promise<any>>();
+export const genreSongs = async (genre: string): Promise<MusicTrack[]> => {
+    let job = genreJobs.get(genre);
+    if (!job) {
+        job = fetch(`/api/music/genre-chart?cc=${country()}&g=${enc(genre)}`, { headers: { 'X-Codio': '1' } })
+            .then((r) => r.ok ? r.json() : null).catch(() => null)
+            .then((j) => { if (!j) genreJobs.delete(genre); return j; });
+        genreJobs.set(genre, job);
+    }
+    const c = await job;
+    return list(c?.songs).filter((r) => r.title && r.artist).slice(0, 100).map((r): MusicTrack => {
+        const id = `chart:${String(r.artist).toLowerCase()}|${String(r.title).toLowerCase()}`;
+        if (typeof r.appleUrl === 'string') appleLinks.set(id, r.appleUrl);
+        return { id, mbid: null, title: String(r.title), artist: String(r.artist), album: r.album ?? null, artworkURL: r.art ? artUrl(String(r.art)) : null, artistMbid: null };
+    });
+};
+
+// A chart by its page id: 'top' (the Top 100) or a genre id.
+export const chartSongs = (id: string): Promise<MusicTrack[]> => id === 'top' ? popularSongs() : genreSongs(id);
+export const chartTitle = (id: string) => id === 'top' ? 'Top 100' : `Top ${genreName(id)}`;
+
 // Artists in the country's chart (a separate, slower call: their ids are looked up).
 export const popularArtists = async (): Promise<MusicArtist[]> => {
     const key = activeLastfmKey();

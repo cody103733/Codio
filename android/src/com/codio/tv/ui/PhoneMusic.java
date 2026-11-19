@@ -54,7 +54,8 @@ final class PhoneMusic extends PhoneUi.Page {
     // What the home rows are made from (filled in as each call answers).
     private int homeGen = 0;
     private List<Album> albums, freshAll, chartFresh;
-    private boolean allTop;
+    // Genre charts by Apple genre id (Music settings > Genre charts picks which).
+    private final java.util.Map<String, List<Track>> genres = new java.util.HashMap<>();
     private List<Track> songs, mixRaw;
     private List<Artist> artists;
     private List<Album> more;
@@ -340,6 +341,22 @@ final class PhoneMusic extends PhoneUi.Page {
         }
         startMix(gen);
         loadCatalogs();
+        genres.clear();
+        for (final String g : MusicNet.chartGenres()) {
+            MusicNet.async(new MusicNet.Job<List<Track>>() {
+                @Override
+                public List<Track> run() {
+                    return Discovery.genreSongs(g);
+                }
+            }, new MusicNet.Done<List<Track>>() {
+                @Override
+                public void done(List<Track> v, Exception e) {
+                    if (gen != homeGen || v == null || v.isEmpty()) return;
+                    genres.put(g, v);
+                    renderSoon();
+                }
+            });
+        }
     }
 
     private void loadCatalogs() {
@@ -506,23 +523,14 @@ final class PhoneMusic extends PhoneUi.Page {
         addAlbums(c, "New releases", favor(chartFresh, liked, 30));
         List<Track> top = Taste.visibleTracks(songs == null ? new ArrayList<Track>() : songs);
         if (!top.isEmpty()) {
-            content.addView(PhoneUi.sectionTitle(c, allTop ? "Top " + Math.min(100, top.size()) : "Popular songs"));
-            List<Track> ten = new ArrayList<>(top.subList(0, Math.min(allTop ? 100 : 10, top.size())));
-            if (com.codio.tv.music.Discovery.appleMusicUrl(ten.get(0)) != null) content.addView(MusicKit.note(c, "Chart from Apple Music. Tap ⋯ on a song to listen there."));
-            else if ("lastfm".equals(com.codio.tv.music.Discovery.chartSource())) content.addView(MusicKit.note(c, "Chart data from Last.fm"));
-            MusicKit.trackList(ui, content, ten, true);
-            if (top.size() > 10) {
-                TextView more = PhoneKit.link(c, allTop ? "Show less" : "See top " + Math.min(100, top.size()), Theme.RED);
-                more.setPadding(dp(16), dp(10), dp(16), dp(10));
-                more.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        allTop = !allTop;
-                        render();
-                    }
-                });
-                content.addView(more);
-            }
+            String credit = Discovery.appleMusicUrl(top.get(0)) != null ? "Chart from Apple Music" : "lastfm".equals(Discovery.chartSource()) ? "Chart data from Last.fm" : null;
+            content.addView(MusicKit.chartRow(ui, "Top 100", "top", top, credit));
+        }
+        for (String g : MusicNet.chartGenres()) {
+            List<Track> l = genres.get(g);
+            if (l == null) continue;
+            l = Taste.visibleTracks(l);
+            if (!l.isEmpty()) content.addView(MusicKit.chartRow(ui, Discovery.chartTitle(g), g, l, "Chart from Apple Music"));
         }
         addArtists(c, "Popular artists", artists);
         for (Addons.CatalogRow row : catalogs) {

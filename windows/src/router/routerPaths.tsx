@@ -36,6 +36,11 @@ export default [
         element: <routes.Codio.MusicAlbum />,
     },
     {
+        path: '/music/chart/:id',
+        view: 1,
+        element: <routes.Codio.MusicChart />,
+    },
+    {
         path: '/series',
         view: 1,
         element: <routes.Codio.Series />,

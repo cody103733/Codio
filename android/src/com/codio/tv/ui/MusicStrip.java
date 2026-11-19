@@ -10,6 +10,8 @@ final class MusicStrip {
     static final float TITLE_H = 66, HEIGHT = TITLE_H + TvMusicKit.TILE + 110;
 
     final String title;
+    /** A chart row: its songs are numbered. */
+    boolean numbered;
     final List<Object> items = new ArrayList<Object>();
     int focus, prevFocus = -1;
     final Smooth scroll = new Smooth(0.085f, 0.4f);
@@ -51,6 +53,10 @@ final class MusicStrip {
         grow.to(old.grow.target);
     }
 
+    private String number(int i) {
+        return numbered && items.get(i) instanceof com.codio.tv.music.Model.Track ? (i + 1) + ". " : null;
+    }
+
     void draw(Screen s, Canvas c, float y, boolean focusedRow, float dt) {
         TvView tv = s.tv;
         c.drawText(title, TvView.MARGIN, y + 38, tv.tTitle);
@@ -59,10 +65,10 @@ final class MusicStrip {
         int last = Math.min(items.size() - 1, (int) ((sx + TvView.W) / TvMusicKit.STEP) + 1);
         for (int i = first; i <= last; i++) {
             if (focusedRow && i == focus) continue;
-            TvMusicKit.tile(tv, c, items.get(i), TvView.MARGIN + i * TvMusicKit.STEP - sx, ty, focusedRow && i == prevFocus ? 1 - g : 0);
+            TvMusicKit.tile(tv, c, items.get(i), TvView.MARGIN + i * TvMusicKit.STEP - sx, ty, focusedRow && i == prevFocus ? 1 - g : 0, number(i));
         }
         if (focusedRow && focus >= first && focus <= last) {
-            TvMusicKit.tile(tv, c, items.get(focus), TvView.MARGIN + focus * TvMusicKit.STEP - sx, ty, g);
+            TvMusicKit.tile(tv, c, items.get(focus), TvView.MARGIN + focus * TvMusicKit.STEP - sx, ty, g, number(focus));
         }
     }
 }

@@ -238,7 +238,110 @@ public final class Discovery {
 
     /** The song's page on Apple Music, for songs from Apple's chart (the chart is meant to send people there). */
     public static String appleMusicUrl(Track t) {
-        return t == null || t.id == null ? null : APPLE.get(t.id);
+        if (t == null || t.id == null) return null;
+        String url = APPLE.get(t.id);
+        return url != null ? url : GENRE_APPLE.get(t.id);
+    }
+
+    // ---- genre charts: the iTunes Store's top 100 per genre (Apple's newer feed has no genres; Last.fm has no current
+    // genre charts, so these are Apple's whichever chart you picked). Same as windows/desktop/codio-music.js genreFeed.
+    public static final String[][] GENRES = {
+        {"14", "Pop"}, {"18", "Hip-Hop/Rap"}, {"6", "Country"}, {"21", "Rock"}, {"15", "R&B/Soul"}, {"20", "Alternative"},
+        {"17", "Dance"}, {"7", "Electronic"}, {"12", "Latin"}, {"1153", "Metal"}, {"22", "Christian"}, {"10", "Singer/Songwriter"},
+        {"11", "Jazz"}, {"2", "Blues"}, {"5", "Classical"}, {"24", "Reggae"}, {"16", "Soundtrack"}, {"51", "K-Pop"}, {"4", "Children's Music"},
+    };
+    static final String ITUNES = "https://itunes.apple.com";
+    private static final java.util.Map<String, String> GENRE_APPLE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, List<Track>> GENRE_SONGS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, Long> GENRE_AT = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static String genreName(String id) {
+        for (String[] g : GENRES) if (g[0].equals(id)) return g[1];
+        return "Genre";
+    }
+
+    /** "Top 100" for the main chart ("top"), else "Top Pop" and so on. */
+    public static String chartTitle(String id) {
+        return "top".equals(id) ? "Top 100" : "Top " + genreName(id);
+    }
+
+    /** A chart by id: "top" (the Top 100) or a genre id. */
+    public static List<Track> chartSongs(String id) {
+        return "top".equals(id) ? popularSongs() : genreSongs(id);
+    }
+
+    private static String label(JSONObject o, String key) {
+        JSONObject x = o == null ? null : o.optJSONObject(key);
+        return x == null ? "" : x.optString("label", "");
+    }
+
+    private static JSONArray genreFeed(String cc, String genre) throws Exception {
+        String url = ITUNES + "/" + cc + "/rss/topsongs/limit=100/genre=" + genre + "/json";
+        byte[] body = MusicNet.readCache(url, HOURS6);
+        if (body == null) {
+            MusicNet.Reply r = MusicNet.get(url, 15000);
+            if (r.status != 200) {
+                if (!cc.equals("us")) return genreFeed("us", genre);
+                return new JSONArray();
+            }
+            body = r.body;
+            MusicNet.writeCache(url, body);
+        }
+        JSONObject feed = new JSONObject(new String(body, "UTF-8")).optJSONObject("feed");
+        if (feed == null) return new JSONArray();
+        Object e = feed.opt("entry");
+        if (e instanceof JSONArray) return (JSONArray) e;
+        JSONArray one = new JSONArray();
+        if (e instanceof JSONObject) one.put(e);
+        return one;
+    }
+
+    /** A genre's top 100 songs (blocking, kept 30 minutes in memory and 6 hours on disk). */
+    public static List<Track> genreSongs(String genre) {
+        synchronized (GENRE_SONGS) {
+            List<Track> known = GENRE_SONGS.get(genre);
+            Long at = GENRE_AT.get(genre);
+            if (known != null && at != null && System.currentTimeMillis() - at < 30 * 60 * 1000L) return new ArrayList<>(known);
+        }
+        List<Track> songs = new ArrayList<>();
+        try {
+            JSONArray items = genreFeed(country(), genre);
+            for (int i = 0; i < items.length() && songs.size() < 100; i++) {
+                JSONObject r = items.optJSONObject(i);
+                if (r == null) continue;
+                String title = label(r, "im:name"), artist = label(r, "im:artist");
+                if (title.isEmpty() || artist.isEmpty()) continue;
+                Track t = new Track();
+                t.id = "chart:" + artist.toLowerCase(Locale.ROOT) + "|" + title.toLowerCase(Locale.ROOT);
+                t.title = title;
+                t.artist = artist;
+                JSONObject col = r.optJSONObject("im:collection");
+                String album = label(col, "im:name");
+                if (!album.isEmpty()) t.album = album;
+                JSONArray images = r.optJSONArray("im:image");
+                String art = images != null && images.length() > 0 ? images.optJSONObject(images.length() - 1).optString("label", "") : "";
+                t.artworkURL = art.matches("^https://is\\d+-ssl\\.mzstatic\\.com/.*") ? art.replaceAll("/\\d+x\\d+bb\\.", "/400x400bb.") : null;
+                String page = "";
+                Object links = r.opt("link");
+                JSONArray la = links instanceof JSONArray ? (JSONArray) links : new JSONArray();
+                if (links instanceof JSONObject) la.put(links);
+                for (int k = 0; k < la.length() && page.isEmpty(); k++) {
+                    JSONObject at = la.optJSONObject(k) == null ? null : la.optJSONObject(k).optJSONObject("attributes");
+                    String href = at == null ? "" : at.optString("href", "");
+                    if (href.startsWith("https://music.apple.com/")) page = href;
+                }
+                if (page.isEmpty() && label(r, "id").startsWith("https://music.apple.com/")) page = label(r, "id");
+                if (!page.isEmpty()) GENRE_APPLE.put(t.id, page);
+                songs.add(t);
+            }
+        } catch (Exception ignored) {
+            // the row stays empty
+        }
+        if (!songs.isEmpty()) {
+            GENRE_SONGS.put(genre, songs);
+            GENRE_AT.put(genre, System.currentTimeMillis());
+        }
+        return new ArrayList<>(songs);
     }
 
     /** Opens the song on Apple Music (its app, else the browser). False if nothing on the device can open it. */
