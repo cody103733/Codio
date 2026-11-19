@@ -3,19 +3,19 @@
     "version": "1.14.1",
     "versionCode": 85,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
   },
   "phone": {
     "version": "1.8.1",
     "versionCode": 42,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
   },
   "windows": {
-    "version": "1.17.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.0/CodioSetup-1.17.0.exe",
-    "size": 66222894,
-    "sha256": "9a0e453966db4a64397826584f10328b9b89b15cbdcd21be6b5e72d4214bf6f5",
-    "notes": "New Calendar in the Library: see when the next episodes and movies of what you follow come out."
+    "version": "1.17.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.1/CodioSetup-1.17.1.exe",
+    "size": 66214504,
+    "sha256": "53c070d2d72ece4af6078e88e8d99702283ba9d63325d90163dc3fc43b922a45",
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
   }
 }
