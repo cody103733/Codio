@@ -1,9 +1,9 @@
 {
   "androidtv": {
-    "version": "1.11.0",
-    "versionCode": 81,
+    "version": "1.12.0",
+    "versionCode": 82,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "When Codio sits idle, it now shows a slideshow of pictures from your Library and the time. Turn it off or change the wait in Settings, Picture & sound."
+    "notes": "Search by voice: press the mic key on the Search screen, or the search/mic button on your remote where the TV allows it. Also new: Your stats in Settings."
   },
   "phone": {
     "version": "1.6.0",

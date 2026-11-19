@@ -234,6 +234,32 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         }
     }
 
+    static boolean isVoiceKey(int code) {
+        return code == KeyEvent.KEYCODE_SEARCH || code == KeyEvent.KEYCODE_VOICE_ASSIST || code == KeyEvent.KEYCODE_ASSIST;
+    }
+
+    private SearchScreen openSearch() {
+        if (stack.isEmpty()) return null;
+        if (!(top() instanceof SearchScreen)) navigate(NavBar.SEARCH);
+        return top() instanceof SearchScreen ? (SearchScreen) top() : null;
+    }
+
+    /** The remote's search button when the system asks Codio to search (onSearchRequested). */
+    public void voiceSearch() {
+        if (playerShown()) return;
+        SearchScreen sc = openSearch();
+        if (sc != null) sc.listen();
+        kick();
+    }
+
+    /** A search the TV's assistant sent to Codio ("search for ... in Codio"). */
+    public void searchFor(String text) {
+        if (text == null || text.trim().isEmpty() || playerShown()) return;
+        SearchScreen sc = openSearch();
+        if (sc != null) sc.setQuery(text.trim());
+        kick();
+    }
+
     private void openSection(Screen s) {
         Screen was = top();
         while (stack.size() > 1) stack.remove(stack.size() - 1).onHide();
@@ -590,6 +616,7 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
 
     @Override
     public boolean onKeyUp(int code, KeyEvent e) {
+        if (isVoiceKey(code)) return true;
         if (map(code) == OK && okDown) {
             okDown = false;
             if (!okLong && !stack.isEmpty() && top().key(OK, e)) kick();
@@ -601,6 +628,14 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
     @Override
     public boolean onKeyDown(int code, KeyEvent e) {
         if (stack.isEmpty()) return false;
+        if (isVoiceKey(code)) {
+            // The remote's search/mic button: open Search and listen (not over the video).
+            if (e.getRepeatCount() == 0 && !playerShown()) {
+                SearchScreen sc = openSearch();
+                if (sc != null) sc.listen();
+            }
+            return true;
+        }
         int k = map(code);
         if (k == OK && (okDown || top().holdsOk())) {
             if (e.getRepeatCount() == 0) {

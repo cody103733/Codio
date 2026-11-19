@@ -2,6 +2,8 @@ package com.codio.tv.ui;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.SystemClock;
 import android.view.KeyEvent;
@@ -9,9 +11,12 @@ import android.view.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Search with an on-screen keyboard (D-pad friendly) or a real keyboard; results from every searchable catalog. */
+/**
+ * Search with an on-screen keyboard (D-pad friendly), a real keyboard, or voice (the mic key at the end of the query
+ * line, or the remote's search/mic button); results from every searchable catalog.
+ */
 final class SearchScreen extends Screen {
-    private static final int NAV = 0, KEYS = 1, RESULTS = 2, RECENT = 3;
+    private static final int NAV = 0, KEYS = 1, RESULTS = 2, RECENT = 3, MIC = 4;
     private static final String CHARS = "abcdefghijklmnopqrstuvwxyz1234567890";
     private static final int KCOLS = 6;
     private static final float KX = TvView.MARGIN, KY = 290, KW = 76, KH = 70, KSX = 84, KSY = 78;
@@ -30,10 +35,44 @@ final class SearchScreen extends Screen {
     private int recentFocus = 0;
     private long dueAt = 0;
     private final Smooth scroll = new Smooth(0.1f, 0.4f);
+    /** This TV can do voice search: the mic key shows. */
+    private final boolean voice;
+    /** A spoken search moves the focus to its first results. */
+    private boolean focusResults = false;
+    private static final float MIC_R = 32, MIC_X = KX + KSX * KCOLS - 8 - MIC_R, MIC_Y = 214;
 
     SearchScreen(TvView tv) {
         super(tv);
         nav = new NavBar(tv, NavBar.SEARCH);
+        voice = Voice.available(tv.getContext());
+        Voice.attach(tv);
+    }
+
+    /** Listen for a spoken search (the mic key, or the remote's search/mic button). */
+    void listen() {
+        if (Voice.listening) return;
+        Voice.listen(tv.getContext(), new Voice.Listener() {
+            @Override
+            public void heard(String text) {
+                setQuery(text);
+            }
+
+            @Override
+            public void failed(String message) {
+                tv.toast(message);
+            }
+        });
+    }
+
+    /** Search for this text now (voice, or a search the TV's assistant sent to Codio). */
+    void setQuery(String text) {
+        query.setLength(0);
+        query.append(text.length() > 60 ? text.substring(0, 60) : text);
+        zone = KEYS;
+        focusResults = true;
+        tv.removeCallbacks(fire);
+        dueAt = 0;
+        search();
     }
 
     private int keyCount() {
@@ -67,7 +106,12 @@ final class SearchScreen extends Screen {
                 Store.Meta keep = grid.focused();
                 grid.items.clear();
                 grid.items.addAll(items);
-                if (keep != null && zone == RESULTS) {
+                if (focusResults && !items.isEmpty() && (zone == KEYS || zone == MIC)) {
+                    focusResults = false;
+                    zone = RESULTS;
+                    grid.focusIn();
+                    Search.remember(tv.host.prefs(), query.toString());
+                } else if (keep != null && zone == RESULTS) {
                     int at = grid.items.indexOf(keep);
                     grid.focus = at >= 0 ? at : Math.min(grid.focus, Math.max(0, grid.items.size() - 1));
                 }
@@ -90,8 +134,9 @@ final class SearchScreen extends Screen {
             c.drawText("Search movies and shows", KX, 232, tv.tTitle);
             tv.tTitle.setColor(Color.WHITE);
         } else {
-            c.drawText(tv.fit(q, tv.tTitle, 560), KX, 232, tv.tTitle);
+            c.drawText(tv.fit(q, tv.tTitle, voice ? 410 : 560), KX, 232, tv.tTitle);
         }
+        if (voice) drawMic(c, zone == MIC);
         tv.tTitle.setTextSize(34);
         tv.fill.setColor(Theme.RED);
         c.drawRect(KX, 250, KX + KSX * KCOLS - 8, 253, tv.fill);
@@ -151,6 +196,61 @@ final class SearchScreen extends Screen {
             }
         }
         nav.draw(c, zone == NAV, sy > 0);
+        if (Voice.listening) drawListening(c, dt);
+    }
+
+    private final Path micPath = new Path();
+
+    /** A round mic key at the end of the query line. */
+    private void drawMic(Canvas c, boolean focused) {
+        tv.fill.setColor(focused ? Color.WHITE : Theme.CARD);
+        c.drawCircle(MIC_X, MIC_Y, MIC_R, tv.fill);
+        drawMicIcon(c, MIC_X, MIC_Y, 1, focused ? Color.BLACK : Theme.TEXT_BODY);
+    }
+
+    private void drawMicIcon(Canvas c, float cx, float cy, float s, int color) {
+        tv.fill.setColor(color);
+        r.set(cx - 7 * s, cy - 18 * s, cx + 7 * s, cy + 5 * s);
+        c.drawRoundRect(r, 7 * s, 7 * s, tv.fill);
+        Paint st = tv.stroke;
+        float was = st.getStrokeWidth();
+        st.setColor(color);
+        st.setStrokeWidth(3.5f * s);
+        st.setStrokeCap(Paint.Cap.ROUND);
+        micPath.reset();
+        r.set(cx - 12 * s, cy - 10 * s, cx + 12 * s, cy + 11 * s);
+        micPath.arcTo(r, 0, 180, true);
+        c.drawPath(micPath, st);
+        c.drawLine(cx, cy + 11 * s, cx, cy + 18 * s, st);
+        c.drawLine(cx - 7 * s, cy + 18 * s, cx + 7 * s, cy + 18 * s, st);
+        st.setStrokeWidth(was);
+        st.setStrokeCap(Paint.Cap.BUTT);
+    }
+
+    private float pulse = 0;
+
+    /** Codio's own Listening card (only on TVs whose speech service has no prompt of its own). */
+    private void drawListening(Canvas c, float dt) {
+        tv.moving();
+        tv.fill.setColor(Theme.SCRIM_STRONG);
+        c.drawRect(0, 0, TvView.W, TvView.H, tv.fill);
+        float cx = TvView.W / 2, cy = 440;
+        pulse += (Voice.level - pulse) * Math.min(1, dt * 10);
+        tv.fill.setColor(0x55E50914);
+        c.drawCircle(cx, cy, 90 + 50 * pulse, tv.fill);
+        tv.fill.setColor(Theme.RED);
+        c.drawCircle(cx, cy, 80, tv.fill);
+        drawMicIcon(c, cx, cy, 2.2f, Color.WHITE);
+        String p = Voice.partial;
+        String line = p == null || p.isEmpty() ? "Listening…" : "“" + p + "”";
+        tv.tTitle.setTextSize(44);
+        line = tv.fit(line, tv.tTitle, 1400);
+        c.drawText(line, cx - tv.tTitle.measureText(line) / 2, cy + 190, tv.tTitle);
+        tv.tTitle.setTextSize(34);
+        tv.tBody.setColor(Theme.TEXT_DIM);
+        String hint = "Say a movie or show. Back to cancel.";
+        c.drawText(hint, cx - tv.tBody.measureText(hint) / 2, cy + 250, tv.tBody);
+        tv.tBody.setColor(Theme.TEXT_BODY);
     }
 
     private static final float RECENT_ROW = 76, RECENT_W = 760;
@@ -215,13 +315,31 @@ final class SearchScreen extends Screen {
             }
             return false;
         }
+        if (Voice.listening) return true;
         switch (zone) {
             case NAV:
                 if (k == TvView.DOWN) {
-                    zone = KEYS;
+                    zone = voice ? MIC : KEYS;
                     return true;
                 }
                 return nav.key(k);
+            case MIC:
+                if (k == TvView.OK) listen();
+                else if (k == TvView.UP) {
+                    zone = NAV;
+                    nav.focus = nav.current;
+                } else if (k == TvView.DOWN) zone = KEYS;
+                else if (k == TvView.LEFT) zone = KEYS;
+                else if (k == TvView.RIGHT) {
+                    if (query.length() == 0 && !recent.isEmpty()) {
+                        zone = RECENT;
+                        recentFocus = 0;
+                    } else if (!grid.items.isEmpty()) {
+                        zone = RESULTS;
+                        grid.focusIn();
+                    }
+                }
+                return true;
             case KEYS: {
                 // Rows: letters/digits, then Space/Delete/Clear, then Both/Movies/Series (wide keys, 2 columns each).
                 int chars = CHARS.length(), rows = chars / KCOLS;
@@ -236,8 +354,11 @@ final class SearchScreen extends Screen {
                     press();
                 } else if (k == TvView.UP) {
                     if (row == 0) {
-                        zone = NAV;
-                        nav.focus = nav.current;
+                        if (voice) zone = MIC;
+                        else {
+                            zone = NAV;
+                            nav.focus = nav.current;
+                        }
                     } else if (type) keyFocus = chars + (keyFocus - types);
                     else if (special) keyFocus = (rows - 1) * KCOLS + col;
                     else keyFocus -= KCOLS;
@@ -300,8 +421,17 @@ final class SearchScreen extends Screen {
     }
 
     @Override
+    void onHide() {
+        Voice.cancel();
+    }
+
+    @Override
     boolean back() {
-        if (zone == RESULTS || zone == RECENT) {
+        if (Voice.listening) {
+            Voice.cancel();
+            return true;
+        }
+        if (zone == RESULTS || zone == RECENT || zone == MIC) {
             zone = KEYS;
             return true;
         }

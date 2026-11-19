@@ -156,6 +156,15 @@ When Codio sits untouched (Android TV and Windows), a slideshow takes over inste
 - After an hour it turns black and, on the TV, lets the TV's own screen saver and sleep take over again.
 - Light by design: two pictures in memory, frames only while a picture fades and once a minute for the clock.
 
+## Voice search (Android TV)
+
+- A round mic key sits at the end of the Search line, one step up from the keyboard. Press OK to speak.
+- The remote's search/mic button opens Search and starts listening, when the TV passes that button to Codio (not over the video).
+- The TV's own "Speak now" prompt is used when it has one (Google TV). Otherwise Codio shows its own Listening card and asks once for the microphone.
+- A TV with no speech recognizer (most Fire TVs) shows no mic key; the remote button says "Voice search isn't available on this TV".
+- What was heard becomes the search, and the focus moves to the first result.
+- "Search for ... in Codio" from the TV's assistant opens Search with that text.
+
 ## Lyrics
 
 Music shows the words of the song that is playing, from LRCLIB (lrclib.net: free, no key, no account).

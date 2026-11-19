@@ -60,6 +60,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         com.codio.tv.ui.NewEpisodes.load(this);
         NewEpisodesJob.schedule(this);
         openFromNotification(getIntent());
+        pendingSearch = searchQuery(getIntent());
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         if (!BuildConfig.PHONE) getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setBackgroundDrawableResource(android.R.color.black);
@@ -108,6 +109,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
             tvUi = BuildConfig.PHONE ? new com.codio.tv.ui.PhoneUi(this, store, new NativeHost())
                     : new com.codio.tv.ui.TvView(this, store, new NativeHost());
             tvUi.showHome();
+            if (pendingSearch != null) {
+                final String q = pendingSearch;
+                pendingSearch = null;
+                tvUi.view().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (tvUi instanceof com.codio.tv.ui.TvView) ((com.codio.tv.ui.TvView) tvUi).searchFor(q);
+                    }
+                });
+            }
             root.addView(tvUi.view(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             web.setVisibility(View.INVISIBLE);
             store.ensureDefaults(new Runnable() {
@@ -446,6 +457,52 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         super.onNewIntent(intent);
         Updater.handle(this, intent);
         openFromNotification(intent);
+        String q = searchQuery(intent);
+        if (q != null) {
+            pendingSearch = q;
+            openPendingSearch();
+        }
+    }
+
+    // ------------------------------------------------------------------ voice search
+
+    /** A search the TV's assistant sent ("search for ... in Codio"), until the screens are ready. */
+    private String pendingSearch;
+
+    private static String searchQuery(Intent intent) {
+        if (intent == null) return null;
+        String a = intent.getAction();
+        if (!Intent.ACTION_SEARCH.equals(a) && !"com.google.android.gms.actions.SEARCH_ACTION".equals(a)) return null;
+        String q = intent.getStringExtra(android.app.SearchManager.QUERY);
+        intent.setAction(Intent.ACTION_MAIN);
+        return q != null && !q.trim().isEmpty() ? q.trim() : null;
+    }
+
+    private void openPendingSearch() {
+        if (pendingSearch == null || !(tvUi instanceof com.codio.tv.ui.TvView)) return;
+        ((com.codio.tv.ui.TvView) tvUi).searchFor(pendingSearch);
+        pendingSearch = null;
+    }
+
+    @Override
+    public boolean onSearchRequested() {
+        if (tvUi instanceof com.codio.tv.ui.TvView && nativeShown()) {
+            ((com.codio.tv.ui.TvView) tvUi).voiceSearch();
+            return true;
+        }
+        return super.onSearchRequested();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (com.codio.tv.ui.Voice.onPermissions(requestCode, grantResults)) return;
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (com.codio.tv.ui.Voice.onActivityResult(requestCode, resultCode, data)) return;
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     // ------------------------------------------------------------------ new episode alerts
