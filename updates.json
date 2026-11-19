@@ -12,10 +12,10 @@
     "notes": "Smoother and lighter: less redrawing during playback and in Music, faster pictures, and a music cache that stays small."
   },
   "windows": {
-    "version": "1.13.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.13.0/CodioSetup-1.13.0.exe",
-    "size": 66189346,
-    "sha256": "2364a731776c223392bf3778e30544956b3d08916d075f1828dbe9090e5d4440",
-    "notes": "Music: Lyrics button in the player shows the words of the song, line by line as it plays (click a line to jump there)."
+    "version": "1.13.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.13.1/CodioSetup-1.13.1.exe",
+    "size": 66177529,
+    "sha256": "ee3a8ce351964b1e70da804cfca241507b3538e7e07995adf027b98a7e1e2cc0",
+    "notes": "Smoother and lighter: Music pages no longer redraw while a song plays, the music cache stays small, and Music > Addons opens again."
   }
 }
