@@ -12,10 +12,10 @@
     "notes": "Genre charts: pick genres in Music settings. The Top 100 and each genre chart are now rows like the others; See all opens the full list."
   },
   "windows": {
-    "version": "1.10.8",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.10.8/CodioSetup-1.10.8.exe",
-    "size": 66166475,
-    "sha256": "1b9af9d902a1efd1f69eaa90d78b3ae26193d7432722737f59cf95c34f7be2de",
-    "notes": "Music loads faster: the chart's albums and artists are matched in one request each, and an album page loads its songs in one request."
+    "version": "1.11.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.11.0/CodioSetup-1.11.0.exe",
+    "size": 66178408,
+    "sha256": "20e1082d375d7df840e1af35da98f61ad0b32987f6aa075896887d919f8e9fbd",
+    "notes": "Music: genre charts (pick them in Music settings), and the Top 100 and genre charts are rows you can open as a full list."
   }
 }
