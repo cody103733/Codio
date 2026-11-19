@@ -5,7 +5,9 @@ import android.graphics.Color;
 import android.graphics.RectF;
 import android.view.KeyEvent;
 
+import com.codio.tv.music.Lyrics;
 import com.codio.tv.music.Model;
+import com.codio.tv.music.MusicNet;
 import com.codio.tv.music.MusicPlayer;
 import com.codio.tv.music.Taste;
 
@@ -17,7 +19,13 @@ import java.util.List;
  */
 final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
     private static final int BAR = 0, CONTROLS = 1, QUEUE = 2;
-    private static final int SHUFFLE = 0, PREVIOUS = 1, PLAY = 2, NEXT = 3, REPEAT = 4, HEART = 5;
+    private static final int SHUFFLE = 0, PREVIOUS = 1, PLAY = 2, NEXT = 3, REPEAT = 4, HEART = 5, LYRICS = 6;
+    /** Lyrics in place of the queue; kept for the next time the screen opens. */
+    private static boolean showLyrics;
+    private String lyricsFor;
+    private Lyrics.Result lyrics;
+    private boolean lyricsLoading, lyricsFailed;
+    private final Smooth lyricsScroll = new Smooth(0.12f, 0.4f);
     private static final float QX = 1000, ROW_H = 84, LIST_Y = 180;
 
     private int zone = CONTROLS, control = PLAY, focus;
@@ -43,6 +51,8 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
                 return MusicPlayer.playing() ? "Pause" : "Play";
             case NEXT:
                 return "Next";
+            case LYRICS:
+                return showLyrics ? "Lyrics: On" : "Lyrics: Off";
             case REPEAT:
                 return MusicPlayer.repeat() == MusicPlayer.REPEAT_ALL ? "Repeat: All" : MusicPlayer.repeat() == MusicPlayer.REPEAT_ONE ? "Repeat: One" : "Repeat: Off";
             default: {
@@ -97,15 +107,24 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
         String total = Model.formatTime(d);
         c.drawText(total, x + bw - tv.tSmall.measureText(total), by + 50, tv.tSmall);
 
-        float bx = x;
-        for (int i = 0; i <= HEART; i++) {
+        float bx = x, cy = 890;
+        for (int i = 0; i <= LYRICS; i++) {
             String l = label(i);
-            tv.drawChip(c, bx, 890, l, zone == CONTROLS && i == control, false);
+            // the buttons go on a second line when they don't fit left of the queue
+            if (bx + tv.chipWidth(l) > QX - 30) {
+                bx = x;
+                cy += 74;
+            }
+            tv.drawChip(c, bx, cy, l, zone == CONTROLS && i == control, false);
             bx += tv.chipWidth(l) + 10;
         }
 
-        // The queue.
         float w = TvView.W - TvView.MARGIN - QX, bottom = TvView.H - 40;
+        if (showLyrics) {
+            drawLyrics(c, t, w, bottom, dt);
+            return;
+        }
+        // The queue.
         c.drawText("Queue", QX, 130, tv.tTitle);
         String hint = queue.size() + (queue.size() == 1 ? " song" : " songs") + "  ·  Hold OK for options";
         tv.tSmall.setColor(Theme.TEXT_FAINT);
@@ -137,6 +156,73 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
         }
         tv.tLabel.setColor(Color.WHITE);
         tv.tSmall.setColor(Theme.TEXT_DIM);
+        c.restore();
+    }
+
+    private void loadLyrics(Model.Track t) {
+        if (t.key().equals(lyricsFor) || MusicPlayer.loading()) return;
+        lyricsFor = t.key();
+        lyrics = null;
+        lyricsFailed = false;
+        lyricsLoading = true;
+        lyricsScroll.snap(0);
+        final String mine = lyricsFor;
+        Lyrics.get(t, (long) (MusicPlayer.duration() * 1000), new MusicNet.Done<Lyrics.Result>() {
+            @Override
+            public void done(Lyrics.Result r, Exception e) {
+                if (!mine.equals(lyricsFor)) return;
+                lyricsLoading = false;
+                lyrics = r;
+                lyricsFailed = e != null;
+                tv.kick();
+            }
+        });
+    }
+
+    /** The words of the song on the right: the line being sung in white, kept a third of the way down. */
+    private void drawLyrics(Canvas c, Model.Track t, float w, float bottom, float dt) {
+        c.drawText("Lyrics", QX, 130, tv.tTitle);
+        tv.tSmall.setColor(Theme.TEXT_FAINT);
+        c.drawText(Lyrics.CREDIT, QX + w - tv.tSmall.measureText(Lyrics.CREDIT), 128, tv.tSmall);
+        tv.tSmall.setColor(Theme.TEXT_DIM);
+        loadLyrics(t);
+        if (lyricsLoading || MusicPlayer.loading()) {
+            tv.spinner(c, QX + 40, LIST_Y + 60, 26, dt);
+            return;
+        }
+        if (lyrics == null) {
+            c.drawText(lyricsFailed ? "Couldn't reach the lyrics." : "No lyrics found for this song.", QX, LIST_Y + 50, tv.tBody);
+            return;
+        }
+        if (!lyrics.synced()) {
+            String text = lyrics.instrumental ? "♪  Instrumental" : lyrics.plain;
+            tv.tBody.setColor(Color.WHITE);
+            tv.drawWrapped(c, text, tv.tBody, QX, LIST_Y, w, Math.max(1, (int) ((bottom - LIST_Y) / 38)));
+            tv.tBody.setColor(Theme.TEXT_BODY);
+            return;
+        }
+        int at = lyrics.lineAt(MusicPlayer.position());
+        float gap = 18, y = 0, target = 0;
+        float[] tops = new float[lyrics.lines.size()];
+        for (int i = 0; i < lyrics.lines.size(); i++) {
+            tops[i] = y;
+            if (i == Math.max(0, at)) target = y;
+            String line = lyrics.lines.get(i).text;
+            y += tv.wrappedHeight(line.length() == 0 ? "♪" : line, tv.tLabel, w, 3) + gap;
+        }
+        lyricsScroll.to(Math.max(0, target - (bottom - LIST_Y) / 3));
+        float sy = step(lyricsScroll, dt);
+        c.save();
+        c.clipRect(QX - 10, LIST_Y - 10, TvView.W, bottom);
+        for (int i = 0; i < lyrics.lines.size(); i++) {
+            float ly = LIST_Y + tops[i] - sy;
+            if (ly > bottom) break;
+            if (ly < LIST_Y - 120) continue;
+            String line = lyrics.lines.get(i).text;
+            tv.tLabel.setColor(i == at ? Color.WHITE : i < at ? Theme.TEXT_FAINT : Theme.TEXT_DIM);
+            tv.drawWrapped(c, line.length() == 0 ? "♪" : line, tv.tLabel, QX, ly, w, 3);
+        }
+        tv.tLabel.setColor(Color.WHITE);
         c.restore();
     }
 
@@ -202,8 +288,8 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
             case CONTROLS:
                 if (k == TvView.LEFT && control > 0) control--;
                 else if (k == TvView.RIGHT) {
-                    if (control < HEART) control++;
-                    else zone = QUEUE;
+                    if (control < LYRICS) control++;
+                    else if (!showLyrics) zone = QUEUE;
                 } else if (k == TvView.UP) zone = BAR;
                 else if (k == TvView.OK) press();
                 return true;
@@ -229,6 +315,9 @@ final class MusicNowScreen extends Screen implements TvMusicKit.Listening {
                 break;
             case NEXT:
                 MusicPlayer.next();
+                break;
+            case LYRICS:
+                showLyrics = !showLyrics;
                 break;
             case REPEAT:
                 MusicPlayer.cycleRepeat();

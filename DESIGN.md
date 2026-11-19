@@ -142,6 +142,37 @@ and Sources). The trailer is a YouTube video, chosen the same way in every app:
   browser; iPhone opens the YouTube app, else an in-app web page. When no app can open it, Android plays YouTube's own player
   full screen inside Codio (OK pauses, Back closes). Windows always plays YouTube's player over the page (Back or Esc closes).
 
+## Lyrics
+
+Music shows the words of the song that is playing, from LRCLIB (lrclib.net: free, no key, no account).
+
+- Lookup: `/api/get` with artist, title, album and length (seconds) first; if that finds nothing, `/api/search` with
+  artist and title, keeping only an answer that is the same recording (same rules as matching a song to an addon:
+  title and artist agree, length within 3 s). Timed lyrics win over plain ones.
+- Timed (LRC) lyrics follow the song: the line being sung is white, sung lines darker grey, coming lines grey; the line
+  counts as current 0.25 s early. The page keeps it a third of the way down unless you scrolled by hand in the last 4 s.
+  Tap or click a line to jump there. Plain lyrics show as text with "These lyrics aren't timed to the song."
+- Where: phones have a Lyrics card on Now Playing (the line now and the next one), tap for the full page; TV has a
+  "Lyrics: On/Off" button on Now Playing that puts the words where the queue is; Windows has a Lyrics button in the mini
+  player that opens a panel above it.
+- Always credit "Lyrics from LRCLIB". Answers are cached a month; a downloaded song keeps its lyrics next to it.
+- Code: `android/.../music/Lyrics.java`, `ios/Codio/Music/Lyrics.swift`, `windows/.../music/lyrics.ts` (+ `LyricsPanel.tsx`,
+  desktop proxy `/api/music/lrclib`).
+
+## Music downloads
+
+The phone apps can keep songs to play offline (Android phone and iPhone; not TV or Windows).
+
+- Download a song from its ⋯ menu, or a whole album with the album page's Download button. One song downloads at a time:
+  the audio (found the same way playing finds it, so it needs a music addon), the cover and the lyrics.
+- Downloads follow the same "Download over" setting as videos (Wi-Fi only by default: they wait for Wi-Fi).
+- A downloaded song always plays from the file, wherever it was opened from (a song matching by key, or the same
+  recording). The source line says "Downloaded".
+- Music shows a "Downloaded" row at the top when there are any; See all opens the list (Play, Shuffle, what is on the way,
+  remove, Remove all). Song rows show a small ↓ mark: red when ready, grey while it downloads.
+- Code: `android/.../music/MusicDownloads.java` (files/music-downloads.json, app Music folder) + `ui/PhoneMusicDownloads.java`;
+  `ios/Codio/Music/MusicDownloads.swift` (Application Support/MusicDownloads, file names stored, not paths) + `MusicExtras.swift`.
+
 ## Rules that are not about looks
 
 - Only http(s) and debrid sources. No torrents.

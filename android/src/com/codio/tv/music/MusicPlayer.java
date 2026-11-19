@@ -351,6 +351,15 @@ public final class MusicPlayer {
         source = null;
         wantPlay = true;
         changed();
+        // A downloaded song plays from the phone, no addon or network needed.
+        String local = MusicDownloads.fileFor(t);
+        if (local != null) {
+            Playable own = new Playable();
+            own.url = local;
+            own.quality = "Downloaded";
+            begin(t, own, mine);
+            return;
+        }
         final List<Addon> addons = Addons.load();
         if (addons.isEmpty()) {
             loading = false;
@@ -399,7 +408,7 @@ public final class MusicPlayer {
             p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setWakeMode(MusicNet.context(), PowerManager.PARTIAL_WAKE_LOCK);
             p.setVolume(volume, volume);
-            p.setDataSource(fixed(found.url));
+            p.setDataSource(found.url.startsWith("/") ? found.url : fixed(found.url));
             p.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(MediaPlayer m) {
@@ -494,7 +503,7 @@ public final class MusicPlayer {
             vlcMode = true;
             final org.videolan.libvlc.MediaPlayer p = new org.videolan.libvlc.MediaPlayer(vlc);
             vp = p;
-            Media m = new Media(vlc, android.net.Uri.parse(fixed(found.url)));
+            Media m = new Media(vlc, found.url.startsWith("/") ? android.net.Uri.fromFile(new java.io.File(found.url)) : android.net.Uri.parse(fixed(found.url)));
             m.addOption(":no-video");
             p.setMedia(m);
             m.release();

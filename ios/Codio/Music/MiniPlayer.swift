@@ -98,6 +98,7 @@ struct NowPlayingView: View {
                         Image(systemName: "speaker.wave.3.fill").foregroundColor(Theme.dim)
                     }
                     .padding(.horizontal, 24)
+                    LyricsCard()
                     if let m = player.message {
                         Text(m).font(.caption).foregroundColor(Theme.redSoft).multilineTextAlignment(.center).padding(.horizontal, 24)
                     } else if let s = player.source {

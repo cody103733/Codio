@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.8.1",
-    "versionCode": 77,
+    "version": "1.9.0",
+    "versionCode": 78,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Subtitles remember each profile's choices: on or off, language, size, and new colour and background options in Settings > Languages & subtitles. Size and colour now apply in the player."
+    "notes": "Lyrics: on Now Playing, pick Lyrics: On to see the words of the song, line by line as it plays."
   },
   "phone": {
-    "version": "1.4.1",
-    "versionCode": 36,
+    "version": "1.5.0",
+    "versionCode": 37,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Subtitles remember each profile's choices: on or off, language, size, and new colour and background options in Settings > Languages & subtitles. Size and colour now apply in the player."
+    "notes": "Lyrics on Now Playing (tap the card for all the words), and download songs or whole albums to play offline: Download in a song's menu or on an album. They show in Music > Downloaded."
   },
   "windows": {
     "version": "1.12.0",

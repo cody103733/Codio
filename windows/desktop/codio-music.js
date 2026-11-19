@@ -4,6 +4,7 @@
 //   GET /api/music/lb?p=/1/{popularity,stats/sitewide,explore/fresh-releases}/...   ListenBrainz (charts, new releases, an artist's top tracks), cached
 //   GET /api/music/lb?p=/1/user/<name>/playlists/createdfor?... and /1/playlist/<mbid>   playlists made for you (Daily Jams), cached
 //   GET /api/music/labs?p=/similar-artists/json?...        ListenBrainz Labs (artists like an artist), cached
+//   GET /api/music/lrclib?p=/api/get?... or /api/search?... song lyrics from LRCLIB, cached
 //   GET /api/music/chart?cc=us&country=United%20States     the country's most played songs (Apple Music chart, or Last.fm's
 //                                                           with header X-Lastfm-Key) matched to MusicBrainz ids, plus the
 //                                                           artists in it: { source, songs, artists }. The key is never logged.
@@ -32,6 +33,7 @@ const DEFAULT_MB = 'https://musicbrainz.org';
 // (CODIO_TEST_LB points both ListenBrainz hosts at a stand-in server, for testing without the internet.)
 const LB = process.env.CODIO_TEST_LB || 'https://api.listenbrainz.org';
 const LABS = process.env.CODIO_TEST_LB || 'https://labs.api.listenbrainz.org';
+const LRCLIB = process.env.CODIO_TEST_LRCLIB || 'https://lrclib.net';
 const CACHE_DIR = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'Codio', 'music-cache');
 const DAY = 24 * 3600 * 1000;
 const GAP_MS = 1000;
@@ -603,6 +605,16 @@ const handle = (request, response, pathname) => {
         // Charts and new releases change by the day; an artist's top tracks hardly at all. The playlists ListenBrainz
         // makes for you (Daily Jams) are looked for every two hours; one playlist never changes once made.
         metadata(response, LB, p, madeFor ? 2 * 3600 * 1000 : playlist ? 7 * DAY : p.startsWith('/1/popularity/') ? DAY : 6 * 3600 * 1000);
+        return true;
+    }
+    if (pathname === '/api/music/lrclib') {
+        // Song lyrics (LRCLIB): an exact lookup or a search, cached a month (a miss is not cached).
+        const p = url.searchParams.get('p') || '';
+        if (!/^\/api\/(get|search)\?/.test(p)) {
+            response.writeHead(400).end();
+            return true;
+        }
+        metadata(response, LRCLIB, p, 30 * DAY);
         return true;
     }
     if (pathname === '/api/music/labs') {

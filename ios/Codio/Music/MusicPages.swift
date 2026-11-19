@@ -89,6 +89,14 @@ struct AlbumPageView: View {
                             shuffle: { player.play(tracks, at: Int.random(in: 0..<max(1, tracks.count)), shuffled: true) },
                             like: { taste.toggleLike(a) },
                             hide: { if taste.data.hiddenAlbums[album.id] != nil { taste.unhide(.album, album.id) } else { taste.hide(a) } })
+                if !tracks.isEmpty {
+                    AlbumDownloadButton(tracks: tracks.map { t in
+                        var t = t
+                        if t.album == nil { t.album = a.title }
+                        if t.artworkURL == nil { t.artworkURL = a.artworkURL }
+                        return t
+                    })
+                }
                 if page == nil && !failed {
                     ProgressView().tint(Theme.red).padding(.top, 30)
                 } else if failed {

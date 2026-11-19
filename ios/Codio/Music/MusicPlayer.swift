@@ -146,6 +146,11 @@ final class MusicPlayer: ObservableObject {
         quality = nil
         source = nil
         publishNowPlaying()
+        // A downloaded song plays from the iPhone, no addon or network needed.
+        if let file = MusicDownloads.shared.fileURL(t) {
+            playURL(file, t, mine, quality: "Downloaded", source: nil)
+            return
+        }
         let addons = MusicAddons.shared.list
         if addons.isEmpty {
             loading = false
@@ -174,6 +179,10 @@ final class MusicPlayer: ObservableObject {
             }
             return
         }
+        playURL(url, t, mine, quality: found.quality ?? found.format, source: found.addon.name)
+    }
+
+    private func playURL(_ url: URL, _ t: MusicTrack, _ mine: Int, quality q: String?, source s: String?) {
         activateSession()
         let item = AVPlayerItem(url: url)
         item.publisher(for: \.status)
@@ -199,8 +208,8 @@ final class MusicPlayer: ObservableObject {
             .store(in: &itemBag)
         player.replaceCurrentItem(with: item)
         loading = false
-        quality = found.quality ?? found.format
-        source = found.addon.name
+        quality = q
+        source = s
         remember(t)
         MusicTaste.shared.recordPlay(t)
         startListening(t)

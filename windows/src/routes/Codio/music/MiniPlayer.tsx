@@ -10,6 +10,7 @@ import { isLikedTrack, toggleLikeTrack, useTaste } from './taste';
 import { cycleRepeat, next, pause, playIndex, previous, removeFromQueue, seek, setVolume, stop, toggle, toggleMute, toggleShuffle, usePlayer } from './player';
 import { formatTime } from './types';
 import { startListenBrainz } from './listenbrainz';
+import LyricsPanel from './LyricsPanel';
 
 const MiniPlayer = () => {
     const player = usePlayer();
@@ -17,6 +18,7 @@ const MiniPlayer = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [queueOpen, setQueueOpen] = useState(false);
+    const [lyricsOpen, setLyricsOpen] = useState(false);
     const inVideo = location.pathname.startsWith('/player');
 
     useEffect(() => {
@@ -60,6 +62,7 @@ const MiniPlayer = () => {
                     </div>
                     : null
             }
+            {lyricsOpen && !queueOpen ? <LyricsPanel /> : null}
             <div className={styles['mini']}>
                 <div
                     className={styles['mini-progress']}
@@ -95,7 +98,8 @@ const MiniPlayer = () => {
                         onChange={(e) => setVolume(Number(e.target.value) / 100)}
                     />
                 </div>
-                <button className={classnames(styles['round'], { [styles['active']]: queueOpen })} onClick={() => setQueueOpen(!queueOpen)} title={'Queue'}>☰</button>
+                <button className={classnames(styles['pill'], { [styles['active']]: lyricsOpen && !queueOpen })} onClick={() => { setLyricsOpen(!(lyricsOpen && !queueOpen)); setQueueOpen(false); }} title={'Lyrics'}>{'Lyrics'}</button>
+                <button className={classnames(styles['round'], { [styles['active']]: queueOpen })} onClick={() => { setQueueOpen(!queueOpen); setLyricsOpen(false); }} title={'Queue'}>☰</button>
                 <button className={styles['round']} onClick={stop} title={'Close'}>✕</button>
             </div>
         </div>

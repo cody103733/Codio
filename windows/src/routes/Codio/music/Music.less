@@ -504,6 +504,26 @@
         text-align: right;
     }
 
+    .pill {
+        height: calc(@u * 44);
+        padding: 0 calc(@u * 18);
+        border-radius: calc(@u * 22);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        font-size: calc(@u * 21);
+        font-weight: 700;
+
+        &:hover {
+            background: #fff;
+            color: #111;
+        }
+
+        &.active {
+            background: @red;
+            border-color: @red;
+            color: #fff;
+        }
+    }
+
     .round {
         width: calc(@u * 56);
         height: calc(@u * 56);
@@ -700,4 +720,72 @@
 .mini-button.picked {
     background: @red;
     color: #fff;
+}
+
+// The lyrics panel above the mini player (LyricsPanel.tsx).
+.lyrics {
+    position: absolute;
+    right: calc(@u * 24);
+    bottom: calc(@u * 116);
+    width: calc(@u * 760);
+    height: min(calc(@u * 720), 70vh);
+    overflow-y: auto;
+    padding: calc(@u * 16) calc(@u * 28) calc(@u * 200);
+    border-radius: calc(@u * 14);
+    background: #1C1C1E;
+    box-shadow: 0 calc(@u * 12) calc(@u * 40) rgba(0, 0, 0, 0.7);
+    scrollbar-width: thin;
+    scrollbar-color: @line transparent;
+
+    .lyrics-title {
+        padding: calc(@u * 6) 0 calc(@u * 14);
+        font-size: calc(@u * 22);
+        font-weight: 800;
+        color: @dim;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .lyrics-line {
+        padding: calc(@u * 8) 0;
+        font-size: calc(@u * 36);
+        font-weight: 800;
+        line-height: 1.25;
+        color: #8E8E93;
+        cursor: pointer;
+        transition: color 0.2s;
+
+        &.past {
+            color: #5A5A5E;
+        }
+
+        &.current {
+            color: #fff;
+        }
+
+        &:hover {
+            color: #fff;
+        }
+    }
+
+    .lyrics-plain {
+        white-space: pre-wrap;
+        font-size: calc(@u * 30);
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .lyrics-note {
+        padding: calc(@u * 14) 0;
+        color: @dim;
+    }
+
+    .lyrics-credit {
+        padding-top: calc(@u * 24);
+        font-size: calc(@u * 18);
+        color: #636366;
+    }
 }

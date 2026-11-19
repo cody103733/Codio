@@ -123,6 +123,7 @@ struct TrackMenuItems: View {
         Button { taste.toggleLike(track) } label: {
             Label(taste.data.isLiked(track) ? "Remove heart" : "Heart", systemImage: taste.data.isLiked(track) ? "heart.slash" : "heart")
         }
+        DownloadMenuItem(track: track)
         if let id = track.artistMbid, isMbid(id) {
             Button { MusicNav.shared.open(MusicArtist(id: id, name: track.artist, detail: nil, artworkURL: nil, addon: nil)) } label: {
                 Label("Go to artist", systemImage: "music.mic")
@@ -160,6 +161,7 @@ struct TrackRow: View {
                             .font(.caption).foregroundColor(Theme.dim).lineLimit(1)
                     }
                     Spacer(minLength: 4)
+                    DownloadMark(track: track)
                     if taste.data.isLiked(track) { Image(systemName: "heart.fill").font(.caption).foregroundColor(Theme.red) }
                     if let ms = track.durationMs { Text(formatTime(Double(ms) / 1000)).font(.caption.monospacedDigit()).foregroundColor(Theme.faint) }
                 }

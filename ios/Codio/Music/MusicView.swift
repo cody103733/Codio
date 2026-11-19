@@ -292,6 +292,7 @@ struct MusicView: View {
         let mix = t.visible(home.mix)
         let recent = t.visible(player.recentTracks())
 
+        DownloadsStrip()
         songRow("Daily mix", mix, playAll: true)
         songRow("Recently played", recent)
         if let first = s.first {

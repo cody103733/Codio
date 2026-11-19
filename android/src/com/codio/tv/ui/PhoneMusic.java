@@ -29,6 +29,7 @@ import com.codio.tv.music.Model.Results;
 import com.codio.tv.music.Model.Track;
 import com.codio.tv.music.MusicBrainz;
 import com.codio.tv.music.MusicNet;
+import com.codio.tv.music.MusicDownloads;
 import com.codio.tv.music.MusicPlayer;
 import com.codio.tv.music.Taste;
 
@@ -84,6 +85,21 @@ final class PhoneMusic extends PhoneUi.Page {
                     }
                 }
             });
+        }
+    };
+    private String downloadsSig = "";
+    private final Runnable downloadsChanged = new Runnable() {
+        @Override
+        public void run() {
+            // progress ticks come often: only a finished song or a new status redraws the page
+            String sig = MusicKit.downloadStatus() + "|" + MusicDownloads.doneTracks().size();
+            if (sig.equals(downloadsSig)) {
+                if (content != null) MusicKit.refreshRows(content);
+                return;
+            }
+            downloadsSig = sig;
+            if (results == null) renderSoon();
+            else if (content != null) MusicKit.refreshRows(content);
         }
     };
     private final MusicPlayer.Listener playerListener = new MusicPlayer.Listener() {
@@ -180,6 +196,7 @@ final class PhoneMusic extends PhoneUi.Page {
         ListenBrainz.listeners.add(accountChanged);
         Addons.listen(addonsChanged);
         MusicPlayer.listen(playerListener);
+        MusicDownloads.listeners.add(downloadsChanged);
     }
 
     @Override
@@ -188,6 +205,7 @@ final class PhoneMusic extends PhoneUi.Page {
         ListenBrainz.listeners.remove(accountChanged);
         Addons.unlisten(addonsChanged);
         MusicPlayer.unlisten(playerListener);
+        MusicDownloads.listeners.remove(downloadsChanged);
         keyboard(false);
     }
 
@@ -494,6 +512,10 @@ final class PhoneMusic extends PhoneUi.Page {
             });
             content.addView(add);
         }
+        downloadsSig = MusicKit.downloadStatus() + "|" + MusicDownloads.doneTracks().size();
+        LinearLayout saved = MusicKit.downloadsRow(ui);
+        if (saved != null) content.addView(saved);
+        int before = content.getChildCount();
         // Artists you like and ones like them: popular and new rows lead with their music.
         List<List<Artist>> simLists = new ArrayList<>();
         for (List<Artist> l : sims) simLists.add(l == null ? new ArrayList<Artist>() : l);
@@ -547,7 +569,7 @@ final class PhoneMusic extends PhoneUi.Page {
             if (!tiles.isEmpty()) content.addView(MusicKit.row(c, row.name, tiles));
         }
         if (albums == null && freshAll == null && songs == null && artists == null) content.addView(spinner(c));
-        else if (content.getChildCount() == 0) content.addView(MusicKit.note(c, "Couldn't load music suggestions. Check your connection, or search above."));
+        else if (content.getChildCount() == before) content.addView(MusicKit.note(c, "Couldn't load music suggestions. Check your connection, or search above."));
     }
 
     private View spinner(Context c) {

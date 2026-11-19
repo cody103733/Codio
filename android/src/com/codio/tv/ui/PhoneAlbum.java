@@ -16,6 +16,7 @@ import com.codio.tv.music.Model.Artist;
 import com.codio.tv.music.Model.Track;
 import com.codio.tv.music.MusicBrainz;
 import com.codio.tv.music.MusicNet;
+import com.codio.tv.music.MusicDownloads;
 import com.codio.tv.music.MusicPlayer;
 import com.codio.tv.music.Taste;
 
@@ -43,7 +44,28 @@ final class PhoneAlbum extends PhoneUi.Page {
             if (body != null) MusicKit.refreshRows(body);
         }
     };
-    private TextView likeButton, hideButton;
+    private TextView likeButton, hideButton, downloadButton;
+    private final Runnable downloadsChanged = new Runnable() {
+        @Override
+        public void run() {
+            if (downloadButton != null) styleDownload();
+            if (body != null) MusicKit.refreshRows(body);
+        }
+    };
+
+    private void styleDownload() {
+        int[] n = MusicDownloads.count(tracks);
+        if (n[0] >= tracks.size() && !tracks.isEmpty()) {
+            downloadButton.setText("✓ Downloaded");
+            PhoneKit.styleChip(downloadButton, true);
+        } else if (n[1] > 0) {
+            downloadButton.setText("Downloading " + n[0] + " of " + tracks.size());
+            PhoneKit.styleChip(downloadButton, false);
+        } else {
+            downloadButton.setText(n[0] > 0 ? "↓ Download the rest" : "↓ Download");
+            PhoneKit.styleChip(downloadButton, false);
+        }
+    }
 
     PhoneAlbum(PhoneUi ui, Album preview) {
         super(ui);
@@ -114,12 +136,14 @@ final class PhoneAlbum extends PhoneUi.Page {
     void onShow() {
         Taste.listeners.add(tasteChanged);
         MusicPlayer.listen(playerListener);
+        MusicDownloads.listeners.add(downloadsChanged);
     }
 
     @Override
     void onHide() {
         Taste.listeners.remove(tasteChanged);
         MusicPlayer.unlisten(playerListener);
+        MusicDownloads.listeners.remove(downloadsChanged);
     }
 
     private Album album() {
@@ -233,6 +257,42 @@ final class PhoneAlbum extends PhoneUi.Page {
         LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(-2, -2);
         hl.leftMargin = dp(8);
         toggles.addView(hideButton, hl);
+        if (!tracks.isEmpty()) {
+            downloadButton = PhoneKit.chip(c, "", false);
+            downloadButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    int[] n = MusicDownloads.count(tracks);
+                    if (n[0] >= tracks.size() || (n[1] > 0 && n[0] + n[1] >= tracks.size())) {
+                        new android.app.AlertDialog.Builder(ui.getContext(), android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                                .setTitle(n[1] > 0 ? "Stop downloading this album?" : "Remove this album's downloads?")
+                                .setPositiveButton("Remove", new android.content.DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(android.content.DialogInterface d, int w) {
+                                        MusicDownloads.remove(tracks);
+                                    }
+                                }).setNegativeButton("Cancel", null).show();
+                        return;
+                    }
+                    if (Addons.load().isEmpty()) {
+                        ui.toast("Add a music addon first: downloads use it");
+                        return;
+                    }
+                    List<Track> withAlbum = new ArrayList<>();
+                    for (Track t : tracks) {
+                        if (t.album == null) t.album = title;
+                        if (t.artworkURL == null) t.artworkURL = art;
+                        withAlbum.add(t);
+                    }
+                    MusicDownloads.add(withAlbum);
+                    ui.toast("Downloading " + tracks.size() + (tracks.size() == 1 ? " song" : " songs"));
+                }
+            });
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-2, -2);
+            dl.leftMargin = dp(8);
+            toggles.addView(downloadButton, dl);
+            styleDownload();
+        }
         body.addView(toggles);
         styleToggles();
         if (tracks.isEmpty()) body.addView(MusicKit.note(c, "No songs found for this album."));

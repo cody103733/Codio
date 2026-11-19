@@ -101,6 +101,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         setBackgroundColor(Theme.BLACK);
         downloads = new PhoneDownloads(act, store, host, this);
         MusicPlayer.init(act);
+        com.codio.tv.music.MusicDownloads.init(act);
         Taste.load();
         ListenBrainz.start();
 

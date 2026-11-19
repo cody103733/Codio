@@ -15,11 +15,13 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.codio.tv.music.Addons;
 import com.codio.tv.music.ArtistPhotos;
 import com.codio.tv.music.Model.Album;
 import com.codio.tv.music.Model.Artist;
 import com.codio.tv.music.Model.Track;
 import com.codio.tv.music.MusicNet;
+import com.codio.tv.music.MusicDownloads;
 import com.codio.tv.music.MusicPlayer;
 import com.codio.tv.music.Taste;
 
@@ -157,6 +159,64 @@ final class MusicKit {
         return box;
     }
 
+    /** What the downloads are doing, in a few words ("Downloading 3 songs", "Waiting for Wi-Fi"), or null. */
+    static String downloadStatus() {
+        int going = 0, waiting = 0, failed = 0;
+        for (MusicDownloads.Entry e : MusicDownloads.all()) {
+            if (MusicDownloads.WAITING.equals(e.state)) waiting++;
+            else if (MusicDownloads.FAILED.equals(e.state)) failed++;
+            else if (!e.done()) going++;
+        }
+        if (going > 0) return "Downloading " + going + (going == 1 ? " song" : " songs");
+        if (waiting > 0) return waiting + (waiting == 1 ? " song waits" : " songs wait") + " for Wi-Fi";
+        if (failed > 0) return failed + (failed == 1 ? " download" : " downloads") + " failed";
+        return null;
+    }
+
+    /** The Downloaded row of Music (songs kept on the phone), or null when there are none. */
+    static LinearLayout downloadsRow(final PhoneUi ui) {
+        List<Track> done = MusicDownloads.doneTracks();
+        String status = downloadStatus();
+        if (done.isEmpty() && status == null) return null;
+        Context c = ui.getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout head = new LinearLayout(c);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = PhoneUi.sectionTitle(c, "Downloaded");
+        head.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView all = PhoneKit.link(c, "See all", Theme.RED);
+        all.setTextSize(15);
+        all.setPadding(PhoneKit.dp(c, 14), PhoneKit.dp(c, 18), PhoneKit.dp(c, 16), PhoneKit.dp(c, 8));
+        head.addView(all);
+        View.OnClickListener open = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ui.push(new PhoneMusicDownloads(ui));
+            }
+        };
+        title.setOnClickListener(open);
+        all.setOnClickListener(open);
+        box.addView(head);
+        if (status != null) {
+            TextView n = note(c, status);
+            n.setTextSize(12);
+            n.setPadding(PhoneKit.dp(c, 14), 0, PhoneKit.dp(c, 14), PhoneKit.dp(c, 6));
+            n.setOnClickListener(open);
+            box.addView(n);
+        }
+        if (!done.isEmpty()) {
+            HorizontalScrollView hs = new HorizontalScrollView(c);
+            hs.setHorizontalScrollBarEnabled(false);
+            LinearLayout in = new LinearLayout(c);
+            in.setPadding(PhoneKit.dp(c, 14), 0, PhoneKit.dp(c, 2), 0);
+            for (View v : trackTiles(ui, done)) in.addView(v);
+            hs.addView(in);
+            box.addView(hs, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return box;
+    }
+
     static LinearLayout row(Context c, String heading, List<View> tiles) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -281,6 +341,21 @@ final class MusicKit {
                 Taste.toggleLikeTrack(t);
             }
         });
+        final MusicDownloads.Entry dl = MusicDownloads.find(t);
+        labels.add(dl == null ? "Download" : dl.done() ? "Remove download" : MusicDownloads.FAILED.equals(dl.state) ? "Try the download again" : "Cancel download");
+        acts.add(new Runnable() {
+            @Override
+            public void run() {
+                if (dl == null) {
+                    MusicDownloads.add(t);
+                    ui.toast(Addons.load().isEmpty() ? "Add a music addon first: downloads use it" : "Downloading. Find it in Music > Downloaded.");
+                } else if (MusicDownloads.FAILED.equals(dl.state)) {
+                    MusicDownloads.add(t);
+                } else {
+                    MusicDownloads.remove(t);
+                }
+            }
+        });
         if (t.artistMbid != null) {
             labels.add("Go to " + t.artist);
             acts.add(new Runnable() {
@@ -371,6 +446,7 @@ final class MusicKit {
         final Track track;
         private final TextView title;
         private final MusicIcons heart;
+        private TextView saved;
 
         TrackRow(final PhoneUi ui, final Track t, int number, final View.OnClickListener play) {
             super(ui.getContext());
@@ -400,6 +476,9 @@ final class MusicKit {
             if (t.durationMs > 0) line = (line.length() > 0 ? line + " · " : "") + com.codio.tv.music.Model.formatTime(t.durationMs / 1000.0);
             text.addView(sub(c, line));
             addView(text, new LayoutParams(0, -2, 1));
+            saved = PhoneKit.text(c, "↓", 16, Theme.RED_SOFT, PhoneKit.BOLD);
+            saved.setGravity(Gravity.CENTER);
+            addView(saved, new LayoutParams(PhoneKit.dp(c, 22), -2));
             heart = new MusicIcons(c, Taste.isLikedTrack(t) ? MusicIcons.HEART_FILL : MusicIcons.HEART, Taste.isLikedTrack(t) ? Theme.RED : PhoneKit.GRAY);
             heart.setPadding(PhoneKit.dp(c, 8), 0, PhoneKit.dp(c, 8), 0);
             heart.setOnClickListener(new OnClickListener() {
@@ -435,6 +514,10 @@ final class MusicKit {
             heart.set(liked ? MusicIcons.HEART_FILL : MusicIcons.HEART, liked ? Theme.RED : PhoneKit.GRAY);
             Track now = MusicPlayer.current();
             title.setTextColor(now != null && now.same(track) ? Theme.RED_SOFT : Color.WHITE);
+            // ↓ = kept on the phone (red when ready, grey while it downloads)
+            MusicDownloads.Entry e = MusicDownloads.find(track);
+            saved.setVisibility(e == null || MusicDownloads.FAILED.equals(e.state) ? View.GONE : View.VISIBLE);
+            if (e != null) saved.setTextColor(e.done() ? Theme.RED_SOFT : PhoneKit.GRAY);
         }
     }
 

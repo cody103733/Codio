@@ -1,1 +1,1 @@
-Subtitles: new colour and background options in Settings > Languages & subtitles, kept for each profile.
+Music: Lyrics button in the player shows the words of the song, line by line as it plays (click a line to jump there).

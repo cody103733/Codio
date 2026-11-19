@@ -11,7 +11,9 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.codio.tv.music.Lyrics;
 import com.codio.tv.music.Model;
+import com.codio.tv.music.MusicNet;
 import com.codio.tv.music.Model.Track;
 import com.codio.tv.music.MusicPlayer;
 import com.codio.tv.music.Taste;
@@ -25,7 +27,11 @@ final class PhoneNowPlaying extends PhoneUi.Page {
     private TextView title, artist, info, elapsed, total, message;
     private SeekBar seek, volume;
     private MusicIcons play, shuffle, repeat, heart, speaker;
-    private LinearLayout queueBox;
+    private LinearLayout queueBox, lyricsCard;
+    private TextView lyricsNow, lyricsNext;
+    private String lyricsFor;
+    private Lyrics.Result lyrics;
+    private int lyricsLine = -2;
     private boolean dragging;
     private int queueSig = -1;
 
@@ -208,6 +214,31 @@ final class PhoneNowPlaying extends PhoneUi.Page {
         vol.addView(volume, new LinearLayout.LayoutParams(0, dp(36), 1));
         body.addView(vol);
 
+        // The lyrics card: the line being sung and the next one; tap for all of them.
+        lyricsCard = new LinearLayout(c);
+        lyricsCard.setOrientation(LinearLayout.VERTICAL);
+        lyricsCard.setPadding(dp(16), dp(12), dp(16), dp(14));
+        lyricsCard.setBackground(PhoneKit.round(Theme.RAISED, dp(12)));
+        lyricsCard.addView(PhoneKit.text(c, "LYRICS", 12, Theme.TEXT_DIM, PhoneKit.SEMIBOLD));
+        lyricsNow = PhoneKit.text(c, "", 19, Color.WHITE, PhoneKit.BOLD);
+        lyricsNow.setPadding(0, dp(6), 0, 0);
+        lyricsNow.setMaxLines(3);
+        lyricsNext = PhoneKit.text(c, "", 17, Theme.TEXT_FAINT, PhoneKit.BOLD);
+        lyricsNext.setPadding(0, dp(4), 0, 0);
+        lyricsNext.setMaxLines(4);
+        lyricsCard.addView(lyricsNow);
+        lyricsCard.addView(lyricsNext);
+        lyricsCard.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ui.push(new PhoneLyrics(ui));
+            }
+        });
+        lyricsCard.setVisibility(View.GONE);
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, -2);
+        ll.setMargins(dp(16), dp(14), dp(16), 0);
+        body.addView(lyricsCard, ll);
+
         message = PhoneKit.text(c, "", 14, Theme.RED_SOFT, PhoneKit.REGULAR);
         message.setPadding(dp(24), dp(10), dp(24), 0);
         body.addView(message);
@@ -280,6 +311,56 @@ final class PhoneNowPlaying extends PhoneUi.Page {
             elapsed.setText(Model.formatTime(p));
         }
         total.setText(Model.formatTime(d));
+        lyricsLine();
+    }
+
+    private void loadLyrics(final Track t) {
+        if (t.key().equals(lyricsFor)) return;
+        lyricsFor = t.key();
+        lyrics = null;
+        lyricsLine = -2;
+        lyricsCard.setVisibility(View.GONE);
+        final String mine = lyricsFor;
+        Lyrics.get(t, (long) (MusicPlayer.duration() * 1000), new MusicNet.Done<Lyrics.Result>() {
+            @Override
+            public void done(Lyrics.Result r, Exception e) {
+                if (lyricsCard == null || !mine.equals(lyricsFor)) return;
+                if (e != null) lyricsFor = null; // try again on the next change
+                lyrics = r;
+                if (r == null) return;
+                lyricsCard.setVisibility(View.VISIBLE);
+                if (!r.synced()) {
+                    lyricsNow.setText(r.instrumental ? "♪  Instrumental" : firstLines(r.plain, 3));
+                    lyricsNext.setText(r.instrumental ? "" : "Tap for all the words");
+                    lyricsNext.setVisibility(r.instrumental ? View.GONE : View.VISIBLE);
+                }
+                lyricsLine();
+            }
+        });
+    }
+
+    private static String firstLines(String text, int n) {
+        StringBuilder sb = new StringBuilder();
+        int k = 0;
+        for (String l : text.split("\\r?\\n")) {
+            if (l.trim().length() == 0) continue;
+            if (k++ == n) break;
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(l.trim());
+        }
+        return sb.toString();
+    }
+
+    private void lyricsLine() {
+        if (lyrics == null || !lyrics.synced() || lyricsNow == null) return;
+        int at = lyrics.lineAt(MusicPlayer.position());
+        if (at == lyricsLine) return;
+        lyricsLine = at;
+        String now = at >= 0 ? lyrics.lines.get(at).text : "♪";
+        String next = at + 1 < lyrics.lines.size() ? lyrics.lines.get(at + 1).text : "";
+        lyricsNow.setText(now.length() == 0 ? "♪" : now);
+        lyricsNext.setText(next);
+        lyricsNext.setVisibility(next.length() == 0 ? View.GONE : View.VISIBLE);
     }
 
     private void update() {
@@ -291,6 +372,7 @@ final class PhoneNowPlaying extends PhoneUi.Page {
         }
         title.setText(t.title);
         artist.setText(t.artist);
+        if (!MusicPlayer.loading()) loadLyrics(t);
         if (t.artworkURL == null ? coverFor != null : !t.artworkURL.equals(coverFor)) {
             coverFor = t.artworkURL;
             cover.set(coverFor);
