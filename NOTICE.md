@@ -3,7 +3,7 @@
 Codio is a modified version of **Stremio Web**, https://github.com/Stremio/stremio-web
 Copyright © 2017-2026 Smart Code OOD and contributors. Licensed under the GNU General Public License, version 2 (see [LICENSE.md](LICENSE.md)).
 
-Codio is not made, endorsed or supported by Stremio or Smart Code OOD. "Stremio" is their name and trademark; it is used here only to say where the code comes from. Codio does not use Stremio's logos.
+Codio is not made, endorsed or supported by Stremio or Smart Code OOD. "Stremio" is their name and trademark; it is used here only to say where the code comes from. Codio does not use Stremio's logos. See [DISCLAIMER.md](DISCLAIMER.md) for the full disclaimer and trademark notes, and [PRIVACY.md](PRIVACY.md) for what the apps send where.
 
 ## What was changed
 
@@ -30,16 +30,38 @@ Changes by Cody, November 2026. The per-file history is in this repository's com
 | DejaVu Sans font (`android/assets/subfont.ttf`, subtitles) | Android APKs | Bitstream Vera / DejaVu font license (free to use and redistribute) |
 | Plus Jakarta Sans font | `ios/web/fonts` | SIL Open Font License 1.1 |
 | Twemoji flag glyphs | `ios/web/fonts/TwemojiFlags.woff2` | CC-BY 4.0, © Twitter, Inc. and other contributors |
-| libmpv (mpv v0.41.0-524-g5921fe50b, `libmpv-2.dll`), unmodified | Windows build | GPL-2.0-or-later. Source: https://github.com/mpv-player/mpv |
-| FFmpeg 4.4.1 (Jellyfin build: `ffmpeg.exe`, `ffprobe.exe` and their DLLs), unmodified | Windows build (downloads) | GPL-3.0-or-later (built with --enable-gpl --enable-version3). Source: https://github.com/jellyfin/jellyfin-ffmpeg |
-| Node.js 22.23.5 `node.exe`, unmodified, shipped as `codio-runtime.exe` | Windows build | MIT and the licenses of its bundled parts. Source: https://github.com/nodejs/node |
+| libmpv (`libmpv-2.dll`, from the `shinchiro/mpv-winbuild-cmake` dev builds; the exact build is in each release's CI log), unmodified | Windows build | GPL (mpv is GPL-2.0-or-later; FFmpeg and the other libraries built into the DLL keep their own GPL/LGPL licenses). Sources: https://github.com/mpv-player/mpv and the build recipe at https://github.com/shinchiro/mpv-winbuild-cmake |
+| FFmpeg 4.4.1 (Jellyfin build: `ffmpeg.exe`, `ffprobe.exe` and their DLLs), unmodified | Windows installers before 1.6.1 only (removed with the streaming server) | GPL-3.0-or-later (built with --enable-gpl --enable-version3). Source: https://github.com/jellyfin/jellyfin-ffmpeg |
+| Node.js 22.x `node.exe` (official build), unmodified, shipped as `codio-runtime.exe` | Windows build | MIT and the licenses of its bundled parts. Source: https://github.com/nodejs/node |
 | Microsoft WebView2 loader (`WebView2Loader.dll`) | Windows build | Microsoft WebView2 SDK license (redistributable), via the MIT `webview2-com` crate |
 | Rust crates (`webview2-com`, `windows`, `serde_json`) | inside `Codio.exe`, listed in `windows/desktop/shell/Cargo.lock` | MIT / Apache-2.0 |
+| NSIS installer stub | `CodioSetup-<version>.exe` | zlib/libpng license |
 
 VLCKit is linked as a separate dynamic framework, so it can be swapped for another build of VLCKit 4.0.0a26 by replacing `Frameworks/VLCKit.framework` in the ipa and re-signing it.
+
+## Data and online services
+
+Codio ships none of the data below; the apps fetch it while you use them. Each service has its own terms, and Codio is not endorsed by any of them.
+
+| Service | Used for | Attribution and terms |
+| --- | --- | --- |
+| [TMDB](https://www.themoviedb.org) | Cast photos, recommendations, trailer ids (with the user's own API key) | This product uses the TMDB API but is not endorsed or certified by TMDB. The apps show this notice next to the TMDB key setting and in About. [TMDB API terms](https://www.themoviedb.org/api-terms-of-use) |
+| Stremio and its default addons (Cinemeta, `images.metahub.space`) | Account, library, catalogs and artwork, through Stremio's engine | [Stremio terms](https://www.stremio.com/tos) |
+| [YouTube](https://www.youtube.com) | Trailers, played in the YouTube app or YouTube's own embedded player, never downloaded | [YouTube Terms of Service](https://www.youtube.com/t/terms) |
+| [IntroDB](https://introdb.app) | Intro, recap and credit times for Skip Intro | Community data from introdb.app |
+| [MusicBrainz](https://musicbrainz.org) | Artists, albums and track lists | Core data CC0; supplementary data CC BY-NC-SA 3.0. Requests carry Codio's User-Agent and are rate-limited as MusicBrainz asks. |
+| [Cover Art Archive](https://coverartarchive.org) | Album covers | Images belong to their copyright holders |
+| [ListenBrainz](https://listenbrainz.org) | Optional scrobbling and recommendations (Daily mix), with the user's own token | Data CC0 |
+| Apple (iTunes Search API, Apple's public RSS chart feeds) | Default music charts, artist and album lookups; chart rows link back to Apple Music | [Apple Media Services terms](https://www.apple.com/legal/internet-services/itunes/) |
+| [Last.fm](https://www.last.fm) | Optional Popular rows and charts, with the user's own API key | [Last.fm API terms](https://www.last.fm/api/tos) |
+| [Deezer API](https://developers.deezer.com) | Artist photos and song matching | [Deezer API terms](https://developers.deezer.com/termsofuse) |
+| [LRCLIB](https://lrclib.net) | Synced lyrics | Lyrics belong to their copyright holders |
+| Music addons (Eclipse Music addon protocol) | Audio, from addons the user adds | Codio only implements the public protocol at https://eclipsemusic.app/docs; it ships no addon |
 
 ## Getting the source of a build
 
 Every iPhone build is a GitHub Release of this repository, tagged `ios-v<version>-build<n>`. The source of that build is this repository at that tag: `ios/` plus `web/` (see `web/codio-build/build-ios.sh`).
 
 The Android TV and phone builds are in `builds/`. Their source is this repository at the commit that added that build: `android/` plus `web/` (see `android/BUILDING.md`).
+
+Every Windows installer is a GitHub Release tagged `windows-v<version>`. Its source is this repository at that tag: `windows/` (an overlay on `web/`, see `windows/assemble.js`) plus `windows/desktop/`.

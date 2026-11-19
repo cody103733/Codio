@@ -299,6 +299,17 @@ final class SettingsScreen extends Screen {
                 SettingsScreen.this.tv.host.checkUpdates();
             }
         });
+        rows.add(new Item("Legal", Legal.TV_TEXT) {
+            @Override
+            String value() {
+                return "Notices";
+            }
+
+            @Override
+            void ok() {
+                WebLink.openOnTv(SettingsScreen.this.tv, Legal.NOTICE_URL);
+            }
+        });
         tops = new float[rows.size()];
         float y = 0;
         for (int i = 0; i < rows.size(); i++) {

@@ -143,6 +143,15 @@ final class PhoneSettings extends PhoneUi.Page {
         header("Addons", false);
         LinearLayout addons = group();
         addAddons(addons);
+        header("Legal", false);
+        LinearLayout legal = group();
+        add(legal, button("Licenses and notices", Theme.RED, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!WebLink.open(ctx(), Legal.NOTICE_URL)) android.widget.Toast.makeText(ctx(), "Couldn't open " + Legal.NOTICE_URL, android.widget.Toast.LENGTH_SHORT).show();
+            }
+        }));
+        footer(Legal.TEXT);
         TextView ver = PhoneKit.text(ctx(), "Codio " + ui.host.version() + " for Android", 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
         ver.setGravity(Gravity.CENTER);
         ver.setPadding(0, dp(20), 0, 0);

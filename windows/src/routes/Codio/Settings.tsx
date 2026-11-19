@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import classnames from 'classnames';
 import { useNavigate } from 'react-router';
-import { useProfile } from 'stremio/common';
+import { useProfile, usePlatform } from 'stremio/common';
 import { useCore } from 'stremio/core';
 import { useAutoPlaySettings, type AutoPlaySettings } from 'stremio/common/AutoPlay';
 import { NavBar, styles } from './components';
@@ -32,8 +32,9 @@ type Profiles = { kind: 'profiles', label: string, help: string };
 type Heading = { kind: 'heading', label: string };
 type Update = { kind: 'update', label: string, help: string };
 type Sync = { kind: 'sync', label: string, help: string };
+type External = { kind: 'external', label: string, help: string, url: string };
 
-type Item = Choice | Link | Account | Profiles | Heading | Update | Sync;
+type Item = Choice | Link | Account | Profiles | Heading | Update | Sync | External;
 
 const BITRATES = [0, 25, 40, 60, 70, 80, 100, 150];
 
@@ -86,6 +87,13 @@ const ITEMS: Item[] = [
 
     { kind: 'heading', label: 'About' },
     { kind: 'update', label: 'Updates', help: '' },
+    {
+        kind: 'external', label: 'Legal', url: 'https://github.com/cody103733/Codio/blob/main/NOTICE.md',
+        help: 'Codio is free software under the GNU GPL version 2, based on Stremio Web (© Smart Code OOD). It is not affiliated with or endorsed by Stremio, TMDB, YouTube, Apple, Last.fm, MusicBrainz or any addon.\n\n'
+            + 'Codio hosts no videos or music. Everything plays from addons you add, and you are responsible for them and for following the law where you live. Provided as is, with no warranty.\n\n'
+            + 'This product uses the TMDB API but is not endorsed or certified by TMDB.\n\n'
+            + 'Source, licenses, notices and privacy: github.com/cody103733/Codio. Press Enter to open the notices.',
+    },
 ];
 
 const indexOf = (item: Choice, value: unknown) => item.values.findIndex((v) => v === value);
@@ -108,6 +116,7 @@ const Settings = () => {
         }
     }, []);
     const update_ = useUpdate(version);
+    const platform = usePlatform() as any;
     const email: string | null = profile?.auth?.user?.email ?? null;
     const profiles = useProfiles();
     const [pick, setPick] = useState(-1);
@@ -143,6 +152,8 @@ const Settings = () => {
             if (p) profiles.switchTo(p);
         } else if (item.kind === 'sync') {
             setSyncOpen(true);
+        } else if (item.kind === 'external') {
+            platform.openExternal?.(item.url);
         } else if (item.kind === 'update') {
             if (update_.state.phase === 'current') update_.check();
             else update_.install();
@@ -151,6 +162,7 @@ const Settings = () => {
 
     const valueOf = (item: Item) => {
         if (item.kind === 'link') return '›';
+        if (item.kind === 'external') return 'Notices ›';
         if (item.kind === 'account') return email ? 'Sign out' : 'Sign in';
         if (item.kind === 'update') return updateLabel(update_.state);
         if (item.kind === 'sync') return syncLabel(syncStatus, !!email);
@@ -212,6 +224,7 @@ const Settings = () => {
                             <>
                                 <div className={styles['help-title']}>{helpItem.label}</div>
                                 {helpItem.kind === 'update' ? <div className={classnames(styles['body'], styles['lines'])}>{`You have Codio ${version}.\n\n${updateHelp(update_.state)}`}</div>
+                                    : helpItem.kind === 'external' ? <div className={classnames(styles['body'], styles['lines'])}>{helpItem.help}</div>
                                     : 'help' in helpItem ? <div className={styles['body']}>{helpItem.help}</div> : null}
                                 {
                                     helpItem.kind === 'profiles' && profiles.list.length > 0 ?

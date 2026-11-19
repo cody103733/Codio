@@ -158,8 +158,16 @@ struct SettingsView: View {
                 Button("Add an addon") { showAddAddon = true }
             } header: {
                 Text("Addons")
+            }
+            Section {
+                Link("Licenses and notices", destination: URL(string: "https://github.com/cody103733/Codio/blob/main/NOTICE.md")!)
+            } header: {
+                Text("Legal")
             } footer: {
-                Text("Codio \(Engine.version) for iPhone").frame(maxWidth: .infinity).padding(.top, 20)
+                VStack(spacing: 0) {
+                    Text("Codio is free software under the GNU GPL version 2, based on Stremio Web (© Smart Code OOD). It is not affiliated with or endorsed by Stremio, TMDB, YouTube, Apple, Last.fm, MusicBrainz or any addon.\n\nCodio hosts no videos or music. Everything plays from addons you add, and you are responsible for them and for following the law where you live. Provided as is, with no warranty.\n\nSource, licenses, notices and privacy: github.com/cody103733/Codio")
+                    Text("Codio \(Engine.version) for iPhone").frame(maxWidth: .infinity).padding(.top, 20)
+                }
             }
         }
         .scrollContentBackground(.hidden)
