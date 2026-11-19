@@ -1,1 +1,1 @@
-Codio now asks for an access password the first time it opens on a PC.
+When Codio sits idle, it now shows a slideshow of pictures from your Library and the time. Turn it off or change the wait in Settings, Picture & sound.

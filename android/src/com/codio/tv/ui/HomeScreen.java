@@ -84,6 +84,18 @@ final class HomeScreen extends Screen {
         loadNear();
     }
 
+    /** Titles from the loaded Home rows that have a big picture (the ambient screen's fallback when the Library is empty). */
+    List<Store.Meta> pictureItems(int max) {
+        List<Store.Meta> out = new ArrayList<>();
+        for (Row r : rows) {
+            for (Store.Meta m : r.items) {
+                if (out.size() >= max) return out;
+                if (m.background != null) out.add(m);
+            }
+        }
+        return out;
+    }
+
     private List<Row> shown() {
         List<Row> out = new ArrayList<>();
         if (cw != null && !cw.items.isEmpty()) out.add(cw);

@@ -525,9 +525,25 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
 
     // ---------------------------------------------------------------- remote control keys
 
+    /** The key that woke the ambient screen, until it's released. */
+    private int wokeKey = -1;
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int code = event.getKeyCode();
+        // The ambient screen: any button only wakes it (its release is swallowed too), and every press restarts the wait.
+        if (tvUi instanceof com.codio.tv.ui.TvView) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0 && ((com.codio.tv.ui.TvView) tvUi).userActive()) {
+                    wokeKey = code;
+                    return true;
+                }
+                if (wokeKey == code) return true;
+            } else if (event.getAction() == KeyEvent.ACTION_UP && wokeKey == code) {
+                wokeKey = -1;
+                return true;
+            }
+        }
         if (nativeShown()) {
             if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
                 if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) tvUi.back();

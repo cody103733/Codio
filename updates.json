@@ -1,9 +1,9 @@
 {
   "androidtv": {
-    "version": "1.10.0",
-    "versionCode": 80,
+    "version": "1.11.0",
+    "versionCode": 81,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Codio now asks for an access password the first time it opens on a device."
+    "notes": "When Codio sits idle, it now shows a slideshow of pictures from your Library and the time. Turn it off or change the wait in Settings, Picture & sound."
   },
   "phone": {
     "version": "1.6.0",

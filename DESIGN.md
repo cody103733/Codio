@@ -76,7 +76,7 @@ Sections, in order, with the same labels and help text everywhere a setting exis
    sources, Source list (TV, Windows), Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts,
    Who's watching? and Mini player (phones), Skip forward and back (TV)
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
-   Hardware decoding, Surround sound on Windows)
+   Hardware decoding, Surround sound on Windows; Ambient screen and Ambient screen after on TV and Windows)
 3. **Downloads** (phones)
 4. **Languages & subtitles**: Audio language, Subtitles, Subtitle language (TV, phones), Subtitle size, Subtitle colour
    (White, Yellow, Cyan, Green), Subtitle background (None, Shaded box, Black box). All of these belong to the profile:
@@ -141,6 +141,20 @@ and Sources). The trailer is a YouTube video, chosen the same way in every app:
 - Playing it: Android TV opens the YouTube TV app (Google TV's, then Fire TV's); Android phones open the YouTube app or the
   browser; iPhone opens the YouTube app, else an in-app web page. When no app can open it, Android plays YouTube's own player
   full screen inside Codio (OK pauses, Back closes). Windows always plays YouTube's player over the page (Back or Esc closes).
+
+## Ambient screen
+
+When Codio sits untouched (Android TV and Windows), a slideshow takes over instead of a still page or a dark screen:
+
+- Pictures: the wide backdrop of titles in Continue Watching and the Library (Metahub's picture for IMDb ids, as these
+  have none of their own), shuffled; topped up from the first Home row when there are fewer than 6. Each stays 12 seconds
+  and cross-fades over 1.5 seconds. The title's logo (or its name) and year sit bottom left, the time top right; both
+  shift a little with each picture so nothing stays in one place on the panel.
+- Starts after Ambient screen after (1, 2, 5, 10, 15 or 30 minutes; TV 2, Windows 5 by default) with nothing pressed.
+  Never over a video, the source search, a keyboard, Now Playing, a trailer or a dialog.
+- Any button (Windows: any key, click or mouse move) brings back the screen underneath, and that press does nothing else.
+- After an hour it turns black and, on the TV, lets the TV's own screen saver and sleep take over again.
+- Light by design: two pictures in memory, frames only while a picture fades and once a minute for the clock.
 
 ## Lyrics
 

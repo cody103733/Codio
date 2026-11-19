@@ -207,6 +207,11 @@ final class Setting {
             }
             l.add(new Setting(PICTURE_SOUND, DEVICE, "Audio sync", "Codio measures how long this TV's speakers take and corrects for it automatically. If voices still don't match lips, fine-tune here: \"earlier\" when the sound lags, \"later\" when it comes first. Applies to the next thing you play.",
                     "audio_delay_ms", 0, delays, delayLabels, true));
+            l.add(new Setting(PICTURE_SOUND, DEVICE, "Ambient screen", "When Codio sits untouched, it shows a slideshow of pictures from your Library and the time instead of going dark. Any button brings you back. After an hour it lets the TV sleep as usual.",
+                    AmbientScreen.PREF, "on", ON_OFF_TEXT, ON_OFF_LABELS, false));
+            Object[] idle = {60000, 120000, 300000, 600000, 900000, 1800000};
+            l.add(new Setting(PICTURE_SOUND, DEVICE, "Ambient screen after", "How long Codio waits, with nothing pressed, before the ambient screen starts.",
+                    AmbientScreen.DELAY_PREF, AmbientScreen.DEFAULT_DELAY, idle, new String[]{"1 minute", "2 minutes", "5 minutes", "10 minutes", "15 minutes", "30 minutes"}, false));
         } else {
             l.add(new Setting(DOWNLOADS, DEVICE, "Download over", "Big video files can use a lot of mobile data. With Wi-Fi only, downloads wait until you're on Wi-Fi.",
                     "dl_wifi_only", true, ON_OFF, new String[]{"Wi-Fi only", "Wi-Fi and mobile data"}, false));

@@ -1919,3 +1919,73 @@
         background: #000;
     }
 }
+
+// ---- Ambient screen (a slideshow when Codio sits untouched, see Ambient.tsx)
+.ambient {
+    --u: min(calc(100vw / 1920), calc(100vh / 1080));
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #000;
+    overflow: hidden;
+    cursor: none;
+    animation: codio-fade 800ms ease both;
+
+    .ambient-picture {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 1500ms ease;
+    }
+
+    .ambient-shade {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        background:
+            linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0, rgba(0, 0, 0, 0) calc(@u * 180)),
+            linear-gradient(to bottom, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.85) 82%, #000 100%);
+    }
+
+    .ambient-clock {
+        position: absolute;
+        z-index: 3;
+        top: calc(@u * 56);
+        right: calc(@u * 96);
+        font-size: calc(@u * 56);
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .ambient-title {
+        position: absolute;
+        z-index: 3;
+        left: calc(@u * 96);
+        bottom: calc(@u * 84);
+        animation: codio-fade 1500ms ease both;
+    }
+
+    .ambient-logo {
+        display: block;
+        max-width: calc(@u * 640);
+        max-height: calc(@u * 200);
+        object-fit: contain;
+        object-position: left bottom;
+    }
+
+    .ambient-name {
+        max-width: calc(@u * 1100);
+        font-size: calc(@u * 72);
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .ambient-meta {
+        margin-top: calc(@u * 20);
+        font-size: calc(@u * 26);
+        font-weight: 700;
+        color: @dim;
+    }
+}

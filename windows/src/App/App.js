@@ -20,6 +20,7 @@ const { default: useInterfaceScale } = require('./useInterfaceScale');
 const { DownloadWorker } = require('stremio/routes/Codio/downloads');
 const { MiniPlayer } = require('stremio/routes/Codio/music');
 const { AccessGate } = require('stremio/routes/Codio/AccessLock');
+const Ambient = require('stremio/routes/Codio/Ambient').default;
 const styles = require('./styles');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
@@ -184,6 +185,7 @@ const App = () => {
                                     <ShellOpenHandler />
                                     <DownloadWorker />
                                     <MiniPlayer />
+                                    <Ambient />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
                                 </DiscordProvider>

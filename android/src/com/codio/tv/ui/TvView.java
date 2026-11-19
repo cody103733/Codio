@@ -516,6 +516,71 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         soonMs = 0;
     }
 
+    // ------------------------------------------------------------------ ambient screen
+
+    private final Runnable idle = new Runnable() {
+        @Override
+        public void run() {
+            startAmbient();
+        }
+    };
+
+    /** Starts (or restarts) the wait for the ambient screen. */
+    private void armIdle() {
+        removeCallbacks(idle);
+        postDelayed(idle, AmbientScreen.delay(host.prefs()));
+    }
+
+    public boolean ambientShown() {
+        return !stack.isEmpty() && top() instanceof AmbientScreen;
+    }
+
+    private void startAmbient() {
+        Screen t = stack.isEmpty() ? null : top();
+        boolean busy = t == null || t instanceof AmbientScreen || t instanceof PlayerScreen || t instanceof LoadingScreen
+                || t instanceof TextEntryScreen || t instanceof MusicNowScreen;
+        // Hidden (web page, another app) or under a dialog (a trailer, an update prompt): not idle, just elsewhere.
+        if (busy || !AmbientScreen.enabled(host.prefs()) || !isShown() || !hasWindowFocus() || host.webBusy()) {
+            armIdle();
+            return;
+        }
+        java.util.List<Store.Meta> items = AmbientScreen.pick(this);
+        if (items.isEmpty()) {
+            armIdle();
+            return;
+        }
+        push(new AmbientScreen(this, items));
+    }
+
+    /**
+     * A remote button was pressed (any key, from the activity): the idle wait starts over. True when it only woke the
+     * ambient screen, so the key does nothing else.
+     */
+    public boolean userActive() {
+        armIdle();
+        if (!ambientShown()) return false;
+        pop();
+        return true;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        armIdle();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(idle);
+        super.onDetachedFromWindow();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) armIdle();
+    }
+
     // ------------------------------------------------------------------ keys
 
     public static final int UP = 1, DOWN = 2, LEFT = 3, RIGHT = 4, OK = 5, PLAY = 6, FF = 7, RW = 8, OTHER = 0;

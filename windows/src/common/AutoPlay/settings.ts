@@ -42,6 +42,9 @@ export type AutoPlaySettings = {
     autoSkip: number,
     // New episode alerts: mark shows with a new episode out and put them first in Continue Watching.
     newEpisodeAlerts: boolean,
+    // Ambient screen: a slideshow of pictures when Codio sits untouched, after this many minutes.
+    ambient: boolean,
+    ambientDelayMinutes: number,
 };
 
 export const QUALITIES: Quality[] = ['2160p', '1440p', '1080p', '720p', '480p'];
@@ -71,6 +74,8 @@ export const DEFAULT_SETTINGS: AutoPlaySettings = {
     skipButtons: true,
     autoSkip: 0,
     newEpisodeAlerts: true,
+    ambient: true,
+    ambientDelayMinutes: 5,
 };
 
 const STORAGE_KEY = 'autoPlaySettings';

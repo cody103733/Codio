@@ -69,6 +69,8 @@ const ITEMS: Item[] = [
     { kind: 'choice', store: 'profile', label: 'Hardware decoding', help: 'Uses the graphics card to decode video. Turn off only if videos show green or black pictures.', key: 'hardwareDecoding', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'profile', label: 'Surround sound', help: 'Send 5.1 / 7.1 audio as it is, for a surround system. Off mixes it down to stereo.', key: 'surroundSound', values: [false, true], labels: ['Off', 'On'] },
     { kind: 'choice', store: 'profile', label: 'Pause when minimized', help: 'Pause the video when you minimize the Codio window.', key: 'pauseOnMinimize', values: [false, true], labels: ['Off', 'On'] },
+    { kind: 'choice', store: 'autoplay', label: 'Ambient screen', help: 'When Codio sits untouched, it shows a slideshow of pictures from your Library and the time. Any key, click or mouse move brings you back. After an hour the screen turns black.', key: 'ambient', values: [true, false], labels: ['On', 'Off'] },
+    { kind: 'choice', store: 'autoplay', label: 'Ambient screen after', help: 'How long Codio waits, with nothing pressed, before the ambient screen starts.', key: 'ambientDelayMinutes', values: [1, 2, 5, 10, 15, 30], labels: ['1 minute', '2 minutes', '5 minutes', '10 minutes', '15 minutes', '30 minutes'] },
 
     { kind: 'heading', label: 'Languages & subtitles' },
     { kind: 'choice', store: 'profile', label: 'Audio language', help: 'The audio track Codio picks when a video has several.', key: 'audioLanguage', values: LANGUAGES.map(([code]) => code), labels: LANGUAGES.map(([, name]) => name) },
