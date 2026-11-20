@@ -12,10 +12,10 @@
     "notes": "Music: put your genre charts in the order you want in Music settings."
   },
   "windows": {
-    "version": "1.17.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.1/CodioSetup-1.17.1.exe",
-    "size": 66214504,
-    "sha256": "53c070d2d72ece4af6078e88e8d99702283ba9d63325d90163dc3fc43b922a45",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
+    "version": "1.17.2",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.2/CodioSetup-1.17.2.exe",
+    "size": 66221941,
+    "sha256": "7acc46aa5a20bbb446d7899ce37b0f320ad15427fbc891ac7d7e7d897c1eaf8a",
+    "notes": "Music: put your genre charts in the order you want in Music settings (arrows move a genre up or down)."
   }
 }
