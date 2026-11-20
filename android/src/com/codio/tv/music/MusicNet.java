@@ -366,6 +366,16 @@ public final class MusicNet {
         prefs.edit().putString("chartGenres", android.text.TextUtils.join(",", ids)).apply();
     }
 
+    /** Moves a picked genre `by` places (negative: earlier on the Music page). */
+    public static void moveChartGenre(String id, int by) {
+        java.util.List<String> now = chartGenres();
+        int at = now.indexOf(id), to = at + by;
+        if (at < 0 || to < 0 || to >= now.size()) return;
+        now.remove(at);
+        now.add(to, id);
+        setChartGenres(now);
+    }
+
     public static void toggleChartGenre(String id) {
         java.util.List<String> now = chartGenres();
         if (!now.remove(id)) now.add(id);

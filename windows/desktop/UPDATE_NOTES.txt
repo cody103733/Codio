@@ -1,1 +1,1 @@
-Music: when TorBox is still downloading a song, Codio now shows "Preparing song…" and waits for it instead of saying no source.
+Music: put your genre charts in the order you want in Music settings (arrows move a genre up or down).

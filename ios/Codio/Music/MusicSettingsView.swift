@@ -70,29 +70,50 @@ struct MusicSettingsView: View {
                 Text("Popular songs, artists and the Top 100 follow Apple Music's chart for your country (real streaming, the closest to Billboard). Last.fm's chart follows what Last.fm users track, which leans indie and alternative. To use it, paste your own Last.fm API key (free) and pick Last.fm. The key syncs with your Sync passcode.")
             }
             Section {
-                ForEach(GenreCharts.all, id: \.id) { g in
-                    Button {
-                        GenreCharts.toggle(g.id)
-                        genres = GenreCharts.picked
-                        MusicHome.shared.reloadGenres()
-                    } label: {
+                ForEach(Array(genres.enumerated()), id: \.element) { i, id in
+                    HStack {
+                        Text("\(i + 1).").foregroundColor(Theme.dim).monospacedDigit().frame(width: 28, alignment: .leading)
+                        Text(GenreCharts.name(id)).foregroundColor(.white)
+                        Spacer()
+                        Button { moveGenre(id, by: -1) } label: { Image(systemName: "chevron.up") }
+                            .buttonStyle(.borderless).disabled(i == 0)
+                        Button { moveGenre(id, by: 1) } label: { Image(systemName: "chevron.down") }
+                            .buttonStyle(.borderless).disabled(i == genres.count - 1).padding(.leading, 10)
+                        Button { toggleGenre(id) } label: { Image(systemName: "minus.circle.fill").foregroundColor(Theme.redSoft) }
+                            .buttonStyle(.borderless).padding(.leading, 10)
+                    }
+                }
+                ForEach(GenreCharts.all.filter { !genres.contains($0.id) }, id: \.id) { g in
+                    Button { toggleGenre(g.id) } label: {
                         HStack {
                             Text(g.name).foregroundColor(.white)
                             Spacer()
-                            if genres.contains(g.id) { Image(systemName: "checkmark").foregroundColor(Theme.red) }
+                            Image(systemName: "plus.circle").foregroundColor(Theme.red)
                         }
                     }
                 }
             } header: {
                 Text("Genre charts")
             } footer: {
-                Text("Pick the genres whose top 100 shows on the Music page (Apple's charts).")
+                Text("Your genres are at the top, in the order their rows show on the Music page. Use the arrows to move one, + to add a genre, − to remove it.")
             }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Music")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func toggleGenre(_ id: String) {
+        GenreCharts.toggle(id)
+        genres = GenreCharts.picked
+        MusicHome.shared.reloadGenres()
+    }
+
+    private func moveGenre(_ id: String, by: Int) {
+        GenreCharts.move(id, by: by)
+        genres = GenreCharts.picked
+        MusicHome.shared.reloadGenres()
     }
 
     private func saveLastfm() {

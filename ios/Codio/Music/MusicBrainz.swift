@@ -686,6 +686,15 @@ actor GenreCharts {
         picked = now
     }
 
+    /// Moves a picked genre `by` places (negative: earlier on the Music page).
+    static func move(_ id: String, by: Int) {
+        var now = picked
+        guard let at = now.firstIndex(of: id), at + by >= 0, at + by < now.count else { return }
+        now.remove(at: at)
+        now.insert(id, at: at + by)
+        picked = now
+    }
+
     static func name(_ id: String) -> String { all.first { $0.id == id }?.name ?? "Genre" }
     /// "Top 100" for the main chart ("top"), else "Top Pop" and so on.
     static func title(_ id: String) -> String { id == "top" ? "Top 100" : "Top \(name(id))" }

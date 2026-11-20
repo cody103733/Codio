@@ -1,21 +1,21 @@
 {
   "androidtv": {
-    "version": "1.14.1",
-    "versionCode": 85,
+    "version": "1.14.2",
+    "versionCode": 86,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
+    "notes": "Music: put your genre charts in the order you want in Music settings."
   },
   "phone": {
-    "version": "1.8.1",
-    "versionCode": 42,
+    "version": "1.8.2",
+    "versionCode": 43,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
+    "notes": "Music: put your genre charts in the order you want in Music settings."
   },
   "windows": {
     "version": "1.17.1",
     "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.1/CodioSetup-1.17.1.exe",
     "size": 66214504,
     "sha256": "53c070d2d72ece4af6078e88e8d99702283ba9d63325d90163dc3fc43b922a45",
-    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song\u2026\" and waits for it instead of saying no source."
+    "notes": "Music: when TorBox is still downloading a song, Codio now shows \"Preparing song…\" and waits for it instead of saying no source."
   }
 }

@@ -12,6 +12,8 @@ final class MusicHome: ObservableObject {
     @Published var popularArtists: [MusicArtist]?
     /// Genre charts by Apple genre id (Music settings > Genre charts picks which).
     @Published var genres: [String: [MusicTrack]] = [:]
+    /// The picked genres in their order (Music settings changes it).
+    @Published var genreOrder: [String] = GenreCharts.picked
     @Published var similar: [String: [MusicArtist]] = [:]
     @Published var more: [String: [MusicAlbum]] = [:]
     @Published var mix: [MusicTrack] = []
@@ -40,6 +42,7 @@ final class MusicHome: ObservableObject {
 
     /// The picked genre charts that aren't loaded yet.
     func reloadGenres() {
+        genreOrder = GenreCharts.picked
         for g in GenreCharts.picked where genres[g] == nil {
             Task {
                 let list = await GenreCharts.shared.songs(g)
@@ -307,7 +310,7 @@ struct MusicView: View {
         albumRow("New releases", Array(fav(home.chartNew).prefix(30)))
         let allSongs = t.visible(home.popularSongs ?? [])
         chartRow("top", allSongs, credit: allSongs.first.flatMap { AppleLinks.url($0) } != nil ? "Chart from Apple Music" : Chart.source == "lastfm" ? "Chart data from Last.fm" : nil)
-        ForEach(GenreCharts.picked, id: \.self) { g in
+        ForEach(home.genreOrder, id: \.self) { g in
             chartRow(g, t.visible(home.genres[g] ?? []), credit: "Chart from Apple Music")
         }
         artistRow("Popular artists", home.popularArtists ?? [])

@@ -233,6 +233,16 @@ const AddonsPanel = () => {
         setGenres(next);
         saveMusicSettings({ genres: next });
     };
+    // Your genres in the order their rows show on the Music page; the arrows move one up or down.
+    const moveGenre = (id: string, by: number) => {
+        const at = genres.indexOf(id), to = at + by;
+        if (at < 0 || to < 0 || to >= genres.length) return;
+        const next = [...genres];
+        next.splice(at, 1);
+        next.splice(to, 0, id);
+        setGenres(next);
+        saveMusicSettings({ genres: next });
+    };
     const platform = usePlatform() as any;
 
     const add = async () => {
@@ -332,6 +342,20 @@ const AddonsPanel = () => {
             <div className={m['addon-box']}>
                 {GENRES.map((g) => <button key={g.id} className={classnames(m['mini-button'], { [m['picked']]: genres.includes(g.id) })} onClick={() => toggleGenre(g.id)}>{g.name}</button>)}
             </div>
+            {genres.length > 1 ? <div className={m['note']}>Order on the Music page (first shows first):</div> : null}
+            {genres.length > 1 ? (
+                <div className={m['genre-order']}>
+                    {genres.map((id, i) => (
+                        <div key={id} className={m['genre-rank']}>
+                            <span className={m['genre-place']}>{i + 1}</span>
+                            <span className={m['genre-name']}>{genreName(id)}</span>
+                            <button className={m['mini-button']} disabled={i === 0} title={'Move up'} onClick={() => moveGenre(id, -1)}>▲</button>
+                            <button className={m['mini-button']} disabled={i === genres.length - 1} title={'Move down'} onClick={() => moveGenre(id, 1)}>▼</button>
+                            <button className={m['mini-button']} disabled={i === 0} onClick={() => moveGenre(id, -i)}>To top</button>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
             <AccountPanel />
             <TastePanel />
         </div>

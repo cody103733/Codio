@@ -190,22 +190,59 @@ final class MusicSettingsScreen extends Screen implements TvMusicKit.Listening {
             }
         });
 
-        // Genre charts: each genre's top 100 shows as a row on the Music page when it's on.
-        java.util.List<String> genres = MusicNet.chartGenres();
+        // Genre charts: your genres first, in the order their rows show on the Music page, then the rest. OK on one of
+        // yours: move it up or down, or turn it off. OK on another: turn it on (it goes last).
+        final java.util.List<String> genres = MusicNet.chartGenres();
+        java.util.List<String[]> order = new java.util.ArrayList<String[]>();
+        for (String id : genres) order.add(new String[]{id, com.codio.tv.music.Discovery.genreName(id)});
+        for (String[] g : com.codio.tv.music.Discovery.GENRES) if (!genres.contains(g[0])) order.add(g);
         boolean firstGenre = true;
-        for (final String[] g : com.codio.tv.music.Discovery.GENRES) {
-            boolean on = genres.contains(g[0]);
-            Item gi = item(g[1], on ? "✔ On the Music page" : "Off", new Runnable() {
+        for (final String[] g : order) {
+            final int place = genres.indexOf(g[0]);
+            Item gi = item(place >= 0 ? (place + 1) + ". " + g[1] : g[1], place >= 0 ? "✔ On the Music page · OK to move" : "Off · OK to turn on", new Runnable() {
                 @Override
                 public void run() {
-                    MusicNet.toggleChartGenre(g[0]);
-                    fill();
+                    if (place < 0) {
+                        MusicNet.toggleChartGenre(g[0]);
+                        fill();
+                        return;
+                    }
+                    MusicMenu menu = new MusicMenu(tv, g[1], "Place " + (place + 1) + " of " + genres.size());
+                    if (place > 0) menu.add("Move up", new Runnable() {
+                        @Override
+                        public void run() {
+                            MusicNet.moveChartGenre(g[0], -1);
+                            fill();
+                        }
+                    });
+                    if (place < genres.size() - 1) menu.add("Move down", new Runnable() {
+                        @Override
+                        public void run() {
+                            MusicNet.moveChartGenre(g[0], 1);
+                            fill();
+                        }
+                    });
+                    if (place > 0) menu.add("Move to the top", new Runnable() {
+                        @Override
+                        public void run() {
+                            MusicNet.moveChartGenre(g[0], -place);
+                            fill();
+                        }
+                    });
+                    menu.add("Turn off", new Runnable() {
+                        @Override
+                        public void run() {
+                            MusicNet.toggleChartGenre(g[0]);
+                            fill();
+                        }
+                    });
+                    tv.push(menu);
                 }
             });
-            if (on) gi.subColor = 0xFF46D369;
+            if (place >= 0) gi.subColor = 0xFF46D369;
             if (firstGenre) {
                 gi.head = "Genre charts";
-                gi.note = "Apple's top 100 for each genre you turn on.";
+                gi.note = "Apple's top 100 for each genre you turn on, in this order on the Music page.";
                 firstGenre = false;
             }
         }

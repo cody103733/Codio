@@ -27,6 +27,48 @@ final class PhoneMusicAddons extends PhoneUi.Page {
     private LinearLayout addonsBox, accountBox, tasteBox;
     private EditText link, server, token, lastfm;
     private TextView lastfmStatus;
+    private LinearLayout genreOrder;
+
+    /** Your genres in the order their rows show on the Music page, with arrows to move each one. */
+    private void drawGenreOrder() {
+        if (genreOrder == null) return;
+        Context c = ctx();
+        genreOrder.removeAllViews();
+        final List<String> genres = MusicNet.chartGenres();
+        if (genres.size() < 2) return;
+        genreOrder.addView(footer("Order on the Music page (first shows first):"));
+        for (int i = 0; i < genres.size(); i++) {
+            final String id = genres.get(i);
+            LinearLayout row = new LinearLayout(c);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(16), dp(2), dp(8), dp(2));
+            TextView name = PhoneKit.text(c, (i + 1) + ".  " + com.codio.tv.music.Discovery.genreName(id), 16, android.graphics.Color.WHITE, PhoneKit.REGULAR);
+            row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView up = PhoneKit.link(c, "▲", i > 0 ? Theme.RED : PhoneKit.GRAY);
+            up.setPadding(dp(14), dp(8), dp(14), dp(8));
+            up.setEnabled(i > 0);
+            up.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    MusicNet.moveChartGenre(id, -1);
+                    drawGenreOrder();
+                }
+            });
+            TextView down = PhoneKit.link(c, "▼", i < genres.size() - 1 ? Theme.RED : PhoneKit.GRAY);
+            down.setPadding(dp(14), dp(8), dp(14), dp(8));
+            down.setEnabled(i < genres.size() - 1);
+            down.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    MusicNet.moveChartGenre(id, 1);
+                    drawGenreOrder();
+                }
+            });
+            row.addView(up);
+            row.addView(down);
+            genreOrder.addView(row);
+        }
+    }
     private int lastfmGen;
     private TextView error, accountError;
     private boolean busy, sure;
@@ -187,12 +229,18 @@ final class PhoneMusicAddons extends PhoneUi.Page {
                 public void onClick(View v) {
                     MusicNet.toggleChartGenre(g[0]);
                     PhoneKit.styleChip(chip, MusicNet.chartGenres().contains(g[0]));
+                    drawGenreOrder();
                 }
             });
             LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2);
             cl.rightMargin = dp(8);
             genreRow.addView(chip, cl);
         }
+
+        genreOrder = new LinearLayout(c);
+        genreOrder.setOrientation(LinearLayout.VERTICAL);
+        body.addView(genreOrder);
+        drawGenreOrder();
 
         body.addView(heading("YOUR ACCOUNT (LISTENBRAINZ)"));
         accountBox = new LinearLayout(c);
