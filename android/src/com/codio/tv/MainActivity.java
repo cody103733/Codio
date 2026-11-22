@@ -1438,6 +1438,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
             String[] parts = hash.replaceAll("[?].*", "").split("/");
             if (parts.length >= 8) {
                 String type = Uri.decode(parts[5]), id = Uri.decode(parts[6]), vid = Uri.decode(parts[7]);
+                if (!playOverlay && playMeta != null && playMeta.id != null && !playMeta.id.isEmpty() && !id.equals(playMeta.id)) {
+                    // The player moved on by itself, but into another title: only the next episode of what's
+                    // playing may start by itself, so stop instead.
+                    Log.i(TAG, "stopped a jump from " + playMeta.id + " to " + id);
+                    showNative(null);
+                    return;
+                }
                 if (playMeta == null || !id.equals(playMeta.id)) {
                     playMeta = new com.codio.tv.ui.Store.Meta();
                     playMeta.type = type;
@@ -1463,7 +1470,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 String[] parts = hash.replaceAll("[?].*", "").split("/");
                 String vid = parts.length >= 5 ? Uri.decode(parts[4]) : playVideo;
                 com.codio.tv.ui.Store.Meta m = playMeta;
-                if (m == null || parts.length < 4 || !Uri.decode(parts[3]).equals(m.id)) {
+                if (m != null && m.id != null && !m.id.isEmpty() && parts.length >= 4 && !Uri.decode(parts[3]).equals(m.id)) {
+                    Log.i(TAG, "stopped a jump from " + m.id + " to " + Uri.decode(parts[3]));
+                    showNative(null);
+                    return;
+                }
+                if (m == null || m.id == null || m.id.isEmpty()) {
                     m = new com.codio.tv.ui.Store.Meta();
                     m.type = parts.length >= 3 ? Uri.decode(parts[2]) : "series";
                     m.id = parts.length >= 4 ? Uri.decode(parts[3]) : "";

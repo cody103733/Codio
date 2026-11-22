@@ -545,8 +545,24 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
                 if parts.count >= 5 {
                     let type = parts[2].removingPercentEncoding ?? parts[2]
                     let id = parts[3].removingPercentEncoding ?? parts[3]
+                    let vid = parts[4].removingPercentEncoding ?? parts[4]
+                    if let was = playMeta {
+                        // Same rules as the player moving on by itself (above): never into another title, and
+                        // "Still watching?" after a few in a row.
+                        if id != was.id {
+                            NSLog("Codio: stopped a jump from \(was.id) to \(id)")
+                            stopPlayer()
+                            return
+                        }
+                        if askStillWatchingNow() {
+                            askStillWatching(was, vid)
+                            return
+                        }
+                        autoRun += 1
+                        NSLog("Codio: next episode by itself through auto-play (\(autoRun) in a row)")
+                    }
                     if playMeta?.id != id { playMeta = Meta(id: id, type: type) }
-                    playVideo = parts[4].removingPercentEncoding ?? parts[4]
+                    playVideo = vid
                 }
                 sawPlayer = false
                 loadingText = "Finding the best source…"
