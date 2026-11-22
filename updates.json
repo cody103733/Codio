@@ -12,10 +12,10 @@
     "notes": "Still watching? (Settings > Playback, off unless you turn it on): after a few episodes in a row with nobody there, Codio asks before playing the next one."
   },
   "windows": {
-    "version": "1.17.3",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.3/CodioSetup-1.17.3.exe",
-    "size": 66214626,
-    "sha256": "25fa3d646119e09eb67459e87e22a9ee81cca63993b05e60602170907c6c2025",
-    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
+    "version": "1.17.4",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.4/CodioSetup-1.17.4.exe",
+    "size": 66233112,
+    "sha256": "a8ca87fb69639ae3332f27c4fdcbdf43f8fe7be63b563700a29e5f0cb146d740",
+    "notes": "Still watching? (Settings > Playback, off unless you turn it on): after a few episodes in a row with nobody there, Codio asks before playing the next one."
   }
 }
