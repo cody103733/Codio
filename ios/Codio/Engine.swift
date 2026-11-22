@@ -35,6 +35,24 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     /// How far through the current video playback got (0...1).
     private var watchedFrac = 0.0
 
+    /// "Are you still watching?": the next episode that was held back because nobody touched the phone for a while.
+    struct StillWatching: Identifiable {
+        let meta: Meta
+        let videoId: String
+        var id: String { videoId }
+    }
+    @Published var stillWatching: StillWatching?
+    /// Episodes in a row that started by themselves (Up Next, end of episode), with nobody touching the player.
+    private var autoRun = 0
+    /// Settings > Playback > Still watching?: ask after this many episodes in a row by themselves (0 = never).
+    static var stillWatchingAfter: Int {
+        get { UserDefaults.standard.object(forKey: "still_watching") as? Int ?? 3 }
+        set { UserDefaults.standard.set(newValue, forKey: "still_watching") }
+    }
+    /// The engine page was stopped by iOS during a video: play it again once the page is back.
+    private var resumeAfterReload: (meta: Meta, videoId: String)?
+    private var lastResumeAt = Date.distantPast
+
     /// A web page (player, source search) is driving instead of the native screens.
     private var webShown = false
     private var sawPlayer = false
@@ -81,6 +99,15 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         shell.onLoad = { [weak self] in self?.playerState.reset(); self?.watchedFrac = 0 }
         Downloads.shared.engine = self
         Profiles.shared.engine = self
+        NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
+                                               object: nil, queue: .main) { _ in
+            // Low on memory: let go of the pictures held in memory (they stay on disk).
+            NSLog("Codio: memory warning")
+            let c = URLCache.shared
+            let cap = c.memoryCapacity
+            c.memoryCapacity = 0
+            c.memoryCapacity = cap
+        }
     }
 
     private static func shimSource() -> String {
@@ -231,6 +258,9 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         case "UserLoggedOut": show(toast: "Signed out")
         default: break
         }
+        // While a video plays the core saves progress again and again; reading the whole library back each time
+        // adds up over a night of episodes. The native screens read it when the player closes.
+        if overlay != .none, !name.hasPrefix("User"), !name.hasPrefix("Addon"), !name.hasPrefix("Profile") { return }
         readStorage(after: 0.8)
     }
 
@@ -251,7 +281,9 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     /// Play with Smart auto-play: Codio's loading screen stays up while the engine searches and VLC starts.
     /// A finished download plays from the phone instead.
-    func play(_ m: Meta, _ vid: String?) {
+    func play(_ m: Meta, _ vid: String?, byItself: Bool = false) {
+        if !byItself { autoRun = 0 }
+        stillWatching = nil
         if let e = Downloads.shared.entry(m.type, m.id, vid ?? m.id), let url = Downloads.shared.fileURL(e) {
             playOffline(m, e, url)
             return
@@ -267,12 +299,42 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     /// Play this source from the native source list.
     func play(_ m: Meta, _ vid: String, source: Source) {
+        autoRun = 0
+        stillWatching = nil
         playMeta = m
         playVideo = vid
         loadingText = "Starting" + (source.qualityLabel.map { " in " + $0 } ?? "") + "…"
         playOverlay = true
         overlay = .loading
         showWeb(source.href)
+    }
+
+    /// The next episode, started without the viewer (Up Next countdown, auto-skipped credits). After a few in a
+    /// row with nobody touching the phone, Codio stops and asks "Are you still watching?" instead, so a phone
+    /// left on overnight doesn't play all night.
+    func playNextByItself(_ m: Meta, _ vid: String) {
+        if askStillWatchingNow() {
+            askStillWatching(m, vid)
+            return
+        }
+        autoRun += 1
+        NSLog("Codio: next episode by itself (\(autoRun) in a row)")
+        play(m, vid, byItself: true)
+    }
+
+    /// The viewer touched the player: they're still there.
+    func touched() { autoRun = 0 }
+
+    private func askStillWatchingNow() -> Bool {
+        let n = Engine.stillWatchingAfter
+        return n > 0 && autoRun >= n
+    }
+
+    private func askStillWatching(_ m: Meta, _ vid: String) {
+        NSLog("Codio: still watching? (\(autoRun) episodes in a row by themselves)")
+        autoRun = 0
+        stopPlayer()
+        stillWatching = StillWatching(meta: m, videoId: vid)
     }
 
     func cancelPlay() {
@@ -442,6 +504,21 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
                 let type = parts[5].removingPercentEncoding ?? parts[5]
                 let id = parts[6].removingPercentEncoding ?? parts[6]
                 let vid = parts[7].removingPercentEncoding ?? parts[7]
+                if !playOverlay, let was = playMeta, id != was.id || vid != playVideo {
+                    // The web player moved on by itself at the end of the video.
+                    if id != was.id {
+                        // Never into another title: only the next episode of what's playing may start by itself.
+                        NSLog("Codio: stopped a jump from \(was.id) to \(id)")
+                        stopPlayer()
+                        return
+                    }
+                    if askStillWatchingNow() {
+                        askStillWatching(was, vid)
+                        return
+                    }
+                    autoRun += 1
+                    NSLog("Codio: next episode by itself (\(autoRun) in a row)")
+                }
                 if playMeta?.id != id { playMeta = Meta(id: id, type: type) }
                 playVideo = vid
             }
@@ -493,6 +570,14 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         park()
         readStorage(after: 1.0)
         readStorage(after: 4.0)
+        if let r = resumeAfterReload {
+            resumeAfterReload = nil
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let self = self, self.overlay == .loading, self.playMeta?.id == r.meta.id else { return }
+                self.play(r.meta, r.videoId, byItself: true)
+            }
+        }
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 6_000_000_000)
             if self != nil { Downloads.shared.pump() }
@@ -517,7 +602,28 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // iOS can stop the page's process to save memory while Codio is in the background.
+        // iOS can stop the page's process to save memory (in the background, or after many hours of episodes).
+        // The page runs the player, so a video playing now would carry on with nothing behind it: no progress
+        // saved, no next episode, and no way to stop it. Stop it, load the page again and pick the video back up.
+        NSLog("Codio: engine page stopped by iOS")
+        if offlinePlaying == nil, overlay != .none, let m = playMeta, let v = playVideo {
+            shell.handle(method: "mpv-command", params: ["stop"])
+            webShown = false
+            sawPlayer = false
+            revealTask?.cancel()
+            // Once only in a while, so a page that keeps failing can't loop.
+            if Date().timeIntervalSince(lastResumeAt) > 120 {
+                lastResumeAt = Date()
+                resumeAfterReload = (m, v)
+                playOverlay = true
+                loadingText = "Picking up where you left off…"
+                overlay = .loading
+            } else {
+                playOverlay = false
+                overlay = .none
+                show(toast: "Playback stopped")
+            }
+        }
         start()
     }
 

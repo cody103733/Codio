@@ -289,14 +289,20 @@ final class NewEpisodes: NSObject, ObservableObject, UNUserNotificationCenterDel
     static func registerBackground() {
         UNUserNotificationCenter.current().delegate = shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: taskId, using: nil) { task in
+            // iOS ends Codio if a background task isn't reported done before its time is up (it shows up as a
+            // crash, often overnight while charging), so the expiry reports it done too, exactly once.
+            let done = BackgroundDone(task)
             Task { @MainActor in
                 scheduleBackground()
                 let work = Task { @MainActor in
                     let fresh = enabled ? await shared.check() : []
                     for a in fresh { shared.notify(a) }
-                    task.setTaskCompleted(success: true)
+                    done.finish(true)
                 }
-                task.expirationHandler = { work.cancel() }
+                task.expirationHandler = {
+                    work.cancel()
+                    done.finish(false)
+                }
             }
         }
         scheduleBackground()
@@ -309,5 +315,20 @@ final class NewEpisodes: NSObject, ObservableObject, UNUserNotificationCenterDel
         let r = BGAppRefreshTaskRequest(identifier: taskId)
         r.earliestBeginDate = Date(timeIntervalSinceNow: 6 * hour)
         try? BGTaskScheduler.shared.submit(r)
+    }
+}
+
+/// Reports a background task done once, whichever comes first: the work finishing or iOS's time running out.
+private final class BackgroundDone: @unchecked Sendable {
+    private let task: BGTask
+    private let lock = NSLock()
+    private var finished = false
+    init(_ task: BGTask) { self.task = task }
+    func finish(_ success: Bool) {
+        lock.lock()
+        let first = !finished
+        finished = true
+        lock.unlock()
+        if first { task.setTaskCompleted(success: success) }
     }
 }

@@ -92,7 +92,7 @@ struct PlayerView: View {
             autoSkip(p)
             if let c = upNext(p), c.fire, !upNextFired, !st.paused, let n = nextVideo {
                 upNextFired = true
-                playNext(n)
+                playNext(n, byItself: true)
             }
         }
         .sheet(isPresented: $showCast, onDismiss: { scheduleHide() }) {
@@ -118,6 +118,7 @@ struct PlayerView: View {
             HStack(spacing: 56) {
                 Button { seek(by: -10) } label: { Image(systemName: "gobackward.10").font(.system(size: 34)) }
                 Button {
+                    engine.touched()
                     engine.player("mpv-set-prop", ["pause", !st.paused])
                     scheduleHide()
                 } label: {
@@ -135,6 +136,7 @@ struct PlayerView: View {
                        in: 0...max(st.duration, max(pos, 1)),
                        onEditingChanged: { editing in
                            if editing {
+                               engine.touched()
                                dragValue = st.position
                                dragging = true
                                hideTask?.cancel()
@@ -296,7 +298,7 @@ struct PlayerView: View {
                                         .padding(.horizontal, 12).padding(.vertical, 7)
                                         .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
                                 }
-                                Button { upNextDismissed = true } label: {
+                                Button { upNextDismissed = true; engine.touched() } label: {
                                     Text("Watch credits")
                                         .font(.footnote.weight(.bold)).foregroundColor(.white)
                                         .padding(.horizontal, 12).padding(.vertical, 7)
@@ -348,13 +350,14 @@ struct PlayerView: View {
         } else if mode >= 2, let o = s.outro, o.contains(t), let n = nextVideo, !autoSkipped.contains("credits") {
             autoSkipped.insert("credits")
             engine.show(toast: "Skipping the credits")
-            playNext(n)
+            playNext(n, byItself: true)
         }
     }
 
     // MARK: - helpers
 
     private func seek(by s: Double) {
+        engine.touched()
         seek(to: max(0, st.position + s))
     }
 
@@ -364,13 +367,14 @@ struct PlayerView: View {
         scheduleHide()
     }
 
-    private func playNext(_ v: Video) {
+    private func playNext(_ v: Video, byItself: Bool = false) {
         guard let m = meta else { return }
-        engine.play(m, v.id)
+        if byItself { engine.playNextByItself(m, v.id) } else { engine.play(m, v.id) }
     }
 
     /// Sideways drag scrubs (a full swipe across = 3 minutes); a downward swipe closes the player.
     private func pan(_ dx: CGFloat, _ dy: CGFloat, _ width: CGFloat, _ ended: Bool) {
+        engine.touched()
         if !dragging, !ended, abs(dx) > 24, abs(dx) > abs(dy) {
             dragging = true
             dragStart = st.position
@@ -391,6 +395,7 @@ struct PlayerView: View {
     }
 
     private func toggleControls() {
+        engine.touched()
         withAnimation(.easeOut(duration: 0.15)) { controls.toggle() }
         if controls { scheduleHide() }
     }

@@ -62,6 +62,8 @@ struct SettingsView: View {
             Choice(kind: .profile, label: "Up Next", help: "Shows the next episode with a countdown as the credits start. On episodes whose credits aren't timed, it appears this long before the end.",
                    key: "nextVideoNotificationDuration", dflt: 35000,
                    options: [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000].map { ($0 == 0 ? "Don't show" : "\($0 / 1000) seconds before the end", $0 as Any) }),
+            Choice(kind: .app, label: "Still watching?", help: "After a few episodes in a row with nobody touching the phone, Codio stops and asks before playing the next one, so a show doesn't play all night.",
+                   key: "still_watching", dflt: 3, options: [("After 2 episodes", 2), ("After 3 episodes", 3), ("After 5 episodes", 5), ("Never ask", 0)]),
             Choice(kind: .app, label: "New episode alerts", help: "Marks shows you're watching when a new episode is out, and sends a notification.",
                    key: NewEpisodes.pref, dflt: true, options: [("On", true), ("Off", false)]),
             Choice(kind: .app, label: "Who's watching?", help: "Codio opens in the profile you used last. Turn this on to be asked who's watching every time it opens.",
