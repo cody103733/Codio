@@ -1,0 +1,93 @@
+// "Are you still watching?" (colours from DESIGN.md: card, red, body, dim).
+.still-watching {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.7);
+    font-family: 'PlusJakartaSans', 'Plus Jakarta Sans', sans-serif;
+
+    .card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 30rem;
+        padding: 2rem;
+        border-radius: 1rem;
+        background-color: #161616;
+        color: #fff;
+        text-align: center;
+    }
+
+    .picture {
+        width: 18rem;
+        height: 10.1rem;
+        border-radius: 0.6rem;
+        object-fit: cover;
+        background-color: #262626;
+    }
+
+    .question {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    .next {
+        font-size: 1.05rem;
+        color: #B3B3B3;
+    }
+
+    button {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        font-family: inherit;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .continue {
+        width: 18rem;
+        padding: 0.8rem 1.2rem;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        color: #111;
+        font-size: 1.1rem;
+
+        &:hover, &:focus {
+            background-color: #E50914;
+            color: #fff;
+            outline: none;
+        }
+
+        .triangle {
+            display: block;
+            width: 0;
+            height: 0;
+            margin-right: 0.6rem;
+            border-top: 0.45rem solid transparent;
+            border-bottom: 0.45rem solid transparent;
+            border-left: 0.7rem solid currentColor;
+        }
+    }
+
+    .done {
+        padding: 0.5rem 1rem;
+        background: none;
+        color: #B3B3B3;
+        font-size: 1rem;
+
+        &:hover, &:focus {
+            color: #fff;
+            outline: none;
+        }
+    }
+}

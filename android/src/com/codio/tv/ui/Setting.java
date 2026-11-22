@@ -178,6 +178,9 @@ final class Setting {
         Object[] popup = {0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000};
         l.add(new Setting(PLAYBACK, PROFILE, "Up Next", "Shows the next episode with a countdown as the credits start. On episodes whose credits aren't timed, it appears this long before the end.",
                 "nextVideoNotificationDuration", 35000, popup, seconds(popup, "Don't show", " before the end"), false));
+        l.add(new Setting(PLAYBACK, DEVICE, "Still watching?", "When on, after this many episodes in a row with nobody "
+                + (phone ? "touching the phone" : "pressing a button") + ", Codio stops and asks before playing the next one, so a show doesn't play all night.",
+                StillWatching.PREF, 0, new Object[]{0, 2, 3, 5}, new String[]{"Off", "After 2 episodes", "After 3 episodes", "After 5 episodes"}, false));
         l.add(new Setting(PLAYBACK, DEVICE, "New episode alerts", phone
                 ? "Marks shows you're watching when a new episode is out, and sends a notification."
                 : "Marks shows you're watching when a new episode is out, and puts them first in Continue Watching.",

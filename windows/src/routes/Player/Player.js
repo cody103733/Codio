@@ -47,6 +47,7 @@ const { default: AutoPlayIndicator } = require('./AutoPlayIndicator');
 const { default: SkipButton, useSkipSegments, imdbIdOf, episodeOf, insideSegment } = require('./SkipButton');
 const { default: UpNext, upNextAt } = require('./UpNext');
 const { useAutoPlaySettings } = require('stremio/common/AutoPlay');
+const { default: StillWatching, mayContinue } = require('./StillWatching');
 
 const GAMEPAD_HANDLER_ID = 'player';
 
@@ -241,6 +242,8 @@ const Player = () => {
     // That first source was taken unchecked, so a mislabeled file could start another show and binge watching went on
     // with that show all night.
     const [nextAutoPlaySettings] = useAutoPlaySettings();
+    // "Are you still watching?" is showing instead of the next episode (Settings > Playback, off unless turned on).
+    const [stillAsk, setStillAsk] = React.useState(null);
     const nextVideoPath = React.useCallback((deepLinks) => {
         if (nextAutoPlaySettings.enabled && typeof deepLinks.metaDetailsStreams === 'string') {
             const path = toPath(deepLinks.metaDetailsStreams);
@@ -268,6 +271,10 @@ const Player = () => {
         }
 
         if (player.nextVideo !== null) {
+            if (profile.settings.bingeWatching && !mayContinue(nextAutoPlaySettings.stillWatching || 0)) {
+                setStillAsk({ video: player.nextVideo });
+                return;
+            }
             nextVideo();
 
             const deepLinks = player.nextVideo.deepLinks;
@@ -275,7 +282,7 @@ const Player = () => {
         } else {
             goBack();
         }
-    }, [isEpg, player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation, ended, nextVideo, goBack]);
+    }, [isEpg, player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation, ended, nextVideo, goBack, nextAutoPlaySettings.stillWatching]);
 
     const onError = React.useCallback((error) => {
         console.error('Player', error);
@@ -416,6 +423,21 @@ const Player = () => {
         }
     }, [player.nextVideo, isEpg, handleNextVideoNavigation, profile.settings, cancelKeyboardSeek, nextVideo]);
 
+    // The next episode starting by itself (Up Next countdown, auto-skipped credits): unless it's time to ask.
+    const onNextVideoByItself = React.useCallback(() => {
+        if (isEpg || player.nextVideo === null) return;
+        if (!mayContinue(nextAutoPlaySettings.stillWatching || 0)) {
+            onPauseRequested();
+            setStillAsk({ video: player.nextVideo });
+            return;
+        }
+        onNextVideoRequested();
+    }, [isEpg, player.nextVideo, nextAutoPlaySettings.stillWatching, onPauseRequested, onNextVideoRequested]);
+    const onStillWatchingContinue = React.useCallback(() => {
+        setStillAsk(null);
+        onNextVideoRequested();
+    }, [onNextVideoRequested]);
+
     // Skip Intro / Recap / Credits (times from IntroDB).
     const [autoPlaySettings] = useAutoPlaySettings();
     const skipEpisode = React.useMemo(() => episodeOf(videoId, metaItemContent), [videoId, metaItemContent]);
@@ -464,8 +486,8 @@ const Player = () => {
     React.useEffect(() => {
         if (upNext === null || !upNext.fire || video.state.paused || upNextFired.current === videoId) return;
         upNextFired.current = videoId;
-        onNextVideoRequested();
-    }, [upNext, video.state.paused, videoId, onNextVideoRequested]);
+        onNextVideoByItself();
+    }, [upNext, video.state.paused, videoId, onNextVideoByItself]);
 
     // Settings, Playback, Skip automatically: 1 = intros and recaps, 2 = credits too (straight to the next episode).
     // Each is skipped once per episode, so going back into an intro on purpose plays it.
@@ -486,9 +508,9 @@ const Player = () => {
         if (skipPast('intro', skipTimes.intro) || skipPast('recap', skipTimes.recap)) return;
         if (mode >= 2 && !done.credits && player.nextVideo !== null && insideSegment(skipTimes.outro, t, 0.5)) {
             done.credits = true;
-            onNextVideoRequested();
+            onNextVideoByItself();
         }
-    }, [autoPlaySettings.autoSkip, skipTimes, video.state.time, video.state.paused, keyboardSeekTime, videoId, player.nextVideo, commitSeek, onNextVideoRequested]);
+    }, [autoPlaySettings.autoSkip, skipTimes, video.state.time, video.state.paused, keyboardSeekTime, videoId, player.nextVideo, commitSeek, onNextVideoByItself]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !consumePlaybackSpeedHoldClick()) {
@@ -1102,7 +1124,19 @@ const Player = () => {
                     null
             }
             {
-                upNext !== null && !menusOpen ?
+                stillAsk !== null ?
+                    <StillWatching
+                        name={metaItemContent ? metaItemContent.name : ''}
+                        video={stillAsk.video}
+                        fallbackPicture={metaItemContent ? (metaItemContent.background || metaItemContent.poster) : null}
+                        onContinue={onStillWatchingContinue}
+                        onDone={goBack}
+                    />
+                    :
+                    null
+            }
+            {
+                upNext !== null && !menusOpen && stillAsk === null ?
                     <UpNext
                         state={upNext}
                         video={player.nextVideo}

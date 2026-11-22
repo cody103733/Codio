@@ -392,7 +392,7 @@ final class PhonePlayer extends FrameLayout {
         }
         if (card.fire && !upNextFired && !st.paused) {
             upNextFired = true;
-            playNext();
+            playNextByItself();
         }
     }
 
@@ -404,7 +404,7 @@ final class PhonePlayer extends FrameLayout {
         if (kind == 0) return;
         autoSkipped |= kind;
         ui.toast(SkipTimes.autoToast(kind));
-        if (kind == SkipTimes.NEXT) playNext();
+        if (kind == SkipTimes.NEXT) playNextByItself();
         else seekTo(kind == SkipTimes.INTRO ? skip.intro.end : skip.recap.end);
     }
 
@@ -461,6 +461,19 @@ final class PhonePlayer extends FrameLayout {
         return n;
     }
 
+    /** Up Next ran out or the credits were skipped by themselves: unless it's time to ask "Still watching?". */
+    private void playNextByItself() {
+        Store.Video n = nextVideo();
+        if (n == null) return;
+        if (StillWatching.mayContinue(ui.host.prefs())) {
+            playNext();
+            return;
+        }
+        savePosition();
+        closed = true;
+        ui.host.askStillWatching(meta, n.id);
+    }
+
     private void playNext() {
         Store.Video n = nextVideo();
         if (n == null) return;
@@ -488,6 +501,11 @@ final class PhonePlayer extends FrameLayout {
                 if (n != null && binge) {
                     PhoneDownloads.Entry e = ui.downloads.entry(meta.type, meta.id, n.id);
                     if (e != null && PhoneDownloads.DONE.equals(e.state)) {
+                        if (!StillWatching.mayContinue(ui.host.prefs())) {
+                            closed = true;
+                            ui.host.askStillWatching(meta, n.id);
+                            return;
+                        }
                         closed = true;
                         ui.host.stopPlayer();
                         ui.play(meta, n.id);

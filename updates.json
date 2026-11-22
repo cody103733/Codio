@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.14.3",
-    "versionCode": 87,
+    "version": "1.14.4",
+    "versionCode": 88,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
+    "notes": "Still watching? (Settings > Playback, off unless you turn it on): after a few episodes in a row with nobody there, Codio asks before playing the next one."
   },
   "phone": {
-    "version": "1.8.3",
-    "versionCode": 44,
+    "version": "1.8.4",
+    "versionCode": 45,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
+    "notes": "Still watching? (Settings > Playback, off unless you turn it on): after a few episodes in a row with nobody there, Codio asks before playing the next one."
   },
   "windows": {
     "version": "1.17.3",

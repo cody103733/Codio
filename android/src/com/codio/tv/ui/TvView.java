@@ -87,6 +87,9 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         /** Leave the player (back to the movie page). */
         void stopPlayer();
 
+        /** "Still watching?" took the place of the next episode starting by itself: stop and ask. */
+        void askStillWatching(Store.Meta meta, String videoId);
+
         /** The viewer picked a subtitle track themselves. */
         void userPick();
 
