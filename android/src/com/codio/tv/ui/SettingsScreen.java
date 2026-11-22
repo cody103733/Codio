@@ -233,7 +233,7 @@ final class SettingsScreen extends Screen {
         super(tv);
         nav = new NavBar(tv, NavBar.SETTINGS);
         rows.add("You");
-        rows.add(new Item("Your stats", "Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Worked out on this TV from your library and the music you play here. Press OK to see them.") {
+        rows.add(new Item("Your stats", "Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Codio counts what really plays (not paused time or skipping) on all your devices and keeps the counts with your account. Press OK to see them.") {
             private String cached;
             private long at;
 

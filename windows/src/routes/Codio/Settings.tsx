@@ -51,7 +51,7 @@ const NEXT_POPUP = [0, 10000, 15000, 20000, 30000, 35000, 45000, 60000, 90000];
 
 const ITEMS: Item[] = [
     { kind: 'heading', label: 'You' },
-    { kind: 'link', label: 'Your stats', help: 'Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Worked out on this PC from your library and the music you play here.', route: '/stats' },
+    { kind: 'link', label: 'Your stats', help: 'Hours watched, top shows and movies, and the songs and artists you played most, this year or all time. Codio counts what really plays (not paused time or skipping) on all your devices and keeps the counts with your account.', route: '/stats' },
     { kind: 'heading', label: 'Playback' },
     { kind: 'choice', store: 'autoplay', label: 'Smart auto-play', help: 'Play picks the best source for you, and moves on to the next one if a source fails.', key: 'enabled', values: [true, false], labels: ['On', 'Off'] },
     { kind: 'choice', store: 'autoplay', label: 'Preferred quality', help: 'The quality auto-play aims for.', key: 'preferredQuality', values: ['2160p', '1440p', '1080p', '720p', '480p'], labels: ['4K (2160p)', '1440p', '1080p', '720p', '480p'] },

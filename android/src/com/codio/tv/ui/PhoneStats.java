@@ -48,6 +48,12 @@ final class PhoneStats extends PhoneUi.Page {
         sv.addView(body);
         col.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
         fill();
+        Stats.sync(KeySync.authKey(ui.store.profileJson), true, new Runnable() {
+            @Override
+            public void run() {
+                fill();
+            }
+        });
         return col;
     }
 
@@ -72,7 +78,7 @@ final class PhoneStats extends PhoneUi.Page {
         Stats.Listen l = Stats.listen(year());
 
         LinearLayout r1 = new LinearLayout(c), r2 = new LinearLayout(c);
-        tile(r1, Stats.hours(w.ms), "Hours watched", null, false);
+        tile(r1, Stats.hours(w.ms), "Hours watched", w.before >= 60000 ? "+ " + Stats.hours(w.before) + " h before Codio" : null, false);
         tile(r1, String.valueOf(w.shows.size() + w.movies.size()), "Titles watched",
                 Stats.count(w.movies.size(), "movie") + " · " + Stats.count(w.shows.size(), "show"), true);
         tile(r2, String.valueOf(Math.round(l.seconds / 60)), "Minutes listened", null, false);
@@ -121,7 +127,7 @@ final class PhoneStats extends PhoneUi.Page {
             gl.setMargins(dp(16), 0, dp(16), 0);
             body.addView(g, gl);
         }
-        TextView foot = PhoneKit.text(c, "Worked out on this phone from your library and the music you play here.", 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
+        TextView foot = PhoneKit.text(c, Stats.sinceLine(w) + " Paused time and skipping don't count." + (sel == 1 && w.before >= 60000 ? " Before Codio is your Stremio library's own total, which also counts rewatches." : ""), 13, PhoneKit.SECONDARY, PhoneKit.REGULAR);
         foot.setPadding(dp(16), dp(18), dp(16), 0);
         body.addView(foot);
     }

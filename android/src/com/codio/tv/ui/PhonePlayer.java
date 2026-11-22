@@ -430,6 +430,10 @@ final class PhonePlayer extends FrameLayout {
         return t;
     }
 
+    Store.Meta meta() {
+        return meta;
+    }
+
     void setVideo(Store.Meta m, String vid) {
         if (m != null && m.id != null && !m.id.isEmpty()) meta = m;
         videoId = vid;

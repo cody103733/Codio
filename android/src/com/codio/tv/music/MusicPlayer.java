@@ -450,8 +450,7 @@ public final class MusicPlayer {
                     int d = m.getDuration();
                     if (d > 0) duration = d / 1000.0;
                     remember(t);
-                    Taste.recordPlay(t);
-                    com.codio.tv.ui.Stats.record(t);
+                    counted(t, mine);
                     startListening(t);
                     if (wantPlay && takeFocus()) {
                         m.start();
@@ -491,6 +490,16 @@ public final class MusicPlayer {
         } catch (Exception e) {
             useVlc(t, found, mine);
         }
+    }
+
+    private static int countedToken = -1;
+
+    /** Counts a song once per play, even when it moves from Android's player to VLC halfway. */
+    private static void counted(Track t, int mine) {
+        if (countedToken == mine) return;
+        countedToken = mine;
+        Taste.recordPlay(t);
+        com.codio.tv.ui.Stats.record(t);
     }
 
     /** Links with spaces (some addons send them) are escaped. */
@@ -550,8 +559,7 @@ public final class MusicPlayer {
                                 prepared = true;
                                 loading = false;
                                 remember(t);
-                                Taste.recordPlay(t);
-                                com.codio.tv.ui.Stats.record(t);
+                                counted(t, mine);
                                 startListening(t);
                             }
                             if (!wantPlay) {

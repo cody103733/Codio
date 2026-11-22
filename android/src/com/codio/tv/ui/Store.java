@@ -510,7 +510,7 @@ public final class Store {
                         profileLoaded = true;
                         library.clear();
                         library.putAll(lib);
-                        Stats.observe(library.values(), profileId());
+                        Stats.sync(KeySync.authKey(profileJson), false, null);
                         continueWatching.clear();
                         continueWatching.addAll(cwList);
                         done.done(changed, null);

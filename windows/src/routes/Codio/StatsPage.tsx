@@ -1,7 +1,7 @@
 // Your stats: what this profile watched and listened to, this year or all time (DESIGN.md "Your stats").
 // Opened from Settings; laid out like the iPhone's StatsView, adapted to the TV-style Windows grid.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import classnames from 'classnames';
 import { useNavigate } from 'react-router';
 import { useProfile } from 'stremio/common';
@@ -9,7 +9,7 @@ import { NavBar, Chip, Poster, styles } from './components';
 import { libraryMeta, type Meta } from './api';
 import { useOpen } from './useCodio';
 import { playQueue } from './music/player';
-import { count, hours, libraryEntries, listenStats, observeNow, profileId, thisYear, watchStats, type Title } from './stats';
+import { count, hours, libraryEntries, listenStats, profileId, sinceLine, syncStats, thisYear, watchStats, type Title } from './stats';
 
 const Tile = ({ value, label, detail }: { value: string, label: string, detail?: string }) => (
     <div className={styles['stats-tile']}>
@@ -26,10 +26,15 @@ const StatsPage = () => {
     const [allTime, setAllTime] = useState(false);
     const year = allTime ? 0 : thisYear();
     const libraryKey = profile?.auth?.user?._id ?? '';
+    const [synced, setSynced] = useState(0);
+    useEffect(() => {
+        let gone = false;
+        syncStats(true).then(() => { if (!gone) setSynced((n) => n + 1); });
+        return () => { gone = true; };
+    }, [libraryKey]);
     const { watch, listen } = useMemo(() => {
-        observeNow();
         return { watch: watchStats(libraryEntries(), profileId(), year), listen: listenStats(year) };
-    }, [year, libraryKey]);
+    }, [year, libraryKey, synced]);
     const empty = (what: string) => <div className={styles['stats-empty']}>{what}{allTime ? '.' : ' this year.'}</div>;
     const titles = (head: string, list: Title[]) => (
         <>
@@ -62,7 +67,7 @@ const StatsPage = () => {
                         <Chip label={'All time'} selected={allTime} onClick={() => setAllTime(true)} />
                     </div>
                     <div className={styles['stats-tiles']}>
-                        <Tile value={hours(watch.ms)} label={'Hours watched'} />
+                        <Tile value={hours(watch.ms)} label={'Hours watched'} detail={watch.before >= 60000 ? `+ ${hours(watch.before)} h before Codio` : undefined} />
                         <Tile value={String(watch.shows.length + watch.movies.length)} label={'Titles watched'}
                             detail={`${count(watch.movies.length, 'movie')} · ${count(watch.shows.length, 'show')}`} />
                         <Tile value={String(Math.round(listen.seconds / 60))} label={'Minutes listened'} />
@@ -105,7 +110,7 @@ const StatsPage = () => {
                             }
                         </div>
                     </div>
-                    <div className={styles['stats-foot']}>Worked out on this PC from your library and the music you play here.</div>
+                    <div className={styles['stats-foot']}>{sinceLine(watch)} Paused time and skipping don't count.{allTime && watch.before >= 60000 ? ' Before Codio is your Stremio library\'s own total, which also counts rewatches.' : ''}</div>
                 </div>
             </div>
             <NavBar current={7} solid />

@@ -293,6 +293,7 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
     }
 
     public void hidePlayer() {
+        Stats.stopped();
         boolean had = false;
         for (int i = stack.size() - 1; i >= 0; i--) {
             if (stack.get(i) instanceof PlayerScreen) {
@@ -313,6 +314,14 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
         switch (signal) {
             case "mpv-prop-change":
                 changed = playerState.prop(o.optString("name"), o.opt("data"));
+                if ("time-pos".equals(o.optString("name")) && o.opt("data") instanceof Number) {
+                    for (int i = stack.size() - 1; i >= 0; i--) {
+                        if (stack.get(i) instanceof PlayerScreen) {
+                            Stats.tick(((PlayerScreen) stack.get(i)).meta, ((Number) o.opt("data")).doubleValue());
+                            break;
+                        }
+                    }
+                }
                 break;
             case "mpv-event-video-ready":
                 if (!o.optBoolean("ready")) {

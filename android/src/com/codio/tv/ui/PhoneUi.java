@@ -386,6 +386,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
 
     @Override
     public void hidePlayer() {
+        Stats.stopped();
         if (player == null) return;
         player.closing();
         removeView(player);
@@ -419,6 +420,9 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         switch (signal) {
             case "mpv-prop-change":
                 playerState.prop(o.optString("name"), o.opt("data"));
+                if (player != null && "time-pos".equals(o.optString("name")) && o.opt("data") instanceof Number) {
+                    Stats.tick(player.meta(), ((Number) o.opt("data")).doubleValue());
+                }
                 break;
             case "mpv-event-video-ready":
                 if (!o.optBoolean("ready")) playerState.reset();

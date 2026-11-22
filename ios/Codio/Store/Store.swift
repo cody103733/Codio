@@ -56,7 +56,7 @@ final class Store: ObservableObject {
         Store.readLibrary(all, into: &lib, cw: &cw)
         Store.readLibrary(recent, into: &lib, cw: &cw) // newer, wins
         library = lib
-        WatchStats.observe(lib, profile: signedInEmail)
+        Task { await WatchStats.sync(self) }
         continueWatching = cw.values.sorted { $0.1 > $1.1 }.prefix(30).map { $0.0 }
         profileLoaded = true
         if addons.isEmpty { Task { await ensureDefaults() } }

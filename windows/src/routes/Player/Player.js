@@ -47,6 +47,7 @@ const { default: AutoPlayIndicator } = require('./AutoPlayIndicator');
 const { default: SkipButton, useSkipSegments, imdbIdOf, episodeOf, insideSegment } = require('./SkipButton');
 const { default: UpNext, upNextAt } = require('./UpNext');
 const { useAutoPlaySettings } = require('stremio/common/AutoPlay');
+const { watchTick, watchStopped } = require('../Codio/stats');
 
 const GAMEPAD_HANDLER_ID = 'player';
 
@@ -115,6 +116,12 @@ const Player = () => {
     const metaItemContent = player.metaItem !== null && player.metaItem.type === 'Ready' ? player.metaItem.content : null;
 
     const isEpg = (player.live ?? null) !== null;
+    // Your stats: Codio counts the seconds that really play (see Codio/stats.ts).
+    React.useEffect(() => {
+        if (isEpg || video.state.time === null || !metaItemContent) return;
+        watchTick({ id: String(metaItemContent.id), type: String(metaItemContent.type), name: String(metaItemContent.name ?? ''), poster: typeof metaItemContent.poster === 'string' ? metaItemContent.poster : null }, video.state.time / 1000);
+    }, [video.state.time]);
+    React.useEffect(() => () => watchStopped(), []);
     const currentEpgVideo = player.live?.currentProgram ?? null;
     const upcomingVideo = isEpg ? player.live?.nextProgram ?? null : player.nextVideo;
     const epgNow = useLiveRefresh('Player', 'player', isEpg, EPG_PLAYER_NOW_REFRESH_INTERVAL);

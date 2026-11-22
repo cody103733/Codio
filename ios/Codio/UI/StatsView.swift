@@ -6,10 +6,13 @@ struct StatsView: View {
     @ObservedObject private var listen = ListenStats.shared
     @ObservedObject private var player = MusicPlayer.shared
     @State private var allTime = false
+    /// Bumped when the other devices' counts arrive from the account.
+    @State private var synced = 0
 
     private var year: Int? { allTime ? nil : WatchStats.thisYear }
 
     var body: some View {
+        let _ = synced
         let watch = WatchStats.summary(store.library, profile: store.signedInEmail, year: year)
         let music = listen.summary(year: year)
         let songs = music.songs.values.sorted { $0.count > $1.count }.prefix(5)
@@ -24,7 +27,8 @@ struct StatsView: View {
                 .padding(.horizontal, 16)
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    StatTile(value: statsHours(watch.ms), label: "Hours watched")
+                    StatTile(value: statsHours(watch.ms), label: "Hours watched",
+                             detail: watch.before >= 60_000 ? "+ \(statsHours(watch.before)) h before Codio" : nil)
                     StatTile(value: "\(watch.shows.count + watch.movies.count)", label: "Titles watched",
                              detail: count(watch.movies.count, "movie") + " · " + count(watch.shows.count, "show"))
                     StatTile(value: "\(Int((music.seconds / 60).rounded()))", label: "Minutes listened")
@@ -76,7 +80,7 @@ struct StatsView: View {
                     .background(RoundedRectangle(cornerRadius: 10).fill(Color(hex: 0x1C1C1E)))
                     .padding(.horizontal, 16)
                 }
-                Text("Worked out on this phone from your library and the music you play here.")
+                Text(WatchStats.sinceLine(watch) + " Paused time and skipping don't count." + (allTime && watch.before >= 60_000 ? " Before Codio is your Stremio library's own total, which also counts rewatches." : ""))
                     .font(.footnote).foregroundColor(Color(hex: 0x8D8D93))
                     .padding(.horizontal, 16).padding(.top, 6)
             }
@@ -85,6 +89,10 @@ struct StatsView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Your stats")
+        .task {
+            await WatchStats.sync(store, force: true)
+            synced += 1
+        }
     }
 
     private func plays(_ n: Int) -> String { count(n, "play") }

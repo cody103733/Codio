@@ -228,6 +228,9 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         switch name {
         case "mpv-prop-change":
             if let n = jstr(o, "name"), let d = o["data"] { playerState.prop(n, d) }
+            if jstr(o, "name") == "time-pos", let t = o["data"] as? NSNumber, let m = playMeta {
+                WatchStats.tick(m, t.doubleValue)
+            }
             if jstr(o, "name") == "time-pos", playerState.duration > 60 {
                 watchedFrac = max(watchedFrac, playerState.position / playerState.duration)
             }
@@ -361,6 +364,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     /// Leave the player (back to the movie page).
     func stopPlayer() {
+        WatchStats.stopped()
         if let id = offlinePlaying {
             Downloads.shared.savePosition(id, position: playerState.position, duration: playerState.duration)
             offlinePlaying = nil

@@ -32,6 +32,13 @@ final class StatsScreen extends Screen {
         super(tv);
         for (int i = 0; i < grow.length; i++) grow[i] = new Smooth(0.07f, 0.01f);
         load();
+        Stats.sync(KeySync.authKey(tv.store.profileJson), true, new Runnable() {
+            @Override
+            public void run() {
+                load();
+                StatsScreen.this.tv.kick();
+            }
+        });
     }
 
     private int year() {
@@ -72,7 +79,7 @@ final class StatsScreen extends Screen {
         // The four numbers.
         float tw = 250, th = 150, gap = 18, ty = TOP;
         String[][] tiles = {
-                {Stats.hours(watch.ms), "Hours watched", null},
+                {Stats.hours(watch.ms), "Hours watched", watch.before >= 60000 ? "+ " + Stats.hours(watch.before) + " h before Codio" : null},
                 {String.valueOf(watch.shows.size() + watch.movies.size()), "Titles watched",
                         Stats.count(watch.movies.size(), "movie") + " · " + Stats.count(watch.shows.size(), "show")},
                 {String.valueOf(Math.round(listen.seconds / 60)), "Minutes listened", null},

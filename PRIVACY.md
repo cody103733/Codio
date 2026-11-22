@@ -21,4 +21,6 @@ Each service handles that data under its own privacy policy. Like any internet r
 
 **Sync passcode.** If you turn it on, your TMDB key, music addons, ListenBrainz account and music settings are encrypted on the device with your passcode and stored in a hidden entry of your Stremio library, so your other devices can read them. Without the passcode nobody, Stremio included, can open it. Details in [SYNC.md](SYNC.md).
 
+**Your stats.** When signed in, the play time and song plays that Codio counts for Your stats are kept in a hidden entry of your Stremio library (not encrypted), so all your devices show the same numbers. They hold title names and ids, song titles and artists, and counts. Nothing else is sent anywhere for stats.
+
 Removing the app and its data removes what it kept on that device. What a service already received is controlled by that service.
