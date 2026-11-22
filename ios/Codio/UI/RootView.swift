@@ -50,6 +50,14 @@ struct RootView: View {
                 }
                 .transition(.opacity)
             }
+            if engine.overlay == .none, let w = engine.stillWatching {
+                ZStack {
+                    Color.black.opacity(0.6).ignoresSafeArea()
+                    StillWatchingCard(ask: w)
+                }
+                .transition(.opacity)
+                .zIndex(3)
+            }
             if let t = engine.toast {
                 VStack { Spacer(); ToastView(text: t).padding(.bottom, 90) }
                     .allowsHitTesting(false)
@@ -105,5 +113,42 @@ private extension View {
 extension View {
     func blackTabBar() -> some View {
         toolbarBackground(Color.black, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
+    }
+}
+
+/// "Are you still watching?": shown instead of the next episode after a few in a row with nobody touching the phone.
+private struct StillWatchingCard: View {
+    @EnvironmentObject var engine: Engine
+    let ask: Engine.StillWatching
+
+    var body: some View {
+        let v = ask.meta.video(ask.videoId)
+        VStack(spacing: 16) {
+            RemoteImage(url: v?.thumbnail ?? ask.meta.background ?? ask.meta.poster)
+                .frame(width: 220, height: 124).clipShape(RoundedRectangle(cornerRadius: 8))
+            Text("Are you still watching \(ask.meta.name.isEmpty ? "this show" : ask.meta.name)?")
+                .font(.title3.bold()).foregroundColor(.white).multilineTextAlignment(.center)
+            if let v = v {
+                Text("Next: S\(v.season) E\(v.episode)" + (v.title.isEmpty ? "" : "  ·  " + v.title))
+                    .font(.subheadline).foregroundColor(Theme.dim).lineLimit(2).multilineTextAlignment(.center)
+            }
+            Button {
+                let a = ask
+                engine.stillWatching = nil
+                engine.play(a.meta, a.videoId)
+            } label: {
+                Label("Continue watching", systemImage: "play.fill")
+                    .font(.headline).foregroundColor(.black)
+                    .frame(maxWidth: 260).padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white))
+            }
+            Button("I'm done for now") { engine.stillWatching = nil }
+                .font(.subheadline.weight(.semibold)).foregroundColor(Theme.dim)
+        }
+        .buttonStyle(.plain)
+        .padding(24)
+        .frame(maxWidth: 360)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card))
+        .padding(.horizontal, 20)
     }
 }

@@ -126,13 +126,18 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     func mediaPlayerLengthChanged(_ length: Int64) {
         onMain {
             if length > 0, self.lengthMs <= 0 {
-                self.lengthMs = Int32(length)
+                self.lengthMs = Int32(clamping: length)
                 self.forward("duration", Double(length) / 1000)
             }
         }
     }
 
     private static func ms(_ t: VLCTime?) -> Int32 { t?.intValue ?? 0 }
+    /// Seconds to VLC milliseconds without trapping on odd values (NaN, huge numbers from a bad file).
+    static func msOf(_ seconds: Double) -> Int32 {
+        guard seconds.isFinite else { return 0 }
+        return Int32(clamping: Int64(max(-2e9, min(2e9, seconds * 1000))))
+    }
     private var audio: VLCAudio? { player.audio }
     private var lengthNow: Int32 { VlcShell.ms(player.media?.length) }
 
@@ -196,17 +201,18 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             forward("pause", wantPause)
         case "time-pos":
             let s = VlcShell.num(value, -1)
-            guard s >= 0 else { return }
-            timeMs = Int32(s * 1000)
+            guard s.isFinite, s >= 0 else { return }
+            timeMs = VlcShell.msOf(s)
             player.time = VLCTime(int: timeMs)
             forward("seeking", false)
             forward("time-pos", s)
         case "speed":
             let r = VlcShell.num(value, 1)
-            if r > 0 { player.rate = Float(r) }
+            if r.isFinite, r > 0 { player.rate = Float(r) }
             forward("speed", r)
         case "volume":
-            volume = Int32(max(0, min(200, VlcShell.num(value, 100).rounded())))
+            let v = VlcShell.num(value, 100)
+            volume = Int32(max(0, min(200, v.isFinite ? v.rounded() : 100)))
             if !muted { audio?.volume = volume }
             forward("volume", Double(volume))
         case "mute":
@@ -240,6 +246,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             sendSelection()
         case "sub-delay":
             let s = VlcShell.num(value, 0)
+            guard s.isFinite, abs(s) < 3600 else { return }
             player.currentVideoSubTitleDelay = Int(s * 1_000_000)
             forward("sub-delay", s)
         default:
@@ -261,10 +268,11 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         case "seek":
             if cmd.count > 1 {
                 let s = VlcShell.num(cmd[1], 0)
+                guard s.isFinite else { return }
                 let absolute = cmd.count > 2 && cmd[2].hasPrefix("absolute")
-                let current = VlcShell.ms(player.time)
-                let target = absolute ? Int32(s * 1000) : current + Int32(s * 1000)
-                player.time = VLCTime(int: max(0, target))
+                let current = Int64(VlcShell.ms(player.time))
+                let target = absolute ? Int64(VlcShell.msOf(s)) : current + Int64(VlcShell.msOf(abs(s))) * (s < 0 ? -1 : 1)
+                player.time = VLCTime(int: Int32(clamping: max(0, target)))
             }
         default:
             break
@@ -277,6 +285,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         for a in cmd.dropFirst(2) {
             if let r = a.range(of: "start=") {
                 startAt = Double(a[r.upperBound...].replacingOccurrences(of: "+", with: "")) ?? 0
+                if !startAt.isFinite { startAt = 0 }
             }
         }
         active = true
@@ -516,7 +525,7 @@ final class PiPBridge: NSObject, VLCDrawable, VLCPictureInPictureDrawable, VLCPi
     func seek(by offset: Int64, completion: (() -> Void)!) {
         guard let p = player else { completion?(); return }
         let t = Int64(p.time.intValue) + offset
-        p.time = VLCTime(int: Int32(max(0, t)))
+        p.time = VLCTime(int: Int32(clamping: max(0, t)))
         completion?()
     }
 
