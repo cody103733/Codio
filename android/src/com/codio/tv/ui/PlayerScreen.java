@@ -140,7 +140,11 @@ final class PlayerScreen extends Screen {
         if (kind == 0) return;
         autoSkipped |= kind;
         tv.toast(SkipTimes.autoToast(kind));
-        doSkip(kind == SkipTimes.INTRO ? SKIP_INTRO : kind == SkipTimes.RECAP ? SKIP_RECAP : SKIP_NEXT);
+        if (kind != SkipTimes.INTRO && kind != SkipTimes.RECAP) {
+            playNextByItself();
+            return;
+        }
+        doSkip(kind == SkipTimes.INTRO ? SKIP_INTRO : SKIP_RECAP);
     }
 
     private String skipLabel(int kind) {
@@ -259,6 +263,13 @@ final class PlayerScreen extends Screen {
         tv.host.play(meta, next.id);
     }
 
+    /** Up Next ran out or the credits were skipped by themselves: unless it's time to ask "Still watching?". */
+    private void playNextByItself() {
+        if (next == null) return;
+        if (!StillWatching.mayContinue(tv.host.prefs())) tv.host.askStillWatching(meta, next.id);
+        else tv.host.play(meta, next.id);
+    }
+
     // ------------------------------------------------------------------ drawing
 
     @Override
@@ -298,7 +309,7 @@ final class PlayerScreen extends Screen {
                 drawUpNext(c, card, a);
                 if (card.fire && !upNextFired && !st.paused && seekTarget < 0) {
                     upNextFired = true;
-                    playNext();
+                    playNextByItself();
                 }
             }
         } else if (sk != SKIP_NONE && menu < 0) drawSkip(c, sk, a);

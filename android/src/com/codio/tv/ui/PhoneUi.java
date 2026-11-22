@@ -593,7 +593,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
     }
 
     /** Play: a finished download plays from the phone, anything else streams with Smart auto-play. */
-    void play(Store.Meta m, String videoId) {
+    public void play(Store.Meta m, String videoId) {
         String vid = videoId != null ? videoId : m.id;
         PhoneDownloads.Entry e = downloads.entry(m.type, m.id, vid);
         if (e != null && PhoneDownloads.DONE.equals(e.state) && e.file != null && new java.io.File(e.file).exists()) {

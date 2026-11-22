@@ -46,7 +46,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     private var autoRun = 0
     /// Settings > Playback > Still watching?: ask after this many episodes in a row by themselves (0 = never).
     static var stillWatchingAfter: Int {
-        get { UserDefaults.standard.object(forKey: "still_watching") as? Int ?? 3 }
+        get { UserDefaults.standard.object(forKey: "still_watching") as? Int ?? 0 }
         set { UserDefaults.standard.set(newValue, forKey: "still_watching") }
     }
     /// The engine page was stopped by iOS during a video: play it again once the page is back.

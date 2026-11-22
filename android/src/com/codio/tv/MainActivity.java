@@ -586,7 +586,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
     private int wokeKey = -1;
 
     @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+        com.codio.tv.ui.StillWatching.touched();
+        return super.dispatchTouchEvent(event);
+    }
+
+    @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        com.codio.tv.ui.StillWatching.touched();
         int code = event.getKeyCode();
         // The ambient screen: any button only wakes it (its release is swallowed too), and every press restarts the wait.
         if (tvUi instanceof com.codio.tv.ui.TvView) {
@@ -1300,6 +1307,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         }
 
         @Override
+        public void askStillWatching(com.codio.tv.ui.Store.Meta m, String videoId) {
+            MainActivity.this.askStillWatching(m, videoId);
+        }
+
+        @Override
         public void stopPlayer() {
             if (offlinePlaying) {
                 Log.i(TAG, "leaving a download's player");
@@ -1383,6 +1395,45 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
         web.evaluateJavascript("window.__codioNativeGo && window.__codioNativeGo(" + JSONObject.quote(route) + ")", null);
     }
 
+    /**
+     * "Are you still watching?" (Settings > Playback): stop instead of starting the next episode by itself, and ask.
+     * Nothing plays (and the screen may sleep) until the viewer answers.
+     */
+    private void askStillWatching(final com.codio.tv.ui.Store.Meta m, final String videoId) {
+        Log.i(TAG, "still watching? holding " + videoId);
+        if (offlinePlaying) {
+            offlinePlaying = false;
+            if (mpv != null) mpv.handle("mpv-command", new JSONArray().put("stop"));
+            tvUi.hidePlayer();
+            tvUi.resumed();
+        } else {
+            if (mpv instanceof HybridShell) ((HybridShell) mpv).leftPlayer();
+            if (mpv != null) mpv.handle("mpv-command", new JSONArray().put("stop"));
+            showNative(null);
+        }
+        String name = m.name != null && !m.name.isEmpty() ? m.name : "this show";
+        String next = "";
+        if (m.videos != null) {
+            for (com.codio.tv.ui.Store.Video v : m.videos) {
+                if (videoId.equals(v.id) && (v.season > 0 || v.episode > 0)) {
+                    next = "Next: S" + v.season + " E" + v.episode + (v.title == null || v.title.isEmpty() ? "" : "  ·  " + v.title);
+                }
+            }
+        }
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Are you still watching " + name + "?")
+                .setMessage(next.isEmpty() ? null : next)
+                .setPositiveButton("Continue watching", new android.content.DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(android.content.DialogInterface d, int which) {
+                        if (tvUi instanceof com.codio.tv.ui.PhoneUi) ((com.codio.tv.ui.PhoneUi) tvUi).play(m, videoId);
+                        else new NativeHost().play(m, videoId);
+                    }
+                })
+                .setNegativeButton("I'm done for now", null)
+                .show();
+    }
+
     /** Back to the native screens; hash says which page the web UI was going to (Home, a movie, ...), or null. */
     private void showNative(String hash) {
         if (tvUi == null) return;
@@ -1445,6 +1496,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                     showNative(null);
                     return;
                 }
+                if (!playOverlay && playMeta != null && playVideo != null && !vid.equals(playVideo)
+                        && !com.codio.tv.ui.StillWatching.mayContinue(getSharedPreferences("codio", MODE_PRIVATE))) {
+                    // The player moved on to the next episode by itself, one too many in a row with nobody there.
+                    askStillWatching(playMeta, vid);
+                    return;
+                }
                 if (playMeta == null || !id.equals(playMeta.id)) {
                     playMeta = new com.codio.tv.ui.Store.Meta();
                     playMeta.type = type;
@@ -1473,6 +1530,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 if (m != null && m.id != null && !m.id.isEmpty() && parts.length >= 4 && !Uri.decode(parts[3]).equals(m.id)) {
                     Log.i(TAG, "stopped a jump from " + m.id + " to " + Uri.decode(parts[3]));
                     showNative(null);
+                    return;
+                }
+                if (m != null && m.id != null && !m.id.isEmpty()
+                        && !com.codio.tv.ui.StillWatching.mayContinue(getSharedPreferences("codio", MODE_PRIVATE))) {
+                    askStillWatching(m, vid);
                     return;
                 }
                 if (m == null || m.id == null || m.id.isEmpty()) {

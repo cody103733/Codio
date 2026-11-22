@@ -75,7 +75,7 @@ Search filter: Both, Movies, Shows. Empty search shows "Recent searches" with "C
 Sections, in order, with the same labels and help text everywhere a setting exists:
 
 1. **Playback**: Smart auto-play, Preferred quality, If that quality isn't available, Skip sources above, Prefer instant
-   sources, Source list (TV, Windows), Next episode, Skip Intro button, Skip automatically, Up Next, New episode alerts,
+   sources, Source list (TV, Windows), Next episode, Skip Intro button, Skip automatically, Up Next, Still watching?, New episode alerts,
    Who's watching? and Mini player (phones), Skip forward and back (TV)
 2. **Picture & sound**: what the device's player offers (Dolby Vision, Start-up buffer, Audio format, Audio sync on TV;
    Hardware decoding, Surround sound on Windows; Ambient screen and Ambient screen after on TV and Windows)
@@ -128,6 +128,13 @@ buttons Play now and Watch credits (on TV: OK plays, Back keeps watching). The r
 - Auto-play never starts a file that names another episode or season (S02E04 when S02E05 is wanted, a season 3 pack for
   season 2), and tries files that seem to be another show (right episode, no word of the show's name) only after all
   others. The rules are in `web/src/common/AutoPlay/episode.ts` (the Android/iPhone shim has the same, `__codioSourceFit`).
+
+## Still watching?
+
+Off unless turned on (Settings > Playback > Still watching?: Off, after 2, 3 or 5 episodes). When on, episodes that start
+by themselves (the Up Next countdown, the end of an episode, credits skipped automatically) are counted; any key press,
+click or touch sets the count back to 0. When the count is reached, the next episode doesn't start: the player stops (or
+pauses, on Windows) and asks "Are you still watching <show>?" with Continue watching and I'm done for now.
 
 ## New episode alerts
 

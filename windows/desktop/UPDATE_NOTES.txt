@@ -1,1 +1,1 @@
-Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show.
+Still watching? (Settings > Playback, off unless you turn it on): after a few episodes in a row with nobody there, Codio asks before playing the next one.

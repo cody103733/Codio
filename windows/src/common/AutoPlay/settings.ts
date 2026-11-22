@@ -40,6 +40,9 @@ export type AutoPlaySettings = {
     skipButtons: boolean,
     // Skip by itself: 0 = off, 1 = intros and recaps, 2 = credits too (straight to the next episode).
     autoSkip: number,
+    // "Are you still watching?": after this many episodes in a row start by themselves with nobody there, ask
+    // before the next one (0 = off, the default).
+    stillWatching: number,
     // New episode alerts: mark shows with a new episode out and put them first in Continue Watching.
     newEpisodeAlerts: boolean,
     // Ambient screen: a slideshow of pictures when Codio sits untouched, after this many minutes.
@@ -73,6 +76,7 @@ export const DEFAULT_SETTINGS: AutoPlaySettings = {
     maxBitrateMbps: 70,
     skipButtons: true,
     autoSkip: 0,
+    stillWatching: 0,
     newEpisodeAlerts: true,
     ambient: true,
     ambientDelayMinutes: 5,
