@@ -12,10 +12,10 @@
     "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
   },
   "windows": {
-    "version": "1.17.2",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.2/CodioSetup-1.17.2.exe",
-    "size": 66221941,
-    "sha256": "7acc46aa5a20bbb446d7899ce37b0f320ad15427fbc891ac7d7e7d897c1eaf8a",
-    "notes": "Music: put your genre charts in the order you want in Music settings (arrows move a genre up or down)."
+    "version": "1.17.3",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.17.3/CodioSetup-1.17.3.exe",
+    "size": 66214626,
+    "sha256": "25fa3d646119e09eb67459e87e22a9ee81cca63993b05e60602170907c6c2025",
+    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
   }
 }
