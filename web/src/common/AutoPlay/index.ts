@@ -2,5 +2,7 @@ export { default as useAutoPlaySettings, loadAutoPlaySettings, saveAutoPlaySetti
 export type { AutoPlaySettings, Quality, FallbackMode } from './settings';
 export { rankStreams, parseQuality, streamText, isExcluded, parseKeywords, qualityOrder } from './quality';
 export type { Candidate, StreamLike } from './quality';
+export { sourceFit, wantFromVideoId } from './episode';
+export type { Want, Fit } from './episode';
 export { getQueue, startQueue, setQueueIndex, clearQueue, markHandled, wasHandled, findCandidateIndex, streamSegmentOf, toPath } from './session';
 export type { AutoPlayQueue } from './session';

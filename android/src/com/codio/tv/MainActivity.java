@@ -1179,6 +1179,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
             VlcShell.playPressedAt = android.os.SystemClock.uptimeMillis();
             playMeta = m;
             playVideo = videoId != null ? videoId : m.id;
+            // The show's name, so auto-play can tell a file of another show apart (codio-android.js __codioSourceFit).
+            if (web != null) web.evaluateJavascript("window.__codioNativeWant && window.__codioNativeWant(" + JSONObject.quote(m.id)
+                    + "," + JSONObject.quote(m.name != null ? m.name : "") + ")", null);
             showWeb(detailRoute(m, videoId) + "?autoplay=1", true);
         }
 
@@ -1450,6 +1453,30 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Mp
                 // The player shows its own messages if the video never starts.
                 main.removeCallbacks(revealPlayer);
                 main.postDelayed(revealPlayer, 25000);
+            }
+            return;
+        }
+        if (hash.startsWith("#/detail/") && hash.contains("autoplay=1") && hash.contains("next=1")) {
+            // The episode ended and the player went on to the next one through auto-play (codio-android.js
+            // __codioNextPath): Codio's "finding your stream" screen while it picks and checks a source.
+            if (!playOverlay) {
+                String[] parts = hash.replaceAll("[?].*", "").split("/");
+                String vid = parts.length >= 5 ? Uri.decode(parts[4]) : playVideo;
+                com.codio.tv.ui.Store.Meta m = playMeta;
+                if (m == null || parts.length < 4 || !Uri.decode(parts[3]).equals(m.id)) {
+                    m = new com.codio.tv.ui.Store.Meta();
+                    m.type = parts.length >= 3 ? Uri.decode(parts[2]) : "series";
+                    m.id = parts.length >= 4 ? Uri.decode(parts[3]) : "";
+                    m.name = "";
+                    playMeta = m;
+                }
+                playVideo = vid;
+                Log.i(TAG, "next episode through auto-play: " + vid);
+                sawPlayer = false;
+                tvUi.showLoading(m, vid);
+                playOverlay = true;
+                playStartedAt = System.currentTimeMillis();
+                VlcShell.playPressedAt = android.os.SystemClock.uptimeMillis();
             }
             return;
         }

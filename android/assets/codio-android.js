@@ -82,6 +82,72 @@
         // Another language named, but a dubbed, dual or multi-audio release usually has the viewer's too.
         return /(^|[^a-z])(multi(?![ .\-]?subs?)|multi[ .\-]?audio|dual([ .\-]?audio)?|dubbed|dub)([^a-z]|$)/.test(t) ? 0 : 1;
     };
+    // Auto-play ranking (patched into the web build): does a source really look like the episode it was found for?
+    // 0 = fits or can't tell, 1 = probably another show (tried last), 2 = another episode or season (never auto-played).
+    // Addons that search by name sometimes hand back a different show's file; with sources hidden nobody sees the name,
+    // and binge watching then carried on with that show. Same rules as web/src/common/AutoPlay/episode.ts.
+    var want = { id: null, name: null };
+    window.__codioNativeWant = function (id, name) { want = { id: id || null, name: name || null }; };
+    var SMALL = { the: 1, a: 1, an: 1, and: 1, of: 1, 'in': 1, on: 1, to: 1, at: 1, 'for': 1, de: 1, la: 1, le: 1, el: 1, us: 1, uk: 1 };
+    function words(t) {
+        return String(t).toLowerCase().replace(/&/g, ' and ').replace(/['’]/g, '').split(/[^a-z0-9]+/).filter(function (w) { return w.length > 0; });
+    }
+    function wantedEpisode() {
+        var m = /^#\/detail\/[^/]+\/([^/?]+)\/([^/?]+)/.exec(window.location.hash);
+        if (!m) return null;
+        var id = decodeURIComponent(m[1]), vid = decodeURIComponent(m[2]), p = vid.split(':');
+        if (!(p.length === 3 && /^tt\d+$/.test(p[0])) && !(p.length === 4 && p[0] === 'tmdb')) return null;
+        var season = parseInt(p[p.length - 2], 10), episode = parseInt(p[p.length - 1], 10);
+        if (!(season > 0) || !(episode >= 0)) return null;
+        return { season: season, episode: episode, name: want.id === id ? want.name : null };
+    }
+    window.__codioSourceFit = function (text) {
+        var w = wantedEpisode();
+        if (!w) return 0;
+        var t = String(text || ''), m, found = [];
+        var ep = /(^|[^a-z0-9])s(\d{1,2})[ ._-]?e(\d{1,3})(?:(?:[ ._]?-[ ._]?e?|[ ._]?e)(\d{1,3}))?(?=[^0-9]|$)|(^|[^a-z0-9])(\d{1,2})x(\d{2,3})(?=[^0-9]|$)/gi;
+        while ((m = ep.exec(t)) !== null) {
+            if (m[2] !== undefined) {
+                var from = parseInt(m[3], 10);
+                found.push({ s: parseInt(m[2], 10), from: from, to: m[4] !== undefined ? Math.max(from, parseInt(m[4], 10)) : from, at: m.index + m[1].length });
+            } else {
+                var e = parseInt(m[7], 10);
+                found.push({ s: parseInt(m[6], 10), from: e, to: e, at: m.index + m[5].length });
+            }
+        }
+        if (found.length > 0) {
+            var hit = null;
+            for (var i = 0; i < found.length && !hit; i++) {
+                if (found[i].s === w.season && w.episode >= found[i].from && w.episode <= found[i].to) hit = found[i];
+            }
+            if (!hit) return 2;
+            if (!w.name) return 0;
+            var show = words(w.name).filter(function (x) { return !SMALL[x]; });
+            var file = words(t.slice(t.lastIndexOf('\n', hit.at) + 1, hit.at)).filter(function (x) { return !SMALL[x]; });
+            if (show.length === 0 || file.length === 0) return 0;
+            return file.some(function (x) { return show.indexOf(x) >= 0; }) ? 0 : 1;
+        }
+        if (/complete|integrale|all[ ._-]seasons/i.test(t)) return 0;
+        var se = /(^|[^a-z0-9])(?:s(\d{1,2})(?:[ ._-]*-[ ._-]*s?(\d{1,2}))?|seasons?[ ._-]*(\d{1,2})(?:[ ._-]*(?:-|to|&)[ ._-]*(\d{1,2}))?)(?=[^a-z0-9]|$)/gi;
+        var packs = 0, fits = false;
+        while ((m = se.exec(t)) !== null) {
+            var a = parseInt(m[2] !== undefined ? m[2] : m[4], 10), bRaw = m[3] !== undefined ? m[3] : m[5];
+            var b = bRaw !== undefined ? Math.max(a, parseInt(bRaw, 10)) : a;
+            packs++;
+            if (w.season >= a && w.season <= b) fits = true;
+        }
+        return packs > 0 && !fits ? 2 : 0;
+    };
+    // Binge watching (patched into the web build): with auto-play on, the next episode starts like a Play press, so
+    // its source is ranked and checked (above) instead of being the addon's first source for it, taken unchecked.
+    window.__codioNextPath = function (deepLinks) {
+        try {
+            var ap = JSON.parse(window.localStorage.getItem('autoPlaySettings') || 'null');
+            if (!ap || !ap.enabled || !deepLinks || typeof deepLinks.metaDetailsStreams !== 'string') return null;
+            var link = deepLinks.metaDetailsStreams;
+            return link + (link.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1&next=1';
+        } catch (e) { return null; }
+    };
     // First run on a TV: Smart auto-play with sources hidden (a remote can't wade through hundreds of sources).
     // On a TV that can show 4K, Smart auto-play aims for 4K (it still falls back to 1080p and below).
     try {

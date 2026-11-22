@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import {
     useAutoPlaySettings,
     rankStreams,
+    wantFromVideoId,
     startQueue,
     markHandled,
     wasHandled,
@@ -41,9 +42,11 @@ const useAutoPlay = ({ key, streams, loading, externalPlayer, runtime = null, mo
     const [settings] = useAutoPlaySettings();
     const active = settings.enabled && !externalPlayer && key !== null;
 
+    // The key is type/id/videoId: files of another episode never auto-play (see AutoPlay/episode.ts).
+    const want = useMemo(() => key !== null ? wantFromVideoId(key.split('/').slice(2).join('/')) : null, [key]);
     const candidates = useMemo(() => {
-        return active ? rankStreams(streams, settings, { runtime }) : [];
-    }, [active, streams, settings, runtime]);
+        return active ? rankStreams(streams, settings, { runtime, want }) : [];
+    }, [active, streams, settings, runtime, want]);
 
     // Wait for slow addons, but not forever.
     const [waitedEnough, setWaitedEnough] = useState(false);

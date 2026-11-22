@@ -6,6 +6,7 @@ import { useProfile } from 'stremio/common';
 import {
     useAutoPlaySettings,
     rankStreams,
+    wantFromVideoId,
     startQueue,
     markHandled,
     wasHandled,
@@ -44,9 +45,11 @@ const useAutoPlay = ({ key, streams, loading, externalPlayer, runtime = null, mo
     const audioLanguage = profile?.settings?.audioLanguage ?? null;
     const active = settings.enabled && !externalPlayer && key !== null;
 
+    // The key is type/id/videoId: files of another episode never auto-play (see AutoPlay/episode.ts).
+    const want = useMemo(() => key !== null ? wantFromVideoId(key.split('/').slice(2).join('/')) : null, [key]);
     const candidates = useMemo(() => {
-        return active ? rankStreams(streams, settings, { runtime, audioLanguage }) : [];
-    }, [active, streams, settings, runtime, audioLanguage]);
+        return active ? rankStreams(streams, settings, { runtime, audioLanguage, want }) : [];
+    }, [active, streams, settings, runtime, audioLanguage, want]);
 
     // Wait for slow addons, but not forever.
     const [waitedEnough, setWaitedEnough] = useState(false);

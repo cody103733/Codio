@@ -3,6 +3,7 @@
 
 import { AutoPlaySettings, QUALITIES, QUALITY_HEIGHT, Quality } from './settings';
 import { languageRank } from './language';
+import { sourceFit, type Want } from './episode';
 
 export type StreamLike = {
     name?: string | null,
@@ -26,6 +27,8 @@ export type RankOptions = {
     runtime?: string | null,
     // The viewer's audio language (profile setting, e.g. "eng"): sources only in another language go last.
     audioLanguage?: string | null,
+    // The episode the sources were found for: files of another episode are left out, another show's go last.
+    want?: Want | null,
 };
 
 // "178 min", "2h 58min", "2 h 58 m", "1:58:00" -> minutes
@@ -144,7 +147,7 @@ export const rankStreams = (streams: StreamLike[], settings: AutoPlaySettings, o
                 uncached: UNCACHED_PATTERN.test(text),
             };
         })
-        .filter(({ text }) => !isExcluded(text, keywords));
+        .filter(({ text }) => !isExcluded(text, keywords) && sourceFit(text, options.want) < 2);
 
     const cacheScore = (item: typeof parsed[number]) => {
         if (!settings.preferCached) return 0;
@@ -174,9 +177,12 @@ export const rankStreams = (streams: StreamLike[], settings: AutoPlaySettings, o
 
     // Sources whose audio is only in another language come after all the others, whatever their quality.
     const lang = new Map(parsed.map((item) => [item.candidate.link, languageRank(item.text, options.audioLanguage)]));
+    // Files that seem to be of another show (same episode number, different name) come last of all.
+    const fit = new Map(parsed.map((item) => [item.candidate.link, sourceFit(item.text, options.want)]));
     const ordered = result
         .map((candidate, position) => ({ candidate, position }))
-        .sort((a, b) => (lang.get(a.candidate.link) ?? 0) - (lang.get(b.candidate.link) ?? 0) || a.position - b.position)
+        .sort((a, b) => (fit.get(a.candidate.link) ?? 0) - (fit.get(b.candidate.link) ?? 0)
+            || (lang.get(a.candidate.link) ?? 0) - (lang.get(b.candidate.link) ?? 0) || a.position - b.position)
         .map(({ candidate }) => candidate);
 
     return ordered.slice(0, Math.max(1, settings.maxAttempts));

@@ -123,6 +123,11 @@ buttons Play now and Watch credits (on TV: OK plays, Back keeps watching). The r
 - "Next episode" set to Off: the card still offers the next episode, but nothing starts by itself.
 - "Skip automatically" with credits: the next episode starts as the credits begin, so there is no card to wait for.
 - The countdown follows the video's position: it stops while paused and goes away after seeking back.
+- With auto-play on, the next episode starts the way a Play press does (Codio's loading screen, sources ranked by your
+  settings), never with the addon's first source for it taken unchecked.
+- Auto-play never starts a file that names another episode or season (S02E04 when S02E05 is wanted, a season 3 pack for
+  season 2), and tries files that seem to be another show (right episode, no word of the show's name) only after all
+  others. The rules are in `web/src/common/AutoPlay/episode.ts` (the Android/iPhone shim has the same, `__codioSourceFit`).
 
 ## New episode alerts
 

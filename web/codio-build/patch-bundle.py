@@ -38,6 +38,24 @@ COMMON = [
         ('Ie=k({key:ee,streams:te,loading:q>0,', 'Ie=k({key:ee,streams:te,loading:q>0||__cs,'),
         ('window.__codioStreams={key:ee,loading:q>0,', 'window.__codioStreams={key:ee,loading:q>0||__cs,'),
     ]),
+    # Sources that name another episode or season are left out of auto-play, and ones that seem to be another show
+    # (right episode number, different name) go last: the shim's __codioSourceFit says 2 / 1 for those. Same as
+    # AutoPlay/episode.ts on Windows. Addons that search by name sometimes return such files.
+    ('episode check', [
+        ('.filter(function(e){var E=e.text;return!(0,t.isExcluded)(E,i)})',
+         '.filter(function(e){var E=e.text;return!(0,t.isExcluded)(E,i)&&!(window.__codioSourceFit&&window.__codioSourceFit(E)>1)})'),
+        ('A=new Set,O=[],u=[],R=function(e){', 'A=new Set,O=[],u=[],__late=[],R=function(e){'),
+        ('(l(i)?u:O).push(i.candidate)', '(l(i)?u:window.__codioSourceFit&&1===window.__codioSourceFit(i.text)?__late:O).push(i.candidate)'),
+        ('{R(d[N])}return O.push.apply(O,u)', '{R(d[N])}u.push.apply(u,__late);return O.push.apply(O,u)'),
+    ]),
+    # Binge watching: the next episode used to start with the addon's first source for it (same "binge group"), taken
+    # unchecked, so a mislabeled file could start another show and the night went on with that show. With auto-play on,
+    # the shim's __codioNextPath sends the player to the next episode's page with ?autoplay=1&next=1 instead, where
+    # auto-play ranks and checks its sources like any Play press.
+    ('next episode through auto-play', [
+        ('Ea=S.useCallback(function(e,t,E){E?t?e.player?Ve(w(e.player),{replace:!0}):e.metaDetailsStreams&&Ve(w(e.metaDetailsStreams),{replace:!0}):He():e.player?Ve(w(e.player),{replace:!0}):e.metaDetailsStreams&&Ve(w(e.metaDetailsStreams),{replace:!0})},[Ve,He])',
+         'Ea=S.useCallback(function(e,t,E){if(E&&!t)return He();var __np=window.__codioNextPath&&window.__codioNextPath(e);__np?Ve(w(__np),{replace:!0}):e.player?Ve(w(e.player),{replace:!0}):e.metaDetailsStreams&&Ve(w(e.metaDetailsStreams),{replace:!0})},[Ve,He])'),
+    ]),
 ]
 
 ANDROID = [

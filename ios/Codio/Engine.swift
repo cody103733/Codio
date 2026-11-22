@@ -262,6 +262,8 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         loadingText = "Finding the best source…"
         playOverlay = true
         overlay = .loading
+        // The show's name, so auto-play can tell a file of another show apart (codio-android.js __codioSourceFit).
+        js("window.__codioNativeWant && window.__codioNativeWant(\(jsQuote(m.id)), \(jsQuote(m.name)))")
         showWeb(Engine.detailRoute(m, vid) + "?autoplay=1")
     }
 
@@ -455,6 +457,24 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
                 }
             } else {
                 overlay = .player // e.g. the next episode started by itself
+            }
+            return
+        }
+        if hash.hasPrefix("#/detail/"), hash.contains("autoplay=1"), hash.contains("next=1") {
+            // The episode ended and the player went on to the next one through auto-play (codio-android.js
+            // __codioNextPath): Codio's loading screen while it picks and checks a source.
+            if !playOverlay {
+                let parts = (hash.split(separator: "?").first.map(String.init) ?? hash).components(separatedBy: "/")
+                if parts.count >= 5 {
+                    let type = parts[2].removingPercentEncoding ?? parts[2]
+                    let id = parts[3].removingPercentEncoding ?? parts[3]
+                    if playMeta?.id != id { playMeta = Meta(id: id, type: type) }
+                    playVideo = parts[4].removingPercentEncoding ?? parts[4]
+                }
+                sawPlayer = false
+                loadingText = "Finding the best source…"
+                playOverlay = true
+                overlay = .loading
             }
             return
         }

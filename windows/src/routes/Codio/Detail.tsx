@@ -8,7 +8,7 @@ import classnames from 'classnames';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { withCoreSuspender, useProfile } from 'stremio/common';
 import { useRouteActive } from 'stremio/common/useRouteFocused';
-import { useAutoPlaySettings, rankStreams, startQueue, clearQueue, toPath, type Candidate } from 'stremio/common/AutoPlay';
+import { useAutoPlaySettings, rankStreams, startQueue, clearQueue, toPath, wantFromVideoId, type Candidate } from 'stremio/common/AutoPlay';
 import useMetaDetails from 'stremio/routes/MetaDetails/useMetaDetails';
 import { useCore } from 'stremio/core';
 import { backgroundOf, logoOf, infoLine, qualityLabel, type Meta, type Video } from './api';
@@ -178,7 +178,9 @@ const Detail = () => {
     const allStreams = useMemo(() => (metaDetails.streams ?? [])
         .filter((s: any) => s.content.type === 'Ready')
         .flatMap((s: any) => s.content.content.map((stream: any) => ({ ...stream, addonName: s.addon.manifest.name, addonUrl: s.addon.transportUrl }))), [metaDetails.streams]);
-    const ranked = useMemo<Candidate[]>(() => rankStreams(allStreams, settings, { runtime, audioLanguage: profile?.settings?.audioLanguage }), [allStreams, settings, runtime, profile?.settings?.audioLanguage]);
+    // The episode these sources are for: another episode's files never auto-play, another show's go last (AutoPlay/episode.ts).
+    const want = useMemo(() => wantFromVideoId(streamsFor, meta.name || null), [streamsFor, meta.name]);
+    const ranked = useMemo<Candidate[]>(() => rankStreams(allStreams, settings, { runtime, audioLanguage: profile?.settings?.audioLanguage, want }), [allStreams, settings, runtime, profile?.settings?.audioLanguage, want]);
     const sources = useMemo<Source[]>(() => {
         const byLink = new Map<string, any>();
         allStreams.forEach((s: any) => {
@@ -294,8 +296,10 @@ const Detail = () => {
         startQueue(playKey(play.videoId), ranked);
         const q = qualityLabel(ranked[0].quality);
         setPlay({ ...play, phase: 'starting', text: `Starting${q ? ` in ${q}` : ''}…` });
-        navigate(toPath(ranked[0].link));
-    }, [play, sourcesReady, streamsFor, loadingAddons, ranked, waited, waitedLong, allStreams.length, settings.preferredQuality]);
+        // Opened by the player for the next episode (?next=1): the player takes this page's place, so a night of
+        // episodes doesn't pile up pages behind it.
+        navigate(toPath(ranked[0].link), { replace: search.get('next') === '1' });
+    }, [search, play, sourcesReady, streamsFor, loadingAddons, ranked, waited, waitedLong, allStreams.length, settings.preferredQuality]);
 
     // Back from the player: the page is in front again, so drop the loading screen.
     const wasActive = useRef(routeActive);

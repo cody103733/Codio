@@ -236,26 +236,29 @@ const Player = () => {
 
     const HOLD_DELAY = 400;
 
-    const handleNextVideoNavigation = React.useCallback((deepLinks, bingeWatching, ended) => {
-        if (ended) {
-            if (bingeWatching) {
-                if (deepLinks.player) {
-                    navigate(toPath(deepLinks.player), { replace: true });
-                } else if (deepLinks.metaDetailsStreams) {
-                    navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
-                }
-            } else {
-                goBack();
-            }
-
-        } else {
-            if (deepLinks.player) {
-                navigate(toPath(deepLinks.player), { replace: true });
-            } else if (deepLinks.metaDetailsStreams) {
-                navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
-            }
+    // With auto-play on, the next episode starts the way a Play press does: its sources are ranked by your settings and
+    // checked to really be that episode (AutoPlay/episode.ts), instead of taking the first source the addon gives for it.
+    // That first source was taken unchecked, so a mislabeled file could start another show and binge watching went on
+    // with that show all night.
+    const [nextAutoPlaySettings] = useAutoPlaySettings();
+    const nextVideoPath = React.useCallback((deepLinks) => {
+        if (nextAutoPlaySettings.enabled && typeof deepLinks.metaDetailsStreams === 'string') {
+            const path = toPath(deepLinks.metaDetailsStreams);
+            return path + (path.includes('?') ? '&' : '?') + 'autoplay=1&next=1';
         }
-    }, [navigate, goBack]);
+        if (deepLinks.player) return toPath(deepLinks.player);
+        if (deepLinks.metaDetailsStreams) return toPath(deepLinks.metaDetailsStreams);
+        return null;
+    }, [nextAutoPlaySettings.enabled]);
+
+    const handleNextVideoNavigation = React.useCallback((deepLinks, bingeWatching, ended) => {
+        if (ended && !bingeWatching) {
+            goBack();
+            return;
+        }
+        const path = nextVideoPath(deepLinks);
+        if (path !== null) navigate(path, { replace: true });
+    }, [navigate, goBack, nextVideoPath]);
 
     const onEnded = React.useCallback(() => {
         ended();

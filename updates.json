@@ -1,15 +1,15 @@
 {
   "androidtv": {
-    "version": "1.14.2",
-    "versionCode": 86,
+    "version": "1.14.3",
+    "versionCode": 87,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-AndroidTV-armv7.apk",
-    "notes": "Music: put your genre charts in the order you want in Music settings."
+    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
   },
   "phone": {
-    "version": "1.8.2",
-    "versionCode": 43,
+    "version": "1.8.3",
+    "versionCode": 44,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Music: put your genre charts in the order you want in Music settings."
+    "notes": "Binge watching: the next episode's source is now checked to really be that show and episode, so a mislabeled file can't start a different show."
   },
   "windows": {
     "version": "1.17.2",
