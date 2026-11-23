@@ -258,6 +258,26 @@ the first section ("You": "Your stats", with the hours this year as its value).
   `TvView`/`PhoneUi.playerEvent`; `ios/Codio/Store/Stats.swift` + `UI/StatsView.swift`, ticks from `Engine.playerSignal`;
   `windows/.../Codio/stats.ts` + `StatsPage.tsx`, ticks from `routes/Player/Player.js`.
 
+## Watching downloads counts
+
+A download watched on a phone counts toward the account like a stream (since Phone 1.9.1, iPhone 0.16.1): Continue
+Watching, the resume point on every device, watched time and the Library's watched marks for movies.
+
+- The core never sees a download play (it plays from the file), so the phone keeps a queue per profile
+  (`offline_progress_v1`: library id -> `{type,name,poster,video,offset,dur,add,done,at}`, ms). It is updated every 15 s
+  while a download plays, when the player closes and when the video ends; `add` is played time counted like Your stats.
+  A different episode of the same show keeps the earlier one queued as `<id>#<video>` so its time isn't lost.
+- With internet and a signed-in account it is written straight into the account's library item (`datastoreGet`, then
+  `datastorePut` with a new `_mtime`), then the core is asked to `SyncLibraryWithAPI` so it pulls it. Sent when the
+  player closes, when the library is read, and 3 s after the network comes back. Without internet it just waits.
+- If the title was watched somewhere else after the download played (`lastWatched` newer), only the time is added and
+  the other device's place is kept. A title not in the library becomes a hidden (temp) item, like streaming it.
+  Past 90 % (or the end) counts as watched: resume point 0, `timesWatched` + 1, movies `flaggedWatched`.
+- Windows downloads play through the core's own player, so its progress is saved like a stream; the library is synced
+  again as soon as the internet comes back (`online` event in `App.js`).
+- Code: `android/.../ui/OfflineProgress.java` (hooks in `PhonePlayer.savePosition/ended/closing`, `PhoneUi.playerEvent`,
+  `Store.updateFromWeb`), `ios/Codio/Store/OfflineProgress.swift` (hooks in `Engine`).
+
 ## Rules that are not about looks
 
 - Only http(s) and debrid sources. No torrents.

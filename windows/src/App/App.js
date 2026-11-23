@@ -158,9 +158,12 @@ const App = () => {
 
         onWindowFocus();
         window.addEventListener('focus', onWindowFocus);
+        // Back online: progress saved while offline (a download watched without internet) goes to the account now.
+        window.addEventListener('online', onWindowFocus);
 
         return () => {
             window.removeEventListener('focus', onWindowFocus);
+            window.removeEventListener('online', onWindowFocus);
         };
     }, [core.transport]);
 

@@ -69,6 +69,10 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
 
     override init() {
         super.init()
+        // Watching downloads counts toward the account: once their progress is in it, the core pulls the library.
+        OfflineProgress.onPushed = { [weak self] in self?.ctx("SyncLibraryWithAPI") }
+        OfflineProgress.authKey = { [weak self] in jstr(self?.store.profile["auth"] as? JSON, "key") }
+        OfflineProgress.watchNetwork()
         videoView.backgroundColor = .black
 
         let config = WKWebViewConfiguration()
@@ -230,6 +234,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
             if let n = jstr(o, "name"), let d = o["data"] { playerState.prop(n, d) }
             if jstr(o, "name") == "time-pos", let t = o["data"] as? NSNumber, let m = playMeta {
                 WatchStats.tick(m, t.doubleValue)
+                if offlinePlaying != nil, let v = playVideo { OfflineProgress.tick(m, v, t.doubleValue, playerState.duration) }
             }
             if jstr(o, "name") == "time-pos", playerState.duration > 60 {
                 watchedFrac = max(watchedFrac, playerState.position / playerState.duration)
@@ -240,6 +245,8 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         case "mpv-event-ended":
             if let err = o["error"] as? JSON, jbool(err, "critical") == true {
                 playerState.error = jstr(err, "message") ?? "This video could not be played."
+            } else if offlinePlaying != nil, jstr(o, "reason") == "eof" {
+                saveOfflineProgress(ended: true)
             }
         default:
             break
@@ -291,6 +298,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
             playOffline(m, e, url)
             return
         }
+        if offlinePlaying != nil { saveOfflineProgress(ended: false) }
         offlinePlaying = nil
         playMeta = m
         playVideo = vid ?? m.id
@@ -367,6 +375,7 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
         WatchStats.stopped()
         if let id = offlinePlaying {
             Downloads.shared.savePosition(id, position: playerState.position, duration: playerState.duration)
+            saveOfflineProgress(ended: false)
             offlinePlaying = nil
             shell.handle(method: "mpv-command", params: ["stop"])
             maybeAskRating()
@@ -418,7 +427,17 @@ final class Engine: NSObject, ObservableObject, WKScriptMessageHandler, WKNaviga
     /// True while the engine page is busy with playback (a hidden source lookup must wait).
     var webBusy: Bool { webShown || playOverlay || offlinePlaying != nil }
 
+    /// Where the download playing now stopped, for the account (sent now with internet, or kept until there is some).
+    private func saveOfflineProgress(ended: Bool) {
+        guard offlinePlaying != nil, let m = playMeta, let v = playVideo, playerState.duration > 0 else { return }
+        let pos = ended ? playerState.duration : playerState.position
+        OfflineProgress.record(m, v, pos, playerState.duration, ended: ended)
+        let key = jstr(store.profile["auth"] as? JSON, "key")
+        Task { await OfflineProgress.flush(key) }
+    }
+
     func playOffline(_ m: Meta, _ e: Downloads.Entry, _ url: URL) {
+        if offlinePlaying != nil, offlinePlaying != e.id { saveOfflineProgress(ended: false) }
         prefetchRoute = nil
         webShown = false
         park()

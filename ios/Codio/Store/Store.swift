@@ -57,6 +57,7 @@ final class Store: ObservableObject {
         Store.readLibrary(recent, into: &lib, cw: &cw) // newer, wins
         library = lib
         Task { await WatchStats.sync(self) }
+        Task { await OfflineProgress.flush(jstr(self.profile["auth"] as? JSON, "key")) }
         continueWatching = cw.values.sorted { $0.1 > $1.1 }.prefix(30).map { $0.0 }
         profileLoaded = true
         if addons.isEmpty { Task { await ensureDefaults() } }

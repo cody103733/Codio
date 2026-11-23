@@ -434,6 +434,16 @@ final class PhonePlayer extends FrameLayout {
         return meta;
     }
 
+    /** The movie or episode playing. */
+    String videoId() {
+        return videoId;
+    }
+
+    /** True for a download playing from the phone. */
+    boolean offline() {
+        return offline;
+    }
+
     void setVideo(Store.Meta m, String vid) {
         if (m != null && m.id != null && !m.id.isEmpty()) meta = m;
         videoId = vid;
@@ -499,6 +509,8 @@ final class PhonePlayer extends FrameLayout {
                 Store.Video n = nextVideo();
                 lastSaved = -1;
                 ui.downloads.savePosition(meta.type, meta.id, videoId, st.duration, st.duration);
+                OfflineProgress.record(meta, videoId, st.duration, st.duration, true);
+                OfflineProgress.flush(KeySync.authKey(ui.store.profileJson));
                 boolean binge = true;
                 org.json.JSONObject s = ui.store.profileJson.optJSONObject("settings");
                 if (s != null && s.has("bingeWatching")) binge = s.optBoolean("bingeWatching", true);
@@ -655,6 +667,7 @@ final class PhonePlayer extends FrameLayout {
     /** Taken off the screen (by the app): stop ticking. */
     void closing() {
         savePosition();
+        if (offline) OfflineProgress.flush(KeySync.authKey(ui.store.profileJson));
         closed = true;
         h.removeCallbacks(tick);
     }
@@ -663,6 +676,8 @@ final class PhonePlayer extends FrameLayout {
         if (!offline || lastSaved < 0 || !st.started) return;
         ui.downloads.savePosition(meta.type, meta.id, videoId, st.position(), st.duration);
         lastSaved = st.position();
+        // The account's progress too (sent now with internet, or kept until there is some).
+        OfflineProgress.record(meta, videoId, st.position(), st.duration, false);
     }
 
     private boolean mini = false;

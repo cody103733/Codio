@@ -100,6 +100,14 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         PhoneKit.init(act);
         setBackgroundColor(Theme.BLACK);
         downloads = new PhoneDownloads(act, store, host, this);
+        // A download's progress reached the account: the core pulls it so Continue Watching shows it here too.
+        OfflineProgress.onPushed = new Runnable() {
+            @Override
+            public void run() {
+                PhoneUi.this.host.dispatch(Core.ctx("SyncLibraryWithAPI", null));
+            }
+        };
+        watchNetwork(act);
         MusicPlayer.init(act);
         com.codio.tv.music.MusicDownloads.init(act);
         Taste.load();
@@ -422,6 +430,7 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
                 playerState.prop(o.optString("name"), o.opt("data"));
                 if (player != null && "time-pos".equals(o.optString("name")) && o.opt("data") instanceof Number) {
                     Stats.tick(player.meta(), ((Number) o.opt("data")).doubleValue());
+                    if (player.offline()) OfflineProgress.tick(player.videoId(), ((Number) o.opt("data")).doubleValue());
                 }
                 break;
             case "mpv-event-video-ready":
@@ -607,6 +616,26 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
         }
         playingOffline = false;
         host.play(m, videoId);
+    }
+
+    /** Back online: what was watched from downloads meanwhile goes to the account. */
+    private void watchNetwork(Context c) {
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return;
+            cm.registerDefaultNetworkCallback(new android.net.ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(android.net.Network n) {
+                    PhoneUi.this.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            OfflineProgress.flush(KeySync.authKey(store.profileJson));
+                        }
+                    }, 3000);
+                }
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     boolean online() {

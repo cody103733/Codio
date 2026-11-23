@@ -511,6 +511,7 @@ public final class Store {
                         library.clear();
                         library.putAll(lib);
                         Stats.sync(KeySync.authKey(profileJson), false, null);
+                        OfflineProgress.flush(KeySync.authKey(profileJson));
                         continueWatching.clear();
                         continueWatching.addAll(cwList);
                         done.done(changed, null);

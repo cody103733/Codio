@@ -6,10 +6,10 @@
     "notes": "Your stats now counts what really plays on all your devices (not paused time or skipping) and shows the same numbers everywhere."
   },
   "phone": {
-    "version": "1.9.0",
-    "versionCode": 46,
+    "version": "1.9.1",
+    "versionCode": 47,
     "url": "https://raw.githubusercontent.com/cody103733/Codio/main/builds/Codio-Phone.apk",
-    "notes": "Your stats now counts what really plays on all your devices (not paused time or skipping) and shows the same numbers everywhere."
+    "notes": "Watching a download now counts toward your account: Continue Watching, where you stopped and your stats, even if you watched without internet (it syncs when you're back online)."
   },
   "windows": {
     "version": "1.18.0",
