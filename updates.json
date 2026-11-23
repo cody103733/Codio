@@ -12,10 +12,10 @@
     "notes": "New For You on Home: picks made for you from what you watch, with a few surprises that change every day."
   },
   "windows": {
-    "version": "1.18.1",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.18.1/CodioSetup-1.18.1.exe",
-    "size": 66234083,
-    "sha256": "350c47bcfd290a07367e1d7882c666771fef83c20af9ad6ca5636dc4e367df31",
-    "notes": "Progress from videos you watched without internet now reaches your account as soon as you're back online."
+    "version": "1.19.0",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.19.0/CodioSetup-1.19.0.exe",
+    "size": 66240967,
+    "sha256": "4d2483c00525dbcd64775a6a8906100723dac4abeadda13ba994e09dcf8aba25",
+    "notes": "New For You section: picks made for you from what you watch, with a few surprises that change every day."
   }
 }
