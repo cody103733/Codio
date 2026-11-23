@@ -12,10 +12,10 @@
     "notes": "Watching a download now counts toward your account: Continue Watching, where you stopped and your stats, even if you watched without internet (it syncs when you're back online)."
   },
   "windows": {
-    "version": "1.18.0",
-    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.18.0/CodioSetup-1.18.0.exe",
-    "size": 66240321,
-    "sha256": "063da7e8eceba8e410d27ac1ab57ff66e2b4458a1c3d1a4c28d77837e44324ac",
-    "notes": "Your stats now counts what really plays on all your devices (not paused time or skipping) and shows the same numbers everywhere."
+    "version": "1.18.1",
+    "url": "https://github.com/cody103733/Codio/releases/download/windows-v1.18.1/CodioSetup-1.18.1.exe",
+    "size": 66234083,
+    "sha256": "350c47bcfd290a07367e1d7882c666771fef83c20af9ad6ca5636dc4e367df31",
+    "notes": "Progress from videos you watched without internet now reaches your account as soon as you're back online."
   }
 }
