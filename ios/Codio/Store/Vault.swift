@@ -164,7 +164,7 @@ final class Vault: ObservableObject {
         case "tmdbKey":
             let k = (v as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if k.isEmpty { UserDefaults.standard.removeObject(forKey: "tmdb_key") } else { UserDefaults.standard.set(k, forKey: "tmdb_key") }
-            Recommender.shared.invalidate()
+            ForYou.shared.invalidate()
         case "musicAddons":
             let list = Vault.addonList(v).compactMap { o -> MusicAddon? in
                 guard let url = o["url"] as? String, let m = o["manifest"],

@@ -2311,3 +2311,37 @@
         color: @faint;
     }
 }
+
+// ---- For You (DESIGN.md "For You"): Home's layout, with why each pick is there.
+.foryou {
+    .foryou-reason {
+        font-size: calc(@u * 24);
+        font-weight: 700;
+        color: @red-soft;
+        margin-bottom: calc(@u * 14);
+    }
+
+    .foryou-empty {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: calc(@u * 28);
+        z-index: 3;
+        text-align: center;
+    }
+
+    .foryou-title {
+        font-size: calc(@u * 56);
+        font-weight: 700;
+        color: @text;
+    }
+
+    .foryou-text {
+        max-width: calc(@u * 900);
+        font-size: calc(@u * 27);
+        color: @body;
+    }
+}

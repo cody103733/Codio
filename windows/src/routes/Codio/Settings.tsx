@@ -262,7 +262,7 @@ const Settings = () => {
                 </div>
                 <div className={styles['version']}>{`Codio ${version} for Windows`}</div>
             </div>
-            <NavBar current={7} />
+            <NavBar current={8} />
         </div>
     );
 };

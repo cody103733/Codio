@@ -113,7 +113,10 @@ final class PhoneHome extends PhoneUi.Page {
         bar.addView(ui.profileButton(32));
         col.addView(bar, new LinearLayout.LayoutParams(-1, dp(34)));
         LinearLayout pills = new LinearLayout(ctx());
-        pills.addView(pill("Shows", NavBar.SERIES));
+        pills.addView(pill("For You", NavBar.FOR_YOU));
+        LinearLayout.LayoutParams pl0 = new LinearLayout.LayoutParams(-2, -2);
+        pl0.leftMargin = dp(8);
+        pills.addView(pill("Shows", NavBar.SERIES), pl0);
         LinearLayout.LayoutParams pl = new LinearLayout.LayoutParams(-2, -2);
         pl.leftMargin = dp(8);
         pills.addView(pill("Movies", NavBar.MOVIES), pl);

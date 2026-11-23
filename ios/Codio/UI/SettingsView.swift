@@ -338,8 +338,7 @@ struct SettingsView: View {
             if result == .ok {
                 UserDefaults.standard.set(k, forKey: "tmdb_key")
                 vault.maybeSync()
-                Recommender.shared.invalidate()
-                await Recommender.shared.refresh(store)
+                ForYou.shared.invalidate()
             } else if case .bad = result {
                 UserDefaults.standard.removeObject(forKey: "tmdb_key")
             }

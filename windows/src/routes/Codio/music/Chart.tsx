@@ -54,7 +54,7 @@ const Chart = () => {
                     ) : null}
                 </div>
             </div>
-            <NavBar current={3} solid />
+            <NavBar current={4} solid />
         </div>
     );
 };

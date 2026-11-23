@@ -5,8 +5,11 @@ import android.graphics.Color;
 
 /** The top bar: logo and sections, with the round Who's watching avatar on the right. */
 final class NavBar {
-    static final int HOME = 0, MOVIES = 1, SERIES = 2, MUSIC = 3, SEARCH = 4, LIBRARY = 5, ADDONS = 6, SETTINGS = 7;
-    static final String[] ITEMS = {"Home", "Movies", "Shows", "Music", "Search", "Library", "Addons", "Settings"};
+    static final int HOME = 0, MOVIES = 1, SERIES = 2, MUSIC = 3, SEARCH = 4, LIBRARY = 5, ADDONS = 6, SETTINGS = 7, FOR_YOU = 8;
+    /** Labels by section number. */
+    static final String[] ITEMS = {"Home", "Movies", "Shows", "Music", "Search", "Library", "Addons", "Settings", "For You"};
+    /** The sections left to right. */
+    static final int[] ORDER = {HOME, FOR_YOU, MOVIES, SERIES, MUSIC, SEARCH, LIBRARY, ADDONS, SETTINGS};
     /** Focus index of the profile avatar (right of the last section). */
     static final int PROFILE = ITEMS.length;
     static final float Y = 44, HEIGHT = 120, AVATAR_R = 30;
@@ -34,7 +37,7 @@ final class NavBar {
     void draw(Canvas c, boolean focused) {
         tv.drawLogo(c, TvView.MARGIN, Y + 2);
         float x = TvView.MARGIN + TvView.LOGO_W + 60;
-        for (int i = 0; i < ITEMS.length; i++) {
+        for (int i : ORDER) {
             String s = ITEMS[i];
             float w = tv.chipWidth(s);
             if (focused && i == focus) {
@@ -59,12 +62,13 @@ final class NavBar {
 
     /** LEFT/RIGHT/OK while the bar has focus. */
     boolean key(int k) {
-        if (k == TvView.LEFT && focus > 0) {
-            focus--;
+        int at = position(focus);
+        if (k == TvView.LEFT && at > 0) {
+            focus = ORDER[at - 1];
             return true;
         }
-        if (k == TvView.RIGHT && focus < PROFILE) {
-            focus++;
+        if (k == TvView.RIGHT && focus != PROFILE) {
+            focus = at + 1 < ORDER.length ? ORDER[at + 1] : PROFILE;
             return true;
         }
         if (k == TvView.OK) {
@@ -73,5 +77,12 @@ final class NavBar {
             return true;
         }
         return k == TvView.LEFT || k == TvView.RIGHT;
+    }
+
+    /** Where a section (or the avatar) sits, left to right. */
+    private static int position(int item) {
+        if (item == PROFILE) return ORDER.length;
+        for (int i = 0; i < ORDER.length; i++) if (ORDER[i] == item) return i;
+        return 0;
     }
 }

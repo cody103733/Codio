@@ -8,7 +8,7 @@ What leaves the device goes straight from the app to the service that a feature 
 | --- | --- | --- |
 | Stremio (`api.strem.io` and Stremio's default addons) | Your Stremio sign-in, library, watch progress and installed addons, plus the usage events that Stremio's own engine sends, as in Stremio's apps | When you sign in, and while you use the app signed in. See Stremio's privacy policy. |
 | Addons you add (video and music) | What you search for, the title or song you want to play, and anything you put in the addon's own link | When you browse, search or press Play |
-| TMDB (`api.themoviedb.org`) | Your own TMDB API key and the title being looked at | Cast photos, recommendations, trailers |
+| TMDB (`api.themoviedb.org`) | Your own TMDB API key and the title being looked at | Cast photos, For You picks (worked out on the device from your history), trailers |
 | YouTube | The trailer's video id, through the YouTube app or YouTube's embedded player (privacy-enhanced `youtube-nocookie.com` on Windows) | When you press Trailer |
 | IntroDB (`api.introdb.app`) | The episode's IMDb id, season and episode | Skip Intro times |
 | MusicBrainz, Cover Art Archive | Artist, album and song names and ids | The Music tab |

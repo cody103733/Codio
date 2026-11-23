@@ -165,6 +165,35 @@ filters, with the same "Next: …" line beside it. The rules, the same in every 
   iPhone `Store/ReleaseCalendar.swift` + `UI/CalendarView.swift`; Windows `windows/src/routes/Codio/Calendar.tsx`
   (shown inside `Library.tsx`).
 
+## For You
+
+Picks made for each profile from what it watches, worked out on the device (no AI service; only TMDB lookups with
+the viewer's own key). TV and Windows: a "For You" section in the top bar after Home. Phones: a "For You" pill before
+Shows and Movies at the top of Home (iPhone and Android phone alike). The page is Home's layout: the first pick big
+with a red line saying why it is there ("Because you watched Severance"), then rows. Without a TMDB key it says so and
+points to Settings. The rules, the same in every app (`android/src/com/codio/tv/ui/ForYou.java`,
+`ios/Codio/Store/ForYou.swift`, `windows/src/routes/Codio/foryou.ts`):
+
+- Seeds (taste profile): Library movies and shows (IMDb ids). Finished 1, started 0.45, only in the Library 0.3, plus up
+  to 0.6 for 10 hours of watching (`overallTimeWatched`), times an age fade (half after 60 days, never under 35 %).
+  iPhone stars count most: 5 = 2.2, 4 = 1.4, 3 = 0.5, 1-2 = -1.5 (pushes similar titles down). The 12 strongest.
+- Candidates: TMDB `/{movie|tv}/{id}?append_to_response=keywords,credits,recommendations,similar` per seed; each of the
+  first 20 recommendations adds `weight × (1 - rank/25)`, similar titles 0.6 of that. The best 60 get their details
+  (`keywords,credits,external_ids`); titles already watched, in the Library or rated are left out.
+- Embeddings: every title becomes 512 numbers by feature hashing (FNV-1a 32 bit, index = hash % 512, sign = top bit) of
+  genres (1), keywords (1.2, 20), top 6 cast (0.5), director / creator (0.9), language (0.4), decade (0.3), movie or
+  show (0.3) and plot words of 4+ letters that aren't common words (0.35, 40), each times IDF `ln(1 + n/df)` over the
+  titles looked at, then normalised. Taste = the seeds' vectors summed by weight. Closeness = cosine.
+- Score: `0.45 × recommended (÷ best) + 0.45 × closeness (÷ best) + 0.1 × TMDB rating/10`, times a daily shake
+  `0.85 + 0.3 × r`, where r = FNV("YYYY-MM-DD|imdb") / 2^32: the same order all day, a new mix tomorrow.
+- Wildcards: recommended titles past the first 20 that are less close than the median, and TMDB trending this week in
+  your top 6 genres, taken in the day's random order. Two go into Top picks (6th and 13th place).
+- Rows: "Top picks for you" (20), "Because you watched X" for the three strongest seeds (iPhone: "liked" when rated 4+),
+  "Something different" (the other wildcards, 10), "More you might like" (20). A row needs 4 titles. Each title once.
+- Kept per profile for the day (Android prefs / iPhone UserDefaults `foryou_v1|<profile>`, Windows localStorage
+  `codioForYou|<profile>`) and shown at once; built again on a new day, or when the top 6 seeds changed and the last
+  build is over 30 minutes old. Pull to refresh / "New picks" builds now.
+
 ## Trailers
 
 A Trailer button sits on every movie and show page that has one (TV and Windows: after Library; phones: next to Library

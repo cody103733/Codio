@@ -113,7 +113,7 @@ const StatsPage = () => {
                     <div className={styles['stats-foot']}>{sinceLine(watch)} Paused time and skipping don't count.{allTime && watch.before >= 60000 ? ' Before Codio is your Stremio library\'s own total, which also counts rewatches.' : ''}</div>
                 </div>
             </div>
-            <NavBar current={7} solid />
+            <NavBar current={8} solid />
         </div>
     );
 };

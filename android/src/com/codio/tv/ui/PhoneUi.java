@@ -285,6 +285,9 @@ public final class PhoneUi extends FrameLayout implements NativeUi, PhoneDownloa
             case NavBar.SERIES:
                 push(new PhoneDiscover(this, item == NavBar.MOVIES ? "movie" : "series"));
                 break;
+            case NavBar.FOR_YOU:
+                push(new PhoneForYou(this));
+                break;
             case NavBar.SEARCH:
                 openTab(TAB_SEARCH);
                 break;

@@ -96,7 +96,7 @@ const Discover = ({ type: fixedType }: { type?: string }) => {
                         : status.loading ? <div className={styles['more-spinner']}><Spinner size={22} /></div> : null
                 }
             </div>
-            <NavBar current={type === 'series' ? 2 : 1} solid={scrolled} />
+            <NavBar current={type === 'series' ? 3 : 2} solid={scrolled} />
         </div>
     );
 };

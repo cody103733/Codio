@@ -15,6 +15,7 @@ export { styles };
 // ---- Top navigation: the logo's C is the C of "Codio" (one wordmark, never an icon beside the word).
 export const NAV_ITEMS: { label: string, path: string }[] = [
     { label: 'Home', path: '/' },
+    { label: 'For You', path: '/foryou' },
     { label: 'Movies', path: '/movies' },
     { label: 'Shows', path: '/series' },
     { label: 'Music', path: '/music' },

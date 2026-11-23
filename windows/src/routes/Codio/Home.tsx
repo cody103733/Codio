@@ -25,7 +25,7 @@ type RowProps = {
     onVisible?: (visible: boolean) => void,
 };
 
-const Row = ({ title, catalog, items: fixedItems, eager, onFocusItem, onOpen, onPlay, onFirstItems, onVisible }: RowProps) => {
+export const Row = ({ title, catalog, items: fixedItems, eager, onFocusItem, onOpen, onPlay, onFirstItems, onVisible }: RowProps) => {
     const [state, setState] = useState<RowState>(EMPTY);
     // Load a row once it gets near the screen.
     const box = useRef<HTMLDivElement>(null);

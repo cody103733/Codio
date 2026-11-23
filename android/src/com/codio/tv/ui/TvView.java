@@ -217,6 +217,9 @@ public final class TvView extends View implements Images.Listener, NativeUi, Pro
             case NavBar.SERIES:
                 openSection(new DiscoverScreen(this, item == NavBar.MOVIES ? "movie" : "series"));
                 break;
+            case NavBar.FOR_YOU:
+                openSection(new ForYouScreen(this));
+                break;
             case NavBar.MUSIC:
                 openSection(new MusicScreen(this));
                 break;

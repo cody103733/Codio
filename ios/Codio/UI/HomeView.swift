@@ -11,8 +11,6 @@ private struct HomeRow: Identifiable {
 struct HomeView: View {
     @EnvironmentObject var engine: Engine
     @EnvironmentObject var store: Store
-    @ObservedObject private var recommender = Recommender.shared
-    @ObservedObject private var ratings = Ratings.shared
     @ObservedObject private var profiles = Profiles.shared
     @ObservedObject private var newEpisodes = NewEpisodes.shared
     @State private var rows: [HomeRow] = []
@@ -33,7 +31,6 @@ struct HomeView: View {
                 if !continuing.isEmpty {
                     ContinueRow(items: continuing, fresh: Set(newEpisodes.alerts.keys))
                 }
-                ForEach(recommender.rows) { r in PosterRow(title: r.title, items: r.items) }
                 ForEach(Array(filled.enumerated()), id: \.element.id) { i, row in
                     if i == 0 {
                         TopTenRow(title: "Top 10 " + typeLabel(row.catalog.type) + " Today", items: Array(row.items.dropFirst().prefix(10)))
@@ -52,18 +49,12 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .task(id: store.generation) { await load() }
         .task { await Updater.shared.check() }
-        // Personal rows: rebuilt when ratings or the watch history change.
-        .task(id: "\(ratings.all.values.map { $0.stars }.reduce(0, +))|\(ratings.all.count)|\(store.library.count)|\(store.continueWatching.first?.id ?? "")") {
-            await recommender.refresh(store)
-        }
         .refreshable {
             // SwiftUI cancels the pull-to-refresh task as soon as the list redraws, which used to abort
             // the catalog downloads halfway (black featured poster, only a few rows). Run it detached.
             await Task { @MainActor in
                 loadedFor = -1
                 await load()
-                recommender.invalidate()
-                await recommender.refresh(store)
             }.value
         }
     }
@@ -94,6 +85,7 @@ struct HomeView: View {
                 ProfileButton(size: 32)
             }
             HStack(spacing: 8) {
+                NavigationLink(value: ForYouTarget()) { Pill(text: "For You") }
                 NavigationLink(value: DiscoverTarget(type: "series")) { Pill(text: "Shows") }
                 NavigationLink(value: DiscoverTarget(type: "movie")) { Pill(text: "Movies") }
             }

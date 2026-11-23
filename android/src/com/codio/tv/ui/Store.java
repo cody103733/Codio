@@ -151,6 +151,8 @@ public final class Store {
         /** Continue Watching. */
         public float progress;
         public String lastVideoId;
+        /** For You: why this title was picked ("Because you watched …"). */
+        public String reason;
         /** The addon's own JSON for this item (for Add to library). */
         public JSONObject raw;
 
