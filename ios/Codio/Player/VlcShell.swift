@@ -42,6 +42,10 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
     private var buffering = false
     private var stallTimer: Timer?
     private var loadAt = Date.distantPast
+    /// Resume point still to jump to. VLCKit 4's :start-time option blocks seeking back before it,
+    /// so a resumed video opens from 0 and jumps here once it plays.
+    private var pendingStartMs: Int32 = 0
+    private var startTriedAt = Date.distantPast
     /// Picture-in-picture: VLC draws through this, and it hands iOS's mini player window back to us.
     let pip = PiPBridge()
     /// True while the mini player is showing.
@@ -203,6 +207,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
             let s = VlcShell.num(value, -1)
             guard s.isFinite, s >= 0 else { return }
             timeMs = VlcShell.msOf(s)
+            clearPendingStart()
             player.time = VLCTime(int: timeMs)
             forward("seeking", false)
             forward("time-pos", s)
@@ -270,6 +275,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
                 let s = VlcShell.num(cmd[1], 0)
                 guard s.isFinite else { return }
                 let absolute = cmd.count > 2 && cmd[2].hasPrefix("absolute")
+                clearPendingStart()
                 let current = Int64(VlcShell.ms(player.time))
                 let target = absolute ? Int64(VlcShell.msOf(s)) : current + Int64(VlcShell.msOf(abs(s))) * (s < 0 ? -1 : 1)
                 player.time = VLCTime(int: Int32(clamping: max(0, target)))
@@ -302,7 +308,7 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         // A shorter buffer than the TV app (8 s) so the picture starts sooner on a phone.
         media.addOption(":network-caching=3000")
         media.addOption(":file-caching=3000")
-        if startAt > 0 { media.addOption(":start-time=\(startAt)") }
+        pendingStartMs = startAt > 0 ? VlcShell.msOf(startAt) : 0
         player.media = media
         player.play()
         NSLog("Codio loadfile" + (startAt > 0 ? " from \(startAt)s" : ""))
@@ -310,6 +316,17 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         forward("pause", false)
         onActiveChanged?(true)
         startStallTimer()
+    }
+
+    private func jumpToStart() {
+        startTriedAt = Date()
+        player.time = VLCTime(int: pendingStartMs)
+    }
+
+    private func clearPendingStart() {
+        guard pendingStartMs > 0 else { return }
+        pendingStartMs = 0
+        if started { audio?.volume = muted ? 0 : volume }
     }
 
     private func stopPlayback() {
@@ -366,16 +383,28 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
 
     private func timeChanged() {
         let ms = VlcShell.ms(player.time)
+        if lengthMs <= 0, lengthNow > 0 {
+            let len = lengthNow
+            lengthMs = len
+            forward("duration", Double(len) / 1000)
+        }
+        if pendingStartMs > 0 {
+            if !started { onPlaying() }
+            // Keep the spinner up and the clock hidden until the jump to the resume point lands.
+            if ms >= pendingStartMs - 3000 || Date().timeIntervalSince(loadAt) > 20 {
+                clearPendingStart()
+            } else {
+                // VLC can drop a jump made before the stream is ready: ask again each second.
+                if Date().timeIntervalSince(startTriedAt) > 1 { jumpToStart() }
+                lastProgressAt = Date()
+                return
+            }
+        }
         if ms != timeMs {
             timeMs = ms
             lastProgressAt = Date()
             if !started { onPlaying() }
             if buffering { setBuffering(false) }
-        }
-        if lengthMs <= 0, lengthNow > 0 {
-            let len = lengthNow
-            lengthMs = len
-            forward("duration", Double(len) / 1000)
         }
         if Date().timeIntervalSince(lastTimeSent) >= 0.25 {
             lastTimeSent = Date()
@@ -388,7 +417,8 @@ final class VlcShell: NSObject, VLCMediaPlayerDelegate {
         started = true
         forward("pause", false)
         if first {
-            audio?.volume = muted ? 0 : volume
+            if pendingStartMs > 0 { jumpToStart() }
+            audio?.volume = muted || pendingStartMs > 0 ? 0 : volume
             pickAudio()
             sendTracks()
             sendSelection()
